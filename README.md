@@ -153,3 +153,25 @@ Lua-Runtime-Tests der Harnesses in `tools/*.lua` gegen die echten Addon-Dateien:
 Die Runtime-Harnesses werden mit Fengari ausgeführt, einer Lua-Implementierung in JavaScript. Fengari führt die Tests aus, prüft aber nicht die Lua-5.1-Syntax aller Quelldateien. Dafür wird im Entwicklungsworkflow zusätzlich `luaparse@0.3.1` manuell über die Lua-Dateien laufen gelassen; `luaparse` ist nicht in `tools/check.py` eingebunden.
 
 Fengari, luaparse und die Python-Skripte sind reine Entwicklungswerkzeuge und werden nicht mit dem Addon ausgeliefert. Das Addon selbst verwendet zur Laufzeit absichtlich weder Ace3 noch andere Fremdbibliotheken.
+
+## Release-Automation
+
+Releases werden von [BigWigsMods/packager](https://github.com/BigWigsMods/packager) über GitHub Actions erzeugt (`.github/workflows/release.yml`).
+
+Der Workflow läuft ausschließlich bei Tags nach dem Muster `v*`, zum Beispiel `v0.2.6`. Normale Pushes auf `main` erzeugen kein Release. Zusätzlich gibt es `workflow_dispatch` für einen manuellen Trockenlauf; dieser packt nur und lädt nichts hoch (Packager-Option `-d`).
+
+Vor jedem Tag müssen die feste Version in `WeeklyAltTracker.toc` und `Core.lua` sowie Anleitung und Changelog auf denselben Release-Stand aktualisiert werden. Der Packager benennt das Release nach dem Tag, ersetzt die feste Addon-Version aber bewusst nicht automatisch.
+
+Der Paketumfang wird über `.pkgmeta` gesteuert. Das ZIP enthält den Ordner `WeeklyAltTracker` mit den fünf Lua-Dateien, der TOC, `README.md`, `Anleitung.html`, `LICENSE.txt` sowie einer vom Packager generierten `CHANGELOG.md`. Nicht enthalten sind `.github`, `.gitignore`, `.pkgmeta`, `tools/`, `wago/` und alle lokalen Arbeitsordner.
+
+Das GitHub-Release wird mit dem automatisch bereitgestellten `GITHUB_TOKEN` erstellt; ein eigenes Secret ist dafür nicht nötig.
+
+### Wago-Upload (noch nicht aktiv)
+
+`WAGO_API_TOKEN` ist im Workflow bereits vorbereitet, der Upload ist aber bewusst noch inaktiv. Damit er startet, sind drei Schritte nötig:
+
+1. Projekt auf Wago Addons anlegen und die Projekt-ID notieren.
+2. In `WeeklyAltTracker.toc` die Zeile `## X-Wago-ID: <id>` ergänzen.
+3. Im Repository unter *Settings → Secrets and variables → Actions* das Secret `WAGO_API_TOKEN` hinterlegen.
+
+Solange die TOC keine `## X-Wago-ID` enthält, überspringt der Packager den Wago-Schritt kommentarlos; der Job schlägt dadurch nicht fehl.

@@ -1,0 +1,38 @@
+name: Release
+
+# Nur Tags v* erzeugen ein Release. Normale Pushes auf main loesen nichts aus.
+# workflow_dispatch dient ausschliesslich dem Trockenlauf (Packager mit -d, kein Upload).
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package and release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Vollstaendige Historie und Tags, sonst kann der Packager
+          # weder Version noch Changelog aus dem Tag ableiten.
+          fetch-depth: 0
+
+      - name: Package and release
+        uses: BigWigsMods/packager@v2
+        with:
+          # Manueller Lauf: nur packen, nichts hochladen.
+          args: ${{ github.event_name == 'workflow_dispatch' && '-d' || '' }}
+        env:
+          # Vom Runner automatisch bereitgestellt, kein eigenes Secret noetig.
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+          # Vorbereitet, aber noch inaktiv: der Upload startet erst, wenn die TOC
+          # eine Zeile "## X-Wago-ID: <id>" enthaelt. Fehlt das Secret, wird der
+          # Wago-Schritt uebersprungen und der Job schlaegt nicht fehl.
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}

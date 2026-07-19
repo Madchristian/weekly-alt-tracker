@@ -1,0 +1,14 @@
+package-as: WeeklyAltTracker
+
+enable-nolib-creation: no
+
+ignore:
+  - .github
+  - .gitignore
+  - .pkgmeta
+  - CLAUDE.md
+  - backups
+  - design
+  - releases
+  - tools
+  - wago
