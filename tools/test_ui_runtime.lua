@@ -191,6 +191,22 @@ assert(WAT.sidebar and WAT.sidebar.width == 176, "Sidebar fehlt oder hat falsche
 assert(WAT.minimapButton, "Minimap-Symbol fehlt")
 assert(WAT.minimapButton.icon and WAT.minimapButton.icon.mask,
     "Minimap-Symbol verwendet nicht die Retail-12.0.7-Texturmaske SetMask")
+
+-- Das Minimap-Symbol ist das eigene Logo des Projekts, kein Blizzard-Client-Icon.
+-- Die TGA liegt als ausgelieferte Paketdatei unter Media/; der Pfad wird ohne
+-- Dateiendung referenziert, wie es die WoW-Texturauflösung erwartet.
+assert(WAT.minimapButton.width == 32 and WAT.minimapButton.height == 32,
+    "Minimap-Button muss 32x32 bleiben, ist aber "
+        .. tostring(WAT.minimapButton.width) .. "x" .. tostring(WAT.minimapButton.height))
+local iconTexture = WAT.minimapButton.icon.texture and WAT.minimapButton.icon.texture[1]
+assert(iconTexture == "Interface\\AddOns\\WeeklyAltTracker\\Media\\WeeklyAltTrackerIcon",
+    "Minimap-Symbol verweist nicht auf das eigene Logo, sondern auf: " .. tostring(iconTexture))
+assert(not string.find(tostring(iconTexture), "Interface\\Icons\\", 1, true),
+    "Minimap-Symbol darf kein Blizzard-Client-Icon aus Interface\\Icons verwenden")
+assert(WAT.minimapButton.icon.width == 24 and WAT.minimapButton.icon.height == 24,
+    "Logo-Symbol muss 24x24 im 32x32-Button sein, ist aber "
+        .. tostring(WAT.minimapButton.icon.width) .. "x" .. tostring(WAT.minimapButton.icon.height))
+
 assert(type(WAT.minimapButton.scripts.OnClick) == "function", "Minimap-Klickziel fehlt")
 assert(type(WAT.minimapButton.scripts.OnDragStart) == "function", "Minimap-Drag fehlt")
 assert(WAT.frame:IsShown() == false, "Hauptfenster muss im Test zunächst verborgen sein")

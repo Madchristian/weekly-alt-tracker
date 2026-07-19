@@ -3,10 +3,14 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TOC = ROOT / "WeeklyAltTracker.toc"
+ICON_TGA = ROOT / "Media" / "WeeklyAltTrackerIcon.tga"
+LOGO_SVG = ROOT / "artwork" / "WeeklyAltTracker-Logo.svg"
+ICON_TEXTURE_PATH = "Interface\\AddOns\\WeeklyAltTracker\\Media\\WeeklyAltTrackerIcon"
 ERRORS: list[str] = []
 
 
@@ -73,6 +77,201 @@ def check_lua(path: Path) -> None:
             error(f"{path.name}: möglicher unbeabsichtigter Global: {name}")
 
 
+def check_icon_tga() -> None:
+    """Prueft den ausgelieferten Rasterexport strukturell.
+
+    Bewusst ohne Pillow o. ae. und ohne Pruefsumme: der Checker friert nur das
+    Format ein, das der WoW-Client laden kann, nicht ein konkretes Motiv.
+    Eine Designrevision darf den Header nicht veraendern, den Inhalt schon.
+    """
+    if not ICON_TGA.exists():
+        error("Media/WeeklyAltTrackerIcon.tga fehlt (UI.lua referenziert die Textur)")
+        return
+    if not ICON_TGA.is_file():
+        error("Media/WeeklyAltTrackerIcon.tga ist keine regulaere Datei")
+        return
+
+    data = ICON_TGA.read_bytes()
+    if len(data) < 18:
+        error(f"Media/WeeklyAltTrackerIcon.tga: Datei kuerzer als der 18-Byte-TGA-Header ({len(data)} Bytes)")
+        return
+
+    id_length = data[0]
+    color_map_type = data[1]
+    image_type = data[2]
+    color_map_spec = data[3:8]
+    width = int.from_bytes(data[12:14], "little")
+    height = int.from_bytes(data[14:16], "little")
+    bits_per_pixel = data[16]
+    descriptor = data[17]
+
+    if color_map_type != 0:
+        error(f"TGA: Color-Map-Typ ist {color_map_type}, erwartet 0 (keine Farbtabelle)")
+    if any(color_map_spec):
+        error(f"TGA: Color-Map-Spezifikation ist nicht leer ({list(color_map_spec)}), erwartet 5 Nullbytes")
+    if image_type != 2:
+        error(f"TGA: Bildtyp ist {image_type}, erwartet 2 (unkomprimiertes True Color; WoW laedt kein RLE)")
+    if (width, height) != (64, 64):
+        error(f"TGA: Groesse ist {width}x{height}, erwartet 64x64")
+    if bits_per_pixel != 32:
+        error(f"TGA: Farbtiefe ist {bits_per_pixel} bpp, erwartet 32")
+    # Der Descriptor wird komplett festgenagelt, nicht nur das Alpha-Nibble:
+    # Bit 4/5 kodieren den Zeilen-/Spaltenursprung. Ein top-left gespeichertes
+    # TGA (0x28) hat ebenfalls 8 Alpha-Bits, wird von WoW aber vertikal
+    # gespiegelt dargestellt - das faengt nur der exakte Vergleich.
+    if descriptor != 0x08:
+        error(
+            f"TGA: Image-Descriptor ist 0x{descriptor:02X}, erwartet 0x08 "
+            f"(bottom-left Ursprung + 8 Alpha-Bits; Alpha-Bits sind {descriptor & 0x0F}, "
+            f"Ursprungs-Bits 0x{descriptor & 0x30:02X})"
+        )
+
+    expected = 18 + id_length + width * height * (bits_per_pixel // 8)
+    if width and height and bits_per_pixel and len(data) < expected:
+        error(
+            f"TGA: Datei zu kurz fuer den eigenen Header - {len(data)} Bytes vorhanden, "
+            f"mindestens {expected} noetig (Header + {width}x{height}x{bits_per_pixel // 8} Byte Pixeldaten)"
+        )
+
+
+def check_logo_svg() -> None:
+    """Prueft den Original-Master auf Wohlgeformtheit und Eigenstaendigkeit.
+
+    Kein Hashwert: das Motiv darf sich aendern. Verboten bleibt nur, was den
+    Master von einer eigenstaendigen Vektorgrafik zu etwas anderem macht -
+    eingebettete Raster, externe Referenzen, Schrift oder Skript.
+    """
+    if not LOGO_SVG.exists():
+        error("artwork/WeeklyAltTracker-Logo.svg fehlt (Original-Master des Logos)")
+        return
+    if not LOGO_SVG.is_file():
+        error("artwork/WeeklyAltTracker-Logo.svg ist keine regulaere Datei")
+        return
+
+    raw = LOGO_SVG.read_text(encoding="utf-8")
+    if "<!ENTITY" in raw or "<!DOCTYPE" in raw:
+        error("SVG: DOCTYPE/ENTITY-Deklaration gefunden - erlaubt keine Entity-Einbettung")
+        return
+
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError as exc:
+        error(f"SVG: nicht wohlgeformtes XML - {exc}")
+        return
+
+    def local_name(tag: object) -> str:
+        return str(tag).rsplit("}", 1)[-1]
+
+    if local_name(root.tag) != "svg":
+        error(f"SVG: Wurzelelement ist <{local_name(root.tag)}>, erwartet <svg>")
+
+    view_box = " ".join((root.get("viewBox") or "").replace(",", " ").split())
+    if view_box != "0 0 512 512":
+        error(f"SVG: viewBox ist {view_box or '<fehlt>'!r}, erwartet '0 0 512 512'")
+
+    # Verboten ist alles, was den Master von einer statischen, eigenstaendigen
+    # Vektorgrafik entfernt: Fremdinhalt (foreignObject, image, use), Schrift
+    # (text, font, font-face), Skript/Stil (script, style), Animation und
+    # Kachelfuellungen. Erlaubt bleibt bewusst der aktuelle Bestand aus
+    # defs / linearGradient / stop / g / rect / path.
+    forbidden_tags = {
+        "text": "gerenderter Text",
+        "image": "eingebettetes Rasterbild",
+        "filter": "Filtereffekt",
+        "use": "Referenz auf anderes Element",
+        "script": "Skript",
+        "foreignObject": "Fremd-Markup ausserhalb SVG",
+        "style": "eingebettetes CSS",
+        "font-face": "Schriftart-Deklaration",
+        "font": "eingebettete Schriftart",
+        "animate": "Animation",
+        "animateTransform": "Animation",
+        "animateMotion": "Animation",
+        "set": "Animation",
+        "pattern": "Kachelfuellung",
+    }
+    for element in root.iter():
+        if not isinstance(element.tag, str):
+            continue  # Kommentar-/PI-Knoten
+        name = local_name(element.tag)
+        if name in forbidden_tags:
+            error(
+                f"SVG: verbotenes Element <{name}> ({forbidden_tags[name]}) - der Master muss eine "
+                "statische, eigenstaendige Pfad-/Formgrafik ohne Fremdinhalt, Schrift, Skript, "
+                "Stil oder Animation bleiben"
+            )
+        for attribute, value in element.attrib.items():
+            attribute_name = local_name(attribute)
+            if attribute_name == "href":
+                error(f"SVG: Attribut {attribute_name!r} an <{name}> - externe oder eingebettete Referenzen sind verboten")
+            lowered = value.lower()
+            if "base64" in lowered or "data:" in lowered:
+                error(f"SVG: eingebettete Daten in {attribute_name!r} an <{name}> (data:/base64)")
+            if re.search(r"(?:https?:)?//", lowered):
+                error(f"SVG: externe URL in {attribute_name!r} an <{name}>: {value!r}")
+
+    # Rohtext-Gegenprobe: faengt Konstrukte ausserhalb geparster Attribute
+    # (z. B. in CSS oder Kommentaren). xmlns-Deklarationen sind hier bereits
+    # vom Parser konsumiert und loesen deshalb keinen Fehlalarm aus.
+    for needle in ("base64", "data:", "xlink:href", "<script"):
+        if needle in raw.lower():
+            error(f"SVG: verbotenes Konstrukt {needle!r} im Quelltext gefunden")
+
+
+def check_icon_wiring() -> None:
+    ui = ROOT / "UI.lua"
+    if not ui.exists():
+        return  # check_toc meldet die fehlende Datei bereits
+    text = ui.read_text(encoding="utf-8")
+    # Im Lua-Quelltext steht der Pfad escaped ("Interface\\AddOns\\..."), zur
+    # Laufzeit ergibt das den einfach maskierten Pfad in ICON_TEXTURE_PATH.
+    escaped = ICON_TEXTURE_PATH.replace("\\", "\\\\")
+    if escaped not in text:
+        error(
+            "UI.lua referenziert den Texturpfad nicht exakt "
+            f"(erwartet im Quelltext: {escaped})"
+        )
+    # Die TOC deklariert dasselbe Symbol fuer die Addon-Liste des Clients.
+    # Dort steht der Pfad unmaskiert, im Lua-Quelltext dagegen escaped -
+    # beide muessen exakt auf dieselbe Textur zeigen.
+    if TOC.exists():
+        toc_text = TOC.read_text(encoding="utf-8")
+        if f"## IconTexture: {ICON_TEXTURE_PATH}" not in toc_text:
+            error(
+                "TOC deklariert das Addon-Symbol nicht exakt "
+                f"(erwartet: ## IconTexture: {ICON_TEXTURE_PATH})"
+            )
+        if "INV_Misc_PocketWatch_01" in toc_text:
+            error("WeeklyAltTracker.toc verwendet noch das Platzhalter-Icon INV_Misc_PocketWatch_01")
+
+    if "INV_Misc_PocketWatch_01" in text:
+        error("UI.lua verwendet noch das Platzhalter-Icon INV_Misc_PocketWatch_01")
+
+    pkgmeta = ROOT / ".pkgmeta"
+    if not pkgmeta.exists():
+        error(".pkgmeta fehlt")
+    else:
+        entries = set()
+        in_ignore = False
+        for raw in pkgmeta.read_text(encoding="utf-8").splitlines():
+            if not raw.startswith((" ", "\t", "-")) and raw.strip():
+                in_ignore = raw.strip().rstrip(":") == "ignore"
+                continue
+            stripped = raw.strip()
+            if in_ignore and stripped.startswith("- "):
+                entries.add(stripped[2:].strip().strip("\"'").replace("\\", "/").rstrip("/"))
+        for required in ("artwork", "Media/README.md"):
+            if required not in entries:
+                error(f".pkgmeta ignoriert {required!r} nicht - Datei wuerde mit ausgeliefert")
+        for forbidden in ("Media", "Media/WeeklyAltTrackerIcon.tga"):
+            if forbidden in entries:
+                error(f".pkgmeta ignoriert {forbidden!r} - die Minimap-Textur fehlte dann im Release-ZIP")
+
+    readme = ROOT / "README.md"
+    if readme.exists() and "Media/WeeklyAltTrackerIcon.tga" not in readme.read_text(encoding="utf-8"):
+        error("README dokumentiert Media/WeeklyAltTrackerIcon.tga nicht als Paketinhalt")
+
+
 def main() -> int:
     lua_files = check_toc()
     for path in lua_files:
@@ -81,6 +280,9 @@ def main() -> int:
     readme = ROOT / "README.md"
     if not readme.exists() or "/wat" not in readme.read_text(encoding="utf-8"):
         error("README fehlt oder dokumentiert /wat nicht")
+    check_icon_tga()
+    check_logo_svg()
+    check_icon_wiring()
     v2_test = subprocess.run(
         [sys.executable, str(ROOT / "tools" / "test_v2.py")],
         cwd=ROOT,
@@ -104,7 +306,7 @@ def main() -> int:
         for item in ERRORS:
             print(f"- {item}")
         return 1
-    print(f"CHECK OK: TOC + {len(lua_files)} Lua-Dateien + README + Lua-Runtime geprüft")
+    print(f"CHECK OK: TOC + {len(lua_files)} Lua-Dateien + README + Assets + Lua-Runtime geprüft")
     return 0
 
 

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WeeklyAltTracker Logo - Original-Master des Projekts.
+
+  Eigenstaendige Vektorgrafik, ausschliesslich aus primitiven Pfaden, Rechtecken
+  und drei linearen Verlaeufen aufgebaut. Keine Blizzard-/WoW-Assets, keine
+  extrahierten Spieltexturen, keine Fremd- oder Stockgrafik, keine Schriftart,
+  kein eingebettetes Rasterbild, keine externe Referenz.
+
+  Motiv "Weekly Crest": ein Kalenderblatt mit zwei Bindungslaschen, drei
+  facettierten Wappensplittern (Tuerkis / Violett / Gold), zwei offenen
+  Rasterfeldern und einem erledigten, tuerkis gefuellten Slot.
+
+  Gegenueber design/logo-concepts/weekly-crest.svg fuer 32px und 20px
+  optimiert: kraeftigere Aussen- und Innenkonturen, dickerer Haken,
+  deutlichere Kopfbandkante. Silhouette und Aufbau sind unveraendert.
+
+  Safe-Zone: alle sichtbaren Formen liegen innerhalb des Kreises um (256,256)
+  mit Radius 224, damit die runde Minimap-Maske nichts abschneidet.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="WeeklyAltTracker Logo: Wochenraster mit drei Wappensplittern">
+  <defs>
+    <linearGradient id="watTeal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3BEFC0"/>
+      <stop offset="1" stop-color="#0DD19E"/>
+    </linearGradient>
+    <linearGradient id="watViolet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C4A4FF"/>
+      <stop offset="1" stop-color="#A77BFF"/>
+    </linearGradient>
+    <linearGradient id="watGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFD983"/>
+      <stop offset="1" stop-color="#F2C35B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Bindungslaschen: liegen hinter der Platte, nur die Oberkante bleibt sichtbar -->
+  <g fill="#98A3B1">
+    <rect x="178" y="84" width="34" height="52" rx="17"/>
+    <rect x="300" y="84" width="34" height="52" rx="17"/>
+  </g>
+
+  <!-- Grundplatte: kraeftigere Aussenkontur fuer klare Silhouette bei 20px -->
+  <rect x="100" y="112" width="312" height="296" rx="42" fill="#0F151B" stroke="#98A3B1" stroke-opacity="0.55" stroke-width="10"/>
+
+  <!-- Kopfband des Kalenderblatts -->
+  <path d="M 100 176 L 100 154 A 42 42 0 0 1 142 112 L 370 112 A 42 42 0 0 1 412 154 L 412 176 Z" fill="#1A232C"/>
+  <rect x="100" y="171" width="312" height="6" fill="#98A3B1" fill-opacity="0.40"/>
+
+  <!-- Obere Rasterreihe: drei Wappensplitter -->
+  <g>
+    <g transform="translate(166 247) rotate(-8)">
+      <path d="M 0 -33 L 26 -14 L 17 27 L -14 33 L -27 -8 Z" fill="url(#watTeal)"/>
+      <path d="M 0 -33 L 26 -14 L 3 5 Z" fill="#FFFFFF" fill-opacity="0.34"/>
+    </g>
+    <g transform="translate(256 247) rotate(6)">
+      <path d="M 0 -33 L 26 -14 L 17 27 L -14 33 L -27 -8 Z" fill="url(#watViolet)"/>
+      <path d="M 0 -33 L 26 -14 L 3 5 Z" fill="#FFFFFF" fill-opacity="0.34"/>
+    </g>
+    <g transform="translate(346 247) rotate(-14)">
+      <path d="M 0 -33 L 26 -14 L 17 27 L -14 33 L -27 -8 Z" fill="url(#watGold)"/>
+      <path d="M 0 -33 L 26 -14 L 3 5 Z" fill="#FFFFFF" fill-opacity="0.34"/>
+    </g>
+  </g>
+
+  <!-- Untere Rasterreihe: zwei offene Slots, ein erledigter -->
+  <rect x="132" y="303" width="68" height="68" rx="18" fill="#10161C" stroke="#98A3B1" stroke-opacity="0.45" stroke-width="7"/>
+  <rect x="222" y="303" width="68" height="68" rx="18" fill="#10161C" stroke="#98A3B1" stroke-opacity="0.45" stroke-width="7"/>
+  <rect x="312" y="303" width="68" height="68" rx="18" fill="url(#watTeal)"/>
+  <path d="M 330 338 L 342 351 L 363 324" fill="none" stroke="#070A0D" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

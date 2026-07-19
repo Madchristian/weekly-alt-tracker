@@ -22,6 +22,27 @@ installierten Client vorhandene Symbol. Liefert der Client keine brauchbare
 `iconFileID`, zeigt die Oberfläche unverändert den bisherigen Text
 (`C` / `H` / `M`). Es wird keine Symbol-ID in den SavedVariables gespeichert.
 
+### Logo und Minimap-Symbol
+
+Das Logo von WeeklyAltTracker ist eine **eigenständige Original-Vektorgrafik
+dieses Projekts**. Der versionierte Master liegt als
+`artwork/WeeklyAltTracker-Logo.svg` im Repository und ist ausschließlich aus
+primitiven Pfaden, Rechtecken und drei linearen Farbverläufen aufgebaut.
+
+Ausdrücklich **nicht** enthalten sind:
+
+- Blizzard-Assets, WoW-Texturen oder daraus extrahierte Bildinhalte,
+- Grafiken Dritter, Stockgrafik oder eingebettete Rasterbilder,
+- eingebettete oder extern nachgeladene Schriftarten; die Grafik enthält
+  keinen gerenderten Text und keine Schriftart (nicht gerenderte Textangaben
+  wie `aria-label` oder XML-Kommentare bleiben davon unberührt),
+- Warcraft-Typografie, das WoW-„W“, Fraktions-, Klassen- oder Gildenwappen.
+
+Das mitgelieferte Minimap-Symbol `Media/WeeklyAltTrackerIcon.tga` ist allein ein
+Rasterexport dieses eigenen Masters. Die oben beschriebenen Wappensymbole der
+Übersicht bleiben davon unberührt: Sie sind weiterhin reine Laufzeitreferenzen
+auf Client-Assets und werden nicht mitgeliefert.
+
 ## Midnight-Wissensgegenstände (Item-IDs)
 
 `Data.lua` enthält eine Liste faktischer Item-IDs für Midnight-Wissensgegenstände.

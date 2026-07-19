@@ -648,9 +648,9 @@ function WAT:CreateMinimapButton()
     button:RegisterForDrag("LeftButton")
 
     local icon = button:CreateTexture(nil, "BACKGROUND")
-    icon:SetSize(20, 20)
+    icon:SetSize(24, 24)
     icon:SetPoint("CENTER")
-    icon:SetTexture("Interface\\Icons\\INV_Misc_PocketWatch_01")
+    icon:SetTexture("Interface\\AddOns\\WeeklyAltTracker\\Media\\WeeklyAltTrackerIcon")
     if icon.SetMask then
         icon:SetMask("Interface\\CharacterFrame\\TempPortraitAlphaMask")
     end

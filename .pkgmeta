@@ -7,8 +7,10 @@ ignore:
   - .gitignore
   - .pkgmeta
   - CLAUDE.md
+  - artwork
   - backups
   - design
   - releases
   - tools
   - wago
+  - Media/README.md
