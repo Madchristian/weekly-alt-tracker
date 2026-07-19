@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#070b10">
+  <meta name="description" content="Deutsche Anleitung für WeeklyAltTracker 0.2.5: Installation, Funktionen, erste Schritte und Fehlerbehebung.">
+  <title>WeeklyAltTracker 0.2.5 – Anleitung</title>
+  <style>
+    :root {
+      --bg: #070b10;
+      --bg-deep: #04070a;
+      --surface: #0d141c;
+      --surface-raised: #111b25;
+      --surface-soft: #0a1118;
+      --ink: #f4f8fb;
+      --text: #c8d2dc;
+      --muted: #8492a1;
+      --faint: #5c6977;
+      --line: rgba(255, 255, 255, .09);
+      --line-strong: rgba(255, 255, 255, .16);
+      --turquoise: #0dd19e;
+      --turquoise-soft: rgba(13, 209, 158, .12);
+      --violet: #9b7cff;
+      --violet-soft: rgba(155, 124, 255, .11);
+      --green: #6ee7ad;
+      --amber: #f1c75b;
+      --red: #ff7d87;
+      --radius-sm: 8px;
+      --radius: 14px;
+      --radius-lg: 22px;
+      --shadow: 0 22px 70px rgba(0, 0, 0, .38);
+      --content: 1180px;
+      --mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: "Segoe UI Variable", "Aptos", "Segoe UI", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+    body {
+      margin: 0;
+      min-width: 300px;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 18% -8%, rgba(13, 209, 158, .10), transparent 27rem),
+        radial-gradient(circle at 92% 12%, rgba(155, 124, 255, .08), transparent 25rem),
+        linear-gradient(180deg, var(--bg-deep), var(--bg) 24rem, #080d13);
+      font: 16px/1.65 var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection { color: #02120e; background: var(--turquoise); }
+    a { color: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+
+    .skip-link {
+      position: fixed;
+      z-index: 100;
+      top: 10px;
+      left: 10px;
+      padding: 10px 14px;
+      color: #04120f;
+      background: var(--turquoise);
+      border-radius: var(--radius-sm);
+      transform: translateY(-150%);
+    }
+    .skip-link:focus { transform: translateY(0); }
+
+    .topbar {
+      position: sticky;
+      z-index: 50;
+      top: 0;
+      border-bottom: 1px solid var(--line);
+      background: rgba(5, 9, 13, .88);
+      backdrop-filter: blur(16px);
+    }
+    .topbar-inner {
+      width: min(calc(100% - 32px), var(--content));
+      min-height: 68px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-width: max-content;
+      color: var(--ink);
+      font-weight: 750;
+      letter-spacing: -.025em;
+      text-decoration: none;
+    }
+    .brand-mark {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      border: 1px solid rgba(13, 209, 158, .45);
+      border-radius: 9px;
+      color: var(--turquoise);
+      background: var(--turquoise-soft);
+      box-shadow: inset 0 0 18px rgba(13, 209, 158, .07);
+      font: 800 15px/1 var(--sans);
+    }
+    .brand small {
+      display: block;
+      color: var(--faint);
+      font: 700 9px/1.1 var(--mono);
+      letter-spacing: .11em;
+      margin-top: 3px;
+    }
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .nav::-webkit-scrollbar { display: none; }
+    .nav a {
+      min-height: 42px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: color .18s ease, background .18s ease;
+    }
+    .nav a:hover, .nav a:focus-visible {
+      color: var(--ink);
+      background: rgba(255, 255, 255, .055);
+      outline: none;
+    }
+
+    main { overflow: clip; }
+    .hero {
+      position: relative;
+      width: min(calc(100% - 32px), var(--content));
+      margin: 0 auto;
+      padding: clamp(72px, 10vw, 132px) 0 72px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+      gap: clamp(40px, 7vw, 96px);
+      align-items: center;
+    }
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 20px;
+      color: var(--turquoise);
+      font: 750 12px/1.2 var(--mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before {
+      width: 28px;
+      height: 1px;
+      content: "";
+      background: currentColor;
+      box-shadow: 0 0 14px currentColor;
+    }
+    h1, h2, h3 { color: var(--ink); line-height: 1.1; text-wrap: balance; }
+    h1 {
+      max-width: 780px;
+      margin: 0;
+      font-size: clamp(46px, 7.5vw, 88px);
+      font-weight: 790;
+      letter-spacing: -.065em;
+    }
+    .hero-accent { color: var(--turquoise); }
+    .lead {
+      max-width: 670px;
+      margin: 28px 0 0;
+      color: #aab8c5;
+      font-size: clamp(18px, 2vw, 22px);
+      line-height: 1.55;
+      text-wrap: pretty;
+    }
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 32px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: #aebbc7;
+      background: rgba(255, 255, 255, .025);
+      font: 650 12px/1 var(--mono);
+    }
+    .badge.live { color: var(--green); border-color: rgba(110, 231, 173, .22); }
+    .badge.live::before {
+      width: 7px;
+      height: 7px;
+      margin-right: 8px;
+      content: "";
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 11px rgba(110, 231, 173, .7);
+    }
+
+    .hero-console {
+      position: relative;
+      padding: 18px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-lg);
+      background: linear-gradient(145deg, rgba(17, 27, 37, .94), rgba(9, 15, 21, .96));
+      box-shadow: var(--shadow), inset 0 1px rgba(255, 255, 255, .04);
+    }
+    .hero-console::after {
+      position: absolute;
+      z-index: -1;
+      inset: 18% -14% -18% 20%;
+      content: "";
+      border-radius: 50%;
+      background: rgba(13, 209, 158, .10);
+      filter: blur(55px);
+    }
+    .console-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 3px 14px;
+      color: var(--faint);
+      font: 700 10px/1 var(--mono);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .console-dots { display: flex; gap: 5px; }
+    .console-dots i { width: 6px; height: 6px; border-radius: 50%; background: #31404e; }
+    .console-screen {
+      padding: 6px;
+      border: 1px solid rgba(255, 255, 255, .065);
+      border-radius: 12px;
+      background: #080e14;
+    }
+    .screen-row {
+      display: grid;
+      grid-template-columns: 1.4fr .65fr .65fr;
+      gap: 8px;
+      align-items: center;
+      min-height: 48px;
+      padding: 0 11px;
+      border-bottom: 1px solid rgba(255, 255, 255, .055);
+      font-size: 12px;
+    }
+    .screen-row:last-child { border-bottom: 0; }
+    .screen-row.header { min-height: 34px; color: var(--faint); font: 700 9px/1 var(--mono); letter-spacing: .08em; }
+    .char { color: #eaf2f7; font-weight: 700; }
+    .char small { display: block; margin-top: 2px; color: var(--faint); font: 600 9px/1 var(--mono); }
+    .value { text-align: center; font: 750 11px/1 var(--mono); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .unknown { color: var(--faint); }
+    .console-foot {
+      display: flex;
+      gap: 8px;
+      padding: 13px 3px 1px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .console-foot span { color: var(--turquoise); font-family: var(--mono); }
+
+    .section {
+      width: min(calc(100% - 32px), var(--content));
+      margin: 0 auto;
+      padding: 88px 0;
+    }
+    .section + .section { border-top: 1px solid var(--line); }
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, .75fr) minmax(300px, 1fr);
+      gap: 48px;
+      align-items: end;
+      margin-bottom: 44px;
+    }
+    .kicker { margin: 0 0 12px; color: var(--turquoise); font: 750 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+    h2 { margin: 0; font-size: clamp(32px, 4.8vw, 54px); letter-spacing: -.045em; }
+    .section-intro { margin: 0; color: var(--muted); font-size: 18px; text-wrap: pretty; }
+
+    .install-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+      counter-reset: install;
+    }
+    .step {
+      position: relative;
+      grid-column: span 4;
+      min-height: 250px;
+      padding: 25px;
+      border-top: 1px solid var(--line-strong);
+      background: linear-gradient(180deg, rgba(255, 255, 255, .027), transparent);
+      counter-increment: install;
+    }
+    .step::before {
+      display: block;
+      margin-bottom: 48px;
+      color: var(--turquoise);
+      content: "0" counter(install);
+      font: 750 12px/1 var(--mono);
+      letter-spacing: .1em;
+    }
+    .step h3 { margin: 0 0 12px; font-size: 21px; letter-spacing: -.02em; }
+    .step p { margin: 0; color: var(--muted); }
+    .step strong { color: var(--text); }
+
+    .path-box {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 18px;
+      align-items: center;
+      padding: 22px 24px;
+      border: 1px solid rgba(13, 209, 158, .22);
+      border-radius: var(--radius);
+      background: var(--turquoise-soft);
+    }
+    .path-label { color: var(--turquoise); font: 750 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    code, .code {
+      color: #d8fff4;
+      font-family: var(--mono);
+      font-size: .9em;
+      overflow-wrap: anywhere;
+    }
+    .folder-check {
+      grid-column: 1 / -1;
+      padding: 22px 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+    }
+    .folder-check h3 { margin: 0 0 12px; font-size: 16px; }
+    .folder-tree { margin: 0; color: #aab8c5; font: 13px/1.75 var(--mono); white-space: pre-wrap; }
+    .folder-tree b { color: var(--turquoise); font-weight: 750; }
+
+    .first-run {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 16px;
+    }
+    .checklist, .note-panel {
+      padding: clamp(24px, 4vw, 38px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface-soft);
+    }
+    .checklist h3, .note-panel h3 { margin: 0 0 24px; font-size: 22px; }
+    .checklist ol { display: grid; gap: 18px; padding: 0; margin: 0; list-style: none; counter-reset: first; }
+    .checklist li { display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: start; color: var(--muted); counter-increment: first; }
+    .checklist li::before {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      border: 1px solid rgba(13, 209, 158, .25);
+      border-radius: 50%;
+      color: var(--turquoise);
+      content: counter(first);
+      font: 750 11px/1 var(--mono);
+    }
+    .checklist strong { display: block; color: var(--ink); }
+    .note-panel { background: linear-gradient(145deg, var(--violet-soft), var(--surface-soft) 70%); }
+    .note-panel p { margin: 0 0 18px; color: var(--muted); }
+    .note-panel p:last-child { margin-bottom: 0; }
+
+    .feature-list { border-top: 1px solid var(--line); }
+    .feature {
+      display: grid;
+      grid-template-columns: 56px minmax(190px, .55fr) minmax(300px, 1fr);
+      gap: 28px;
+      align-items: start;
+      padding: 30px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .feature-index { color: var(--faint); font: 700 11px/1 var(--mono); letter-spacing: .08em; }
+    .feature h3 { margin: 0; font-size: 21px; }
+    .feature p { margin: 0; color: var(--muted); }
+    .feature-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 13px; }
+    .feature-tags span { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; color: #9caab7; font: 650 10px/1 var(--mono); }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--line);
+    }
+    .legend-item { min-height: 150px; padding: 25px; background: var(--surface-soft); }
+    .legend-dot { width: 9px; height: 9px; margin-bottom: 34px; border-radius: 50%; box-shadow: 0 0 12px currentColor; background: currentColor; }
+    .legend-item h3 { margin: 0 0 7px; font-size: 17px; }
+    .legend-item p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .command-table { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); }
+    .command-row { display: grid; grid-template-columns: 210px 1fr; gap: 22px; padding: 17px 20px; border-bottom: 1px solid var(--line); }
+    .command-row:last-child { border-bottom: 0; }
+    .command-row:nth-child(even) { background: rgba(255, 255, 255, .017); }
+    .command-row code { color: var(--turquoise); font-weight: 750; }
+    .command-row span { color: var(--muted); }
+
+    .limits {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+    details {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+    }
+    summary {
+      min-height: 64px;
+      padding: 19px 48px 19px 20px;
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 700;
+      list-style: none;
+      position: relative;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after {
+      position: absolute;
+      top: 50%;
+      right: 20px;
+      width: 22px;
+      height: 22px;
+      content: "+";
+      color: var(--turquoise);
+      font: 500 20px/1 var(--mono);
+      transform: translateY(-50%);
+    }
+    details[open] summary::after { content: "−"; }
+    details p { margin: 0; padding: 0 20px 22px; color: var(--muted); }
+
+    .privacy {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+      gap: 32px;
+      padding: clamp(28px, 5vw, 52px);
+      border: 1px solid rgba(13, 209, 158, .20);
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, rgba(13, 209, 158, .09), rgba(155, 124, 255, .055));
+    }
+    .privacy h2 { font-size: clamp(30px, 4vw, 46px); }
+    .privacy p { margin: 18px 0 0; color: #9faebb; }
+    .privacy-facts { display: grid; align-content: center; gap: 10px; }
+    .privacy-facts div { padding: 12px 14px; border: 1px solid rgba(255, 255, 255, .09); border-radius: 9px; color: #b8c4ce; background: rgba(5, 10, 14, .42); font: 650 12px/1.35 var(--mono); }
+    .privacy-facts b { color: var(--green); }
+
+    footer {
+      width: min(calc(100% - 32px), var(--content));
+      margin: 0 auto;
+      padding: 48px 0 64px;
+      display: flex;
+      justify-content: space-between;
+      gap: 28px;
+      border-top: 1px solid var(--line);
+      color: var(--faint);
+      font-size: 12px;
+    }
+    footer strong { color: var(--muted); }
+
+    :focus-visible { outline: 2px solid var(--turquoise); outline-offset: 3px; }
+
+    @media (max-width: 900px) {
+      .topbar-inner { align-items: flex-start; flex-direction: column; gap: 8px; padding: 12px 0 8px; }
+      .nav { width: 100%; margin: 0; }
+      .hero { grid-template-columns: 1fr; padding-top: 72px; }
+      .hero-console { max-width: 620px; }
+      .section-head { grid-template-columns: 1fr; gap: 18px; }
+      .step { grid-column: span 6; }
+      .first-run, .privacy { grid-template-columns: 1fr; }
+      .feature { grid-template-columns: 42px 190px 1fr; gap: 18px; }
+      .legend { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 640px) {
+      html { scroll-padding-top: 126px; }
+      body { font-size: 15px; }
+      .topbar-inner, .hero, .section, footer { width: min(calc(100% - 24px), var(--content)); }
+      .brand { padding-left: 2px; }
+      .hero { padding-bottom: 56px; }
+      .hero-console { padding: 12px; border-radius: 16px; }
+      .screen-row { grid-template-columns: 1.25fr .7fr .7fr; padding: 0 7px; }
+      .section { padding: 64px 0; }
+      .step { grid-column: 1 / -1; min-height: 0; }
+      .step::before { margin-bottom: 28px; }
+      .path-box { grid-template-columns: 1fr; gap: 8px; }
+      .feature { grid-template-columns: 38px 1fr; }
+      .feature p, .feature-tags { grid-column: 2; }
+      .legend { grid-template-columns: 1fr; }
+      .legend-item { min-height: 0; }
+      .legend-dot { margin-bottom: 20px; }
+      .command-row { grid-template-columns: 1fr; gap: 5px; }
+      .limits { grid-template-columns: 1fr; }
+      footer { flex-direction: column; }
+    }
+
+    @media print {
+      :root { --bg: #fff; --ink: #111; --text: #222; --muted: #444; --faint: #555; --line: #ccc; --surface-soft: #f7f7f7; }
+      body { color: #222; background: #fff; font-size: 12pt; }
+      .topbar { position: static; background: #fff; }
+      .nav, .hero-console { display: none; }
+      .hero { display: block; padding: 36px 0; }
+      .hero-accent, .kicker, .eyebrow, .path-label, code { color: #087b61; }
+      .section { padding: 36px 0; break-inside: avoid; }
+      .step, .checklist, .note-panel, details, .privacy { background: #fff; box-shadow: none; }
+      details > * { display: block; }
+      footer { padding-bottom: 20px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: .001ms !important; animation-duration: .001ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#inhalt">Zum Inhalt springen</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#start" aria-label="Zur Startseite der Anleitung">
+        <span class="brand-mark" aria-hidden="true">W</span>
+        <span>WeeklyAltTracker<small>ANLEITUNG · 0.2.5</small></span>
+      </a>
+      <nav class="nav" aria-label="Inhaltsnavigation">
+        <a href="#installation">Installation</a>
+        <a href="#erster-start">Erster Start</a>
+        <a href="#funktionen">Funktionen</a>
+        <a href="#befehle">Befehle</a>
+        <a href="#hilfe">Hilfe</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="inhalt">
+    <section class="hero" id="start">
+      <div>
+        <p class="eyebrow">WoW Retail · Midnight</p>
+        <h1>Deine Woche.<br><span class="hero-accent">Alle Charaktere.</span></h1>
+        <p class="lead">WeeklyAltTracker bündelt Schatzkammer, Midnight-Aktivitäten, Berufe, Wissenspunkte, Wappenquellen und Mythic+-Schlüsselsteine in einer kompakten deutschen Übersicht.</p>
+        <div class="badges" aria-label="Versionsinformationen">
+          <span class="badge live">Release 0.2.5</span>
+          <span class="badge">Retail 12.0.7</span>
+          <span class="badge">Deutsch</span>
+          <span class="badge">Keine Abhängigkeiten</span>
+        </div>
+      </div>
+
+      <div class="hero-console" aria-label="Stilisierte Vorschau des Charaktervergleichs">
+        <div class="console-head"><span>Account-Snapshot</span><span class="console-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+        <div class="console-screen">
+          <div class="screen-row header"><span>CHARAKTER</span><span class="value">VAULT</span><span class="value">KEY</span></div>
+          <div class="screen-row"><span class="char">Arkanistin<small>STUFE 80 · 634.2</small></span><span class="value ok">3 / 3</span><span class="value ok">+12</span></div>
+          <div class="screen-row"><span class="char">Schattenruf<small>STUFE 80 · 621.7</small></span><span class="value warn">2 / 3</span><span class="value ok">+8</span></div>
+          <div class="screen-row"><span class="char">Jungtwink<small>STUFE 76 · 588.1</small></span><span class="value unknown">−</span><span class="value unknown">−</span></div>
+        </div>
+        <div class="console-foot"><span>/wat</span> öffnet die echte Übersicht im Spiel.</div>
+      </div>
+    </section>
+
+    <section class="section" id="installation">
+      <div class="section-head">
+        <div><p class="kicker">Manuelle Installation</p><h2>In drei Schritten bereit.</h2></div>
+        <p class="section-intro">Du brauchst keinen Addon-Manager. Wichtig ist nur, dass der Ordner genau einmal verschachtelt ist und die TOC-Datei direkt darin liegt.</p>
+      </div>
+
+      <div class="install-grid">
+        <article class="step">
+          <h3>ZIP herunterladen</h3>
+          <p>Lade <strong>WeeklyAltTracker-0.2.5.zip</strong> von der offiziellen Projektseite oder direkt vom Autor herunter.</p>
+        </article>
+        <article class="step">
+          <h3>Archiv entpacken</h3>
+          <p>Öffne das ZIP. Darin befindet sich der Ordner <strong>WeeklyAltTracker</strong>. Kopiere genau diesen Ordner.</p>
+        </article>
+        <article class="step">
+          <h3>In WoW einfügen</h3>
+          <p>Füge den Ordner in <strong>_retail_\Interface\AddOns</strong> ein und starte WoW neu. Läuft WoW bereits, nutze anschließend <code>/reload</code>.</p>
+        </article>
+
+        <div class="path-box">
+          <span class="path-label">Typischer Zielpfad</span>
+          <code>World of Warcraft\_retail_\Interface\AddOns\WeeklyAltTracker</code>
+        </div>
+
+        <div class="folder-check">
+          <h3>So muss der Ordner aussehen</h3>
+          <pre class="folder-tree">AddOns
+└── <b>WeeklyAltTracker</b>
+    ├── WeeklyAltTracker.toc
+    ├── Core.lua
+    ├── Data.lua
+    ├── Scanner.lua
+    ├── Activities.lua
+    ├── UI.lua
+    ├── Anleitung.html
+    └── LICENSE.txt</pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="erster-start">
+      <div class="section-head">
+        <div><p class="kicker">Erster Start</p><h2>Einloggen. Erfassen. Vergleichen.</h2></div>
+        <p class="section-intro">WoW erlaubt keinen Livezugriff auf ausgeloggte Charaktere. Jeder Charakter baut deshalb beim Einloggen seinen eigenen sicheren Offline-Snapshot auf.</p>
+      </div>
+
+      <div class="first-run">
+        <div class="checklist">
+          <h3>Empfohlene Reihenfolge</h3>
+          <ol>
+            <li><div><strong>Addon aktivieren</strong>Prüfe in der Charakterauswahl unter „AddOns“, ob WeeklyAltTracker aktiviert ist.</div></li>
+            <li><div><strong>Fenster öffnen</strong>Klicke das Minimap-Symbol oder gib <code>/wat</code> im Chat ein.</div></li>
+            <li><div><strong>Snapshot aktualisieren</strong>Nutze <code>/wat refresh</code>, nachdem Schatzkammer, Questlog und Berufsdaten geladen sind.</div></li>
+            <li><div><strong>Twinks einmal einloggen</strong>Wiederhole das für jeden Charakter, der in der accountweiten Übersicht erscheinen soll.</div></li>
+            <li><div><strong>Eine Tiefe betreten</strong>Nur so kann Blizzard den Fortschritt der Goldenen Truhe erstmals bereitstellen.</div></li>
+          </ol>
+        </div>
+        <aside class="note-panel">
+          <h3>Minimap-Symbol</h3>
+          <p><strong>Linksklick</strong> öffnet oder schließt WeeklyAltTracker.</p>
+          <p><strong>Ziehen mit gedrückter linker Maustaste</strong> verschiebt das Symbol am Minimap-Rand. Die Position wird automatisch gespeichert.</p>
+          <p>Das Symbol verwendet keine externe Bibliothek und funktioniert unabhängig von anderen Addons.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section" id="funktionen">
+      <div class="section-head">
+        <div><p class="kicker">Funktionsumfang</p><h2>Fünf Ansichten. Ein Wochenbild.</h2></div>
+        <p class="section-intro">Die Oberfläche bleibt bewusst kompakt. Jede Ansicht beantwortet eine konkrete Frage, statt alle Daten in eine überbreite Tabelle zu pressen.</p>
+      </div>
+
+      <div class="feature-list">
+        <article class="feature">
+          <span class="feature-index">01</span>
+          <h3>Übersicht</h3>
+          <div><p>Vergleicht Charakterlevel, angelegte Gegenstandsstufe, Goldene Truhe, Champion-, Helden- und Mythische Wappen sowie die freigeschalteten Schatzkammer-Slots für Mythic+ und Tiefen/Welt. Die eigene Spalte <strong>M+10 / 272</strong> zeigt sofort, ob mindestens ein Dungeon auf +10 oder höher für die 272er Vault-Belohnung abgeschlossen wurde.</p><div class="feature-tags"><span>M+10 / 272</span><span>Vault-Itemlevel</span><span>Offline-Snapshot</span><span>ohne Raid</span></div></div>
+        </article>
+        <article class="feature">
+          <span class="feature-index">02</span>
+          <h3>Midnight-Woche</h3>
+          <div><p>Zeigt die aktive Midnight-Wochenquest, Jagden auf Normal, Schwer und Albtraum sowie den Fortschritt der Ritualstätten.</p><div class="feature-tags"><span>Wochenquest</span><span>Jagden 0/4</span><span>Ritualstätten</span></div></div>
+        </article>
+        <article class="feature">
+          <span class="feature-index">03</span>
+          <h3>Berufe</h3>
+          <div><p>Erfasst den Midnight-Skill beider Hauptberufe, freie Wissenspunkte, Wissenspunkte aus Gegenständen in deinen Taschen, die Berufs-Wochenquest und den Thalassischen Traktat.</p><div class="feature-tags"><span>Skill</span><span>Frei / Tasche</span><span>Traktate</span></div></div>
+        </article>
+        <article class="feature">
+          <span class="feature-index">04</span>
+          <h3>Wappenquellen</h3>
+          <div><p>Ordnet zusätzliche Quellen als wöchentlich, einmalig beziehungsweise saisonal oder wiederholbar ein – darunter die Goldene Truhe, Rissiger Schlüsselstein, Nullaeus T11, Ritualstätten T6 und Mythic+ ab +9.</p><div class="feature-tags"><span>Quellenstatus</span><span>Tauschpotential</span><span>keine erfundenen Zähler</span></div></div>
+        </article>
+        <article class="feature">
+          <span class="feature-index">05</span>
+          <h3>Schlüsselsteine</h3>
+          <div><p>Speichert Dungeonname und Stufe des aktuell besessenen Mythic+-Schlüsselsteins pro Charakter. Sichere Daten bleiben bei frühen oder geschützten API-Antworten erhalten.</p><div class="feature-tags"><span>Dungeon</span><span>Stufe</span><span>Datenstand</span></div></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="status-title">
+      <div class="section-head">
+        <div><p class="kicker">Status verstehen</p><h2 id="status-title">Farben mit klarer Bedeutung.</h2></div>
+        <p class="section-intro">WeeklyAltTracker unterscheidet bewusst zwischen offen, teilweise erledigt und unbekannt. Fehlende Daten werden niemals als echte Null erfunden.</p>
+      </div>
+      <div class="legend">
+        <article class="legend-item"><div class="legend-dot" style="color: var(--green)"></div><h3>Grün</h3><p>Fertig, freigeschaltet oder sicher abgeschlossen.</p></article>
+        <article class="legend-item"><div class="legend-dot" style="color: var(--amber)"></div><h3>Gelb</h3><p>Teilweise erledigt oder noch in Arbeit.</p></article>
+        <article class="legend-item"><div class="legend-dot" style="color: var(--red)"></div><h3>Rot</h3><p>Sicher offen oder noch nicht abgeschlossen.</p></article>
+        <article class="legend-item"><div class="legend-dot" style="color: var(--faint)"></div><h3>Grau / −</h3><p>Unbekannt, nicht erfasst oder aus einer alten Woche.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="befehle">
+      <div class="section-head">
+        <div><p class="kicker">Chatbefehle</p><h2>Direkter Zugriff mit /wat.</h2></div>
+        <p class="section-intro">Alle Befehle funktionieren im normalen WoW-Chat. Groß- und Kleinschreibung spielt keine Rolle.</p>
+      </div>
+      <div class="command-table" role="table" aria-label="WeeklyAltTracker Chatbefehle">
+        <div class="command-row" role="row"><code>/wat</code><span>Fenster öffnen oder schließen.</span></div>
+        <div class="command-row" role="row"><code>/wat show</code><span>Fenster gezielt anzeigen.</span></div>
+        <div class="command-row" role="row"><code>/wat hide</code><span>Fenster gezielt ausblenden.</span></div>
+        <div class="command-row" role="row"><code>/wat refresh</code><span>Daten des aktuell eingeloggten Charakters neu einlesen.</span></div>
+        <div class="command-row" role="row"><code>/wat resetpos</code><span>Hauptfenster wieder mittig positionieren.</span></div>
+        <div class="command-row" role="row"><code>/wat scale 0.7–1.5</code><span>Größe der Oberfläche anpassen, zum Beispiel <code>/wat scale 0.9</code>.</span></div>
+        <div class="command-row" role="row"><code>/wat debug</code><span>Wichtigste Rohdaten zur Fehleranalyse im Chat ausgeben.</span></div>
+      </div>
+    </section>
+
+    <section class="section" id="hilfe">
+      <div class="section-head">
+        <div><p class="kicker">Hilfe & Grenzen</p><h2>Wenn etwas noch nicht erscheint.</h2></div>
+        <p class="section-intro">Die meisten vermeintlichen Fehler entstehen durch einen doppelt verschachtelten Ordner, einen noch nicht eingeloggten Charakter oder Daten, die Blizzard erst nach Öffnen einer Oberfläche bereitstellt.</p>
+      </div>
+      <div class="limits">
+        <details>
+          <summary>Das Addon erscheint nicht in der Charakterauswahl</summary>
+          <p>Prüfe, ob <code>WeeklyAltTracker.toc</code> direkt im Ordner <code>AddOns\WeeklyAltTracker</code> liegt. Ein zusätzlicher Ordner wie <code>WeeklyAltTracker\WeeklyAltTracker</code> ist falsch. Prüfe außerdem, ob du das Archiv wirklich entpackt hast.</p>
+        </details>
+        <details>
+          <summary>Ein Charakter oder neue Felder fehlen</summary>
+          <p>Logge den betreffenden Charakter einmal mit aktiviertem Addon ein und nutze <code>/wat refresh</code>. Ausgeloggte Charaktere können von WoW nicht live abgefragt werden.</p>
+        </details>
+        <details>
+          <summary>Die Goldene Truhe zeigt „nicht erfasst“</summary>
+          <p>Betritt mit diesem Charakter mindestens einmal eine Tiefe. Blizzard stellt das zugehörige UI-Widget erst dort beziehungsweise in dessen Nähe bereit. Ein später fehlender Wert überschreibt keinen bereits sicheren Snapshot.</p>
+        </details>
+        <details>
+          <summary>Vault-Itemlevel oder andere Werte zeigen „−“</summary>
+          <p>„−“ bedeutet unbekannt, nicht geladen oder geschützt – nicht Null. Öffne die Große Schatzkammer, warte kurz auf die Gegenstandsdaten und nutze anschließend <code>/wat refresh</code>.</p>
+        </details>
+        <details>
+          <summary>Welche Taschen werden für Berufswissen gescannt?</summary>
+          <p>Rucksack, vier normale Taschen und Reagenzientasche. Bank und Kriegsmeutenbank werden bewusst nicht gescannt. Stapelbare Wissensgegenstände werden mit ihrer Menge berücksichtigt.</p>
+        </details>
+        <details>
+          <summary>Warum gibt es kein Raid-Tracking?</summary>
+          <p>Das Addon ist bewusst für Mythic+, Tiefen/Welt, Midnight-Wochenaktivitäten und Twink-Verwaltung zugeschnitten. Raid-Fortschritt und Raid-Vault bleiben vollständig ausgeschlossen.</p>
+        </details>
+        <details>
+          <summary>Wie aktualisiere ich das Addon manuell?</summary>
+          <p>Beende WoW möglichst vollständig, ersetze den Ordner <code>AddOns\WeeklyAltTracker</code> durch die neue Version und starte das Spiel erneut. Deine Daten liegen separat in WoWs SavedVariables und bleiben bei einem normalen Update erhalten.</p>
+        </details>
+        <details>
+          <summary>Es tritt ein Lua-Fehler auf</summary>
+          <p>Notiere den genauen Fehler oder kopiere ihn aus BugSack/!BugGrabber. Führe <code>/wat debug</code> aus und melde Version, betroffene Ansicht und den letzten ausgeführten Schritt über die offizielle Projektseite.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="privacy">
+        <div>
+          <p class="kicker">Privatsphäre</p>
+          <h2>Deine Daten bleiben in deinem WoW-Ordner.</h2>
+          <p>WeeklyAltTracker arbeitet vollständig lokal. Das Addon besitzt keine Telemetrie, keine Werbung, keine Netzwerkkommunikation und überträgt keine Charakterdaten an den Autor oder andere Dienste.</p>
+        </div>
+        <div class="privacy-facts" aria-label="Datenschutzmerkmale">
+          <div><b>KEINE</b> Telemetrie</div>
+          <div><b>KEINE</b> Netzwerkaufrufe</div>
+          <div><b>KEINE</b> externen Bibliotheken</div>
+          <div><b>LOKAL</b> in WeeklyAltTrackerDB</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div><strong>WeeklyAltTracker 0.2.5</strong><br>Für WoW Retail 12.0.7 · Midnight</div>
+    <div>Copyright © 2026 Christian. All Rights Reserved.<br>Unabhängiges Fanprojekt, nicht mit Blizzard Entertainment verbunden.</div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('.nav a').forEach(function (link) {
+      link.addEventListener('click', function () {
+        document.querySelectorAll('.nav a').forEach(function (item) {
+          item.removeAttribute('aria-current');
+        });
+        link.setAttribute('aria-current', 'location');
+      });
+    });
+  </script>
+</body>
+</html>

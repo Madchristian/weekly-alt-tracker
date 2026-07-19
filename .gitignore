@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+backups/
+
+# Lokale Entwicklungs- und Release-Artefakte
+CLAUDE.md
+design/
+releases/
+*.zip
+
+# Lokale Secrets niemals committen
+.env
+.env.*
+!.env.example
