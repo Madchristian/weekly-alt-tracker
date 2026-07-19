@@ -36,6 +36,8 @@ end
 function Widget:SetSize(width, height) self.width, self.height = width, height end
 function Widget:SetWidth(width) self.width = width end
 function Widget:SetHeight(height) self.height = height end
+function Widget:GetWidth() return self.width end
+function Widget:GetHeight() return self.height end
 function Widget:SetPoint(...) self.points[#self.points + 1] = { ... } end
 function Widget:ClearAllPoints() self.points = {} end
 function Widget:SetAllPoints(...) self.allPoints = { ... } end
@@ -79,6 +81,7 @@ end
 
 UIParent = NewWidget("UIParent")
 Minimap = NewWidget("Minimap")
+Minimap:SetSize(140, 140)
 function GetCursorPosition() return 600, 500 end
 GameFontNormalLarge = { GetFont = function() return "Fonts\\FRIZQT__.TTF", 14, "" end }
 RAID_CLASS_COLORS = {}
@@ -128,7 +131,7 @@ local function MakeWAT()
     -- Data.lua wird echt geladen (siehe RunSuite); hier steht bewusst kein
     -- Stub, damit die Ableitung questID -> Labelschluessel wirklich laeuft.
     local WAT = {
-        version = "0.3.0",
+        version = "0.3.1",
         db = {
             settings = {
                 scale = 1,
@@ -302,6 +305,28 @@ local function RunSuite(locale, expect)
     assert(WAT.minimapButton.width == 32 and WAT.minimapButton.height == 32,
         context("Minimap-Button muss 32x32 bleiben, ist aber "
             .. tostring(WAT.minimapButton.width) .. "x" .. tostring(WAT.minimapButton.height)))
+    local function MinimapButtonDistance()
+        local minimapPoint = WAT.minimapButton.points[1]
+        local minimapX = minimapPoint and minimapPoint[4]
+        local minimapY = minimapPoint and minimapPoint[5]
+        if type(minimapX) ~= "number" or type(minimapY) ~= "number" then return 0 end
+        return math.sqrt((minimapX * minimapX) + (minimapY * minimapY))
+    end
+    assert(math.abs(MinimapButtonDistance() - 86) < 0.01,
+        context("140x140-Minimap mit 32x32-Button benötigt exakt Radius 86, erhalten "
+            .. tostring(MinimapButtonDistance())))
+    Minimap:SetSize(180, 180)
+    WAT:UpdateMinimapButtonPosition()
+    assert(math.abs(MinimapButtonDistance() - 106) < 0.01,
+        context("180x180-Minimap mit 32x32-Button benötigt exakt Radius 106, erhalten "
+            .. tostring(MinimapButtonDistance())))
+    Minimap:SetSize(0, 0)
+    WAT:UpdateMinimapButtonPosition()
+    assert(math.abs(MinimapButtonDistance() - 86) < 0.01,
+        context("ungültige Minimap-Größe muss auf Radius 86 zurückfallen, erhalten "
+            .. tostring(MinimapButtonDistance())))
+    Minimap:SetSize(140, 140)
+    WAT:UpdateMinimapButtonPosition()
     local iconTexture = WAT.minimapButton.icon.texture and WAT.minimapButton.icon.texture[1]
     assert(iconTexture == "Interface\\AddOns\\WeeklyAltTracker\\Media\\WeeklyAltTrackerIcon",
         context("Minimap-Symbol verweist nicht auf das eigene Logo, sondern auf: " .. tostring(iconTexture)))

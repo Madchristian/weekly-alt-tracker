@@ -1017,10 +1017,21 @@ end
 function WAT:UpdateMinimapButtonPosition()
     if not self.minimapButton or not Minimap then return end
     local angle = self.SafeNumber(self.db.settings.minimapAngle, 225) % 360
+    local minimapWidth = self.SafeNumber(Minimap:GetWidth(), 140)
+    local minimapHeight = self.SafeNumber(Minimap:GetHeight(), 140)
+    local buttonWidth = self.SafeNumber(self.minimapButton:GetWidth(), 32)
+    local buttonHeight = self.SafeNumber(self.minimapButton:GetHeight(), 32)
+    if minimapWidth <= 0 then minimapWidth = 140 end
+    if minimapHeight <= 0 then minimapHeight = 140 end
+    if buttonWidth <= 0 then buttonWidth = 32 end
+    if buttonHeight <= 0 then buttonHeight = 32 end
+    local minimapRadius = math.min(minimapWidth, minimapHeight) / 2
+    local buttonRadius = math.max(buttonWidth, buttonHeight) / 2
+    local radius = minimapRadius + buttonRadius
     local radians = math.rad(angle)
     self.minimapButton:ClearAllPoints()
     self.minimapButton:SetPoint("CENTER", Minimap, "CENTER",
-        math.cos(radians) * 78, math.sin(radians) * 78)
+        math.cos(radians) * radius, math.sin(radians) * radius)
 end
 
 function WAT:CreateMinimapButton()
