@@ -5,8 +5,11 @@ deshalb in `PROJECT-en.md`. Diese Datei ist die inhaltsgleiche deutsche
 Zusatzfassung, etwa für eine lokalisierte Beschreibung oder für Ankündigungen.
 
 Nur Dokumentation, nicht Teil des Addon-Pakets (`.pkgmeta` ignoriert
-`curseforge/`). Eine CurseForge-Projekt-ID oder -URL ist noch nicht hinterlegt,
-weil das Projekt noch nicht angelegt ist.
+`curseforge/`). Offizielle Projektseite:
+https://www.curseforge.com/wow/addons/weeklyalttracker
+
+Project ID: `1616769` (`## X-Curse-Project-ID: 1616769` in
+`WeeklyAltTracker.toc`). Lizenz: **All Rights Reserved**.
 
 ---
 

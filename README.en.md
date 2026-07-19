@@ -206,7 +206,7 @@ The project-side CurseForge texts are versioned under `curseforge/`:
 
 The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 
-The CurseForge project was created with Project ID `1616769` under the **All Rights Reserved** licence. The ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.2.6 is initially uploaded manually through the CurseForge project page, which does not require an API key. Automated CurseForge uploads are deliberately not configured without `CF_API_KEY`. The public CurseForge URL will be added after its final slug has been verified.
+The addon is listed on CurseForge at [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker). The project uses Project ID `1616769` under the **All Rights Reserved** licence; the ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.2.6 is initially uploaded manually through the CurseForge project page, which does not require an API key. Automated CurseForge uploads are deliberately not configured without `CF_API_KEY`.
 
 ## Data provenance and third parties
 

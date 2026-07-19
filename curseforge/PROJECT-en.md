@@ -4,9 +4,10 @@ CurseForge requires English as the project language. This file holds the exact
 texts for the project page. It is documentation only and is not shipped with the
 addon (`.pkgmeta` ignores `curseforge/`).
 
-No CurseForge project ID or URL is recorded yet, because the project has not
-been created. Once it exists, add `## X-Curse-Project-ID` to
-`WeeklyAltTracker.toc` and the URL to the README files.
+Official project: https://www.curseforge.com/wow/addons/weeklyalttracker
+
+Project ID: `1616769` (`## X-Curse-Project-ID: 1616769` in
+`WeeklyAltTracker.toc`). Licence: **All Rights Reserved**.
 
 ---
 
