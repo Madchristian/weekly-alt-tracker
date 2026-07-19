@@ -18,7 +18,7 @@ Die Sprache richtet sich automatisch nach dem WoW-Client (`GetLocale`); es gibt 
 
 Namen aus dem Spiel – Klasse, Dungeon, Gegenstand, Beruf und Erfolg – werden nie vom Addon übersetzt, sondern zur Laufzeit clientlokalisiert aus der WoW-API bezogen. Eigene Übersetzungslabels des Addons speichert der Snapshot nicht mehr als maßgebliche Anzeigequelle: Für Midnight-Wochenquest, Beruf und Schlüsselstein werden stabile IDs (`questID`, `baseSkillLineID`, `mapID`) abgelegt und erst beim Anzeigen aufgelöst – diese Laufzeitauflösung hat Vorrang vor allem, was im Snapshot steht. Von der WoW-API gelieferte, bereits clientlokalisierte Namen können weiterhin im Snapshot landen; sie dienen der Rückwärtskompatibilität und als Fallback. Nach einem Neustart von WoW mit der geänderten Clientsprache erscheint deshalb auch der bereits erfasste Altbestand in der neuen Sprache. Ist zur Anzeigezeit keine Lokalisierung verfügbar, zeigt die Schlüsselstein-Ansicht die sprachneutrale Dungeon-ID statt eines fremdsprachig gespeicherten Namens.
 
-Die Slash-Befehle selbst (`/wat show`, `hide`, `refresh`, `resetpos`, `scale`, `debug`) bleiben in beiden Sprachen identisch; nur ihre Ausgaben sind übersetzt.
+Der Slash-Befehl `/wat` ist in beiden Sprachen identisch; nur seine Ausgabe ist übersetzt.
 
 ## Enthalten
 
@@ -75,17 +75,42 @@ Die wiederholbaren Quellen besitzen keinen rückwirkenden quellenspezifischen Wo
 - Partielle oder geheime API-Werte überschreiben keinen sicheren Snapshot
 - Ein sicher erkannter fehlender Schlüsselstein erscheint als `kein Schlüsselstein`
 
+### Statistiken
+
+Neu in 0.3.0. Der Bereich zeigt neun lebenslange WoW-Erfolgsstatistiken je Charakter und darüber eine optisch abgesetzte Accountsumme:
+
+- Abgeschlossene Tiefen insgesamt und Abgeschlossene Midnight-Tiefen
+- Tode insgesamt, in Dungeons, in Schlachtzügen und durch Sturz
+- Abgeschlossene Quests, abgeschlossene Tagesquests und abgebrochene Quests
+
+Gelesen werden die Werte ausschließlich für den gerade eingeloggten Charakter über `GetStatistic`. Offline-Charaktere behalten ihren letzten Snapshot; die Werte sind lebenslang und werden deshalb nie als `alte Woche` ausgegraut. Sie liegen neben dem Wochenblock und überstehen den Wochenreset.
+
+Die Accountsumme addiert ausschließlich sicher bekannte Charakterwerte. Kennt kein Charakter einen Wert, zeigt die Summe `-` und niemals `0` – sonst wäre ein noch nie eingeloggter Charakter nicht von einem Charakter mit echten null Toden zu unterscheiden. Charaktere ohne erfassten Wert zählen nicht mit. Die vollständigen, clientlokalisierten Statistiknamen stehen im Tooltip; in den SavedVariables landet ausschließlich die numerische Statistik-ID.
+
+### Einstellungen
+
+Neu in 0.3.0. Alle Optionen liegen im letzten Bereich der linken Navigation, nicht mehr hinter Slash-Unterbefehlen:
+
+- `Jetzt aktualisieren` – liest den eingeloggten Charakter neu ein
+- `Position zurücksetzen` – zentriert das Fenster
+- Minimap-Symbol `Sichtbar` / `Verborgen` – gilt sofort und accountweit
+- Fensterskalierung als feste Stufen: 70 %, 85 %, 100 %, 115 %, 130 %, 150 %
+
+Es gibt bewusst keinen Schieberegler: die festen Stufen bleiben exakt im Wertebereich, den das Addon beim Laden akzeptiert. Es gibt ebenso bewusst keine Aktion zum Löschen der Datenbank – ein solcher Verlust wäre nicht wiederherstellbar und gehört nicht hinter einen einzelnen Klick.
+
 ## Oberfläche
 
-Version 0.2.6 verwendet ein eigenständiges, von EllesmereUI-Prinzipien inspiriertes Midnight-Dark-Layout: eine feste linke Navigation, einen großen Seitenkopf mit Beschreibung, flache Schaltflächen und kompakte Vergleichstabellen. Das Addon kopiert keine EllesmereUI-Assets und benötigt EllesmereUI nicht als Abhängigkeit.
+Version 0.3.0 verwendet ein eigenständiges, von EllesmereUI-Prinzipien inspiriertes Midnight-Dark-Layout: eine feste linke Navigation, einen großen Seitenkopf mit Beschreibung, flache Schaltflächen und kompakte Vergleichstabellen. Das Addon kopiert keine EllesmereUI-Assets und benötigt EllesmereUI nicht als Abhängigkeit.
 
-Die linke Navigation besitzt fünf Bereiche:
+Die linke Navigation besitzt sieben Bereiche:
 
 1. `Übersicht`
 2. `Midnight-Woche`
 3. `Berufe`
 4. `Wappenquellen`
 5. `Schlüsselsteine`
+6. `Statistiken`
+7. `Einstellungen`
 
 Statusfarben:
 
@@ -106,13 +131,9 @@ Der Installationspfad hängt vom gewählten Laufwerk ab; der Standard unter Wind
 
 ## Bedienung
 
-- `/wat` – Fenster ein-/ausblenden
-- `/wat show` / `/wat hide`
-- `/wat refresh` – eingeloggten Charakter neu einlesen
-- `/wat resetpos` – Fenster zentrieren
-- `/wat scale 0.7` bis `/wat scale 1.5`
-- `/wat debug` – wichtigsten Rohstand im Chat ausgeben
-- Minimap-Symbol: Linksklick öffnet oder schließt das Fenster; Ziehen verändert die gespeicherte Position
+- `/wat` – Fenster ein-/ausblenden; `/weeklyalt` bleibt als gleichwertiger Alias. Ab 0.3.0 gibt es keine öffentlichen Unterbefehle mehr.
+- Jedes Argument hinter `/wat` öffnet direkt den Bereich `Einstellungen`; die früheren Unterbefehle `show`, `hide`, `refresh`, `resetpos` und `scale` sind ersatzlos dorthin gewandert.
+- Minimap-Symbol: Linksklick öffnet oder schließt das Fenster; Ziehen verändert die gespeicherte Position. Ausblenden lässt sich das Symbol im Bereich `Einstellungen`.
 
 ## Wichtige technische Grenzen
 
@@ -131,17 +152,18 @@ Die Übersicht zeigt `M+10` grün als `Ja`, sobald die Blizzard-Schatzkammer min
 ## Testablauf im Spiel
 
 1. Addon aktivieren und `/reload` ausführen.
-2. `/wat` öffnen und alle fünf Einträge der linken Navigation anklicken.
-3. `/wat debug` ausführen.
-4. Große Schatzkammer öffnen und `/wat refresh` ausführen.
+2. `/wat` öffnen und alle sieben Einträge der linken Navigation anklicken.
+3. Im Bereich `Einstellungen` eine Skalierungsstufe wählen, das Minimap-Symbol aus- und wieder einblenden und die Position zurücksetzen.
+4. Große Schatzkammer öffnen und im Bereich `Einstellungen` auf `Jetzt aktualisieren` klicken.
 5. Vault-Zeile berühren und Itemlevel pro Slot prüfen.
 6. Nach einem Abschluss auf +10 oder höher in der Übersicht `M+10 / 272` auf grünes `Ja` prüfen.
 7. Eine Tier-11-Bountiful-Tiefe betreten und danach die Goldene Truhe kontrollieren.
 8. Questlog öffnen beziehungsweise eine Midnight-Aktivität erledigen und den Bereich `Midnight-Woche` prüfen.
 9. Im Bereich `Berufe` Skill, `Frei / Tasche`, Berufs-Wochenquest und Traktat kontrollieren; die Zeile für Itemdetails berühren.
 10. Im Bereich `Schlüsselsteine` Dungeonname und Stufe eines Charakters mit Mythic+-Schlüsselstein prüfen.
-11. Einen Alt einloggen und prüfen, ob beide Charakter-Snapshots sichtbar sind.
-12. Lua-Fehler mit BugSack/!BugGrabber kontrollieren.
+11. Im Bereich `Statistiken` prüfen, ob die Werte des eingeloggten Charakters erscheinen und die Accountsumme über mindestens zwei Charaktere tatsächlich addiert. Statistiken werden erst nach dem Nachladen der Erfolgsdaten gefüllt; bis dahin steht dort `-`.
+12. Einen Alt einloggen und prüfen, ob beide Charakter-Snapshots sichtbar sind.
+13. Lua-Fehler mit BugSack/!BugGrabber kontrollieren.
 
 ## Entwicklung
 
@@ -174,7 +196,7 @@ Fengari, luaparse und die Python-Skripte sind reine Entwicklungswerkzeuge und we
 
 Releases werden von [BigWigsMods/packager](https://github.com/BigWigsMods/packager) über GitHub Actions erzeugt (`.github/workflows/release.yml`).
 
-Der Workflow läuft ausschließlich bei Tags nach dem Muster `v*`, zum Beispiel `v0.2.6`. Normale Pushes auf `main` erzeugen kein Release. Zusätzlich gibt es `workflow_dispatch` für einen manuellen Trockenlauf; dieser packt nur und lädt nichts hoch (Packager-Option `-d`).
+Der Workflow läuft ausschließlich bei Tags nach dem Muster `v*`, zum Beispiel `v0.3.0`. Normale Pushes auf `main` erzeugen kein Release. Zusätzlich gibt es `workflow_dispatch` für einen manuellen Trockenlauf; dieser packt nur und lädt nichts hoch (Packager-Option `-d`).
 
 Vor jedem Tag müssen die feste Version in `WeeklyAltTracker.toc` und `Core.lua` sowie Anleitung und Changelog auf denselben Release-Stand aktualisiert werden. Der Packager benennt das Release nach dem Tag, ersetzt die feste Addon-Version aber bewusst nicht automatisch.
 
@@ -188,7 +210,7 @@ Das GitHub-Release wird mit dem automatisch bereitgestellten `GITHUB_TOKEN` erst
 
 Das Addon ist auf Wago Addons veröffentlicht: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). Die Projekt-ID `ZKxZJkNk` steht als `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` und ist auch auf der Projektseite sichtbar.
 
-Version 0.2.6 wurde über die offizielle Wago-Upload-API als Stable für Retail-Patch 12.0.7 veröffentlicht. Das öffentlich ausgelieferte CDN-ZIP wurde zurückgeladen und stimmt bytegenau mit dem hochgeladenen Paket überein.
+Version 0.2.6 wurde über die offizielle Wago-Upload-API als Stable für Retail-Patch 12.0.7 veröffentlicht. Das öffentlich ausgelieferte CDN-ZIP wurde zurückgeladen und stimmt bytegenau mit dem hochgeladenen Paket überein. Version 0.3.0 ist vorbereitet, aber noch nicht veröffentlicht.
 
 Das Secret `WAGO_API_TOKEN` ist im Repository unter *Settings → Secrets and variables → Actions* hinterlegt. Der Tokenwert gehört ausschließlich in dieses Secret und niemals in das Repository. Damit lädt jeder künftige `v*`-Tag über den BigWigs-Packager automatisch sowohl zum GitHub-Release als auch zu Wago hoch.
 
@@ -198,7 +220,7 @@ Die projektseitigen CurseForge-Texte liegen versioniert unter `curseforge/`:
 
 - `PROJECT-en.md` – englischer Titel, Kurzbeschreibung und Beschreibung. CurseForge verlangt Englisch als Projektsprache.
 - `PROJECT-de.md` – deutsche Zusatzfassung derselben Beschreibung.
-- `CHANGELOG-0.2.6-en.md` und `CHANGELOG-0.2.6-de.md` – Änderungsprotokoll zum Release.
+- `CHANGELOG-0.3.0-en.md` und `CHANGELOG-0.3.0-de.md` – Änderungsprotokoll zum Release.
 
 Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mit ausgeliefert.
 
@@ -213,7 +235,7 @@ Der separate Workflow `.github/workflows/curseforge-package.yml` (**Build CurseF
 
 Der Workflow führt vorher das vollständige `tools/check.py` aus und prüft das gebaute ZIP anschließend mit `tools/verify_package.py` (14 erwartete Dateien unter `WeeklyAltTracker/`, bytegleich zum Repository, TOC-Kennwerte, keine Secret-Zuweisungen). Die mitgelieferte `SHA256SUMS.txt` dient zur Kontrolle der heruntergeladenen Datei.
 
-Das Addon ist auf CurseForge unter [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker) angelegt. Das Projekt verwendet die Project ID `1616769` und die Lizenz **All Rights Reserved**; die ID steht als `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.2.6 wird zunächst manuell über die CurseForge-Projektseite hochgeladen; dafür ist kein API-Key erforderlich. Ein automatischer CurseForge-Upload ist ohne `CF_API_KEY` bewusst nicht eingerichtet.
+Das Addon ist auf CurseForge unter [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker) angelegt. Das Projekt verwendet die Project ID `1616769` und die Lizenz **All Rights Reserved**; die ID steht als `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.3.0 wird wie 0.2.6 manuell über die CurseForge-Projektseite hochgeladen; dafür ist kein API-Key erforderlich. Ein automatischer CurseForge-Upload ist ohne `CF_API_KEY` bewusst nicht eingerichtet.
 
 ## Datenherkunft und Dritte
 

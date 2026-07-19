@@ -1,6 +1,7 @@
 -- Ausführbarer Runtime-Smoke-Test für UI.lua außerhalb von WoW.
--- Prüft Fenstererstellung, fünf Sidebar-Klickziele, die Schlüsselstein-Zelle
--- und die Wappensymbole der Übersicht inklusive Fallback ohne Symbol.
+-- Prüft Fenstererstellung, sieben Sidebar-Klickziele, die Schlüsselstein-Zelle,
+-- die Wappensymbole der Übersicht inklusive Fallback ohne Symbol, die
+-- Statistikseite mit Accountsumme und das Einstellungsformular.
 --
 -- Die gesamte Suite läuft zweimal gegen dieselbe Produktions-UI: einmal mit
 -- einem deDE-Client und einmal mit einem enUS-Client. Localization.lua wird
@@ -99,13 +100,35 @@ function date() return "01.01. 00:00" end
 
 local KEYSTONE_MAP_ID = 503
 
+-- Statistik-Snapshots zweier Charaktere. Bewusst mit Luecken: nur so beweist
+-- die Accountsumme, dass sie wirklich aggregiert und nicht bloss einen Wert
+-- durchreicht oder Unbekanntes als 0 mitzaehlt.
+--
+--   40734 (Tiefen)        120 + 80 = 200   beide bekannt
+--   61790 (MN-Tiefen)       - +  7 =   7   nur Zweitheld
+--   60    (Tode)           45 +  5 =  50   beide bekannt
+--   98    (Quests)       1000 +  - = 1000  nur Testheld
+--   14787/14784/114/97/94                  bei keinem bekannt -> Strich, nie 0
+local STATISTICS_MAIN = {
+    scanned = 995,
+    [40734] = { value = 120, updated = 995 },
+    [60] = { value = 45, updated = 995 },
+    [98] = { value = 1000, updated = 995 },
+}
+local STATISTICS_ALT = {
+    scanned = 990,
+    [40734] = { value = 80, updated = 990 },
+    [61790] = { value = 7, updated = 990 },
+    [60] = { value = 5, updated = 990 },
+}
+
 -- Frischer Addon-Namespace je Sprachdurchlauf. Die Daten entsprechen dem
 -- echten Snapshot-Format; eigene Übersetzungslabels bestimmen nie die Anzeige.
 local function MakeWAT()
     -- Data.lua wird echt geladen (siehe RunSuite); hier steht bewusst kein
     -- Stub, damit die Ableitung questID -> Labelschluessel wirklich laeuft.
     local WAT = {
-        version = "0.2.6",
+        version = "0.3.0",
         db = {
             settings = {
                 scale = 1,
@@ -114,10 +137,20 @@ local function MakeWAT()
                 seenIntro = true,
             },
             characters = {
+                -- Zweiter Charakter: liefert der Accountsumme einen zweiten
+                -- Summanden und zugleich die Luecken fuer 98/14787/...
+                alt = {
+                    name = "Zweitheld",
+                    realm = "Zweitreich",
+                    lastSeen = 990,
+                    statistics = STATISTICS_ALT,
+                    weekly = {},
+                },
                 test = {
                     name = "Testheld",
                     realm = "Testreich",
                     lastSeen = 995,
+                    statistics = STATISTICS_MAIN,
                     professions = {
                         {
                             name = "Alchemie",
@@ -237,8 +270,14 @@ local function RunSuite(locale, expect)
     }
     -- Rueckgabeform: (1) id, (2) name, (3) points, (4) completed, ...,
     -- (13) wasEarnedByMe. Der Name ist der zweite Rueckgabewert.
+    --
+    -- Statistiken bekommen einen je ID unterscheidbaren Namen: nur so laesst
+    -- sich pruefen, dass der Tooltip wirklich den clientlokalisierten Namen
+    -- zeigt und nicht den eigenen Ersatztext aus dem Woerterbuch.
     function GetAchievementInfo(achievementID)
-        return achievementID, expect.achievement, 10, false, 1, 1, 2026,
+        local name = expect.achievement
+        if achievementID ~= 42769 then name = "Client-Statistik-" .. tostring(achievementID) end
+        return achievementID, name, 10, false, 1, 1, 2026,
             "Beschreibung", 0, "icon", "", false, false, nil
     end
 
@@ -283,7 +322,8 @@ local function RunSuite(locale, expect)
     assert(math.abs(WAT.db.settings.minimapAngle) < 0.01,
         context("gezogene Minimap-Position wurde nicht als Winkel gespeichert"))
 
-    local order = { "overview", "midnight", "professions", "sources", "keystones" }
+    local order = { "overview", "midnight", "professions", "sources", "keystones",
+                    "statistics", "settings" }
     for _, key in ipairs(order) do
         local button = WAT.tabButtons[key]
         assert(button and type(button.scripts.OnClick) == "function", context("Klickziel fehlt: " .. key))
@@ -295,6 +335,7 @@ local function RunSuite(locale, expect)
     end
 
     -- Sidebar- und Seitentitel in der erwarteten Sprache.
+    WAT:SetActiveTab("keystones")
     assert(WAT.pageTitle.text == expect.keystonePanel,
         context("Seitentitel nicht lokalisiert: " .. tostring(WAT.pageTitle.text)))
     assert(WAT.tabButtons.overview.label.text == expect.overviewShort,
@@ -391,6 +432,241 @@ local function RunSuite(locale, expect)
     assert(string.find(genericTooltip, expect.lockedGeneric, 1, true),
         context("ohne lesbaren Erfolgsnamen fehlt der generische Text, erhalten: " .. genericTooltip))
     GetAchievementInfo = savedAchievementInfo
+
+    -- -----------------------------------------------------------------------
+    -- Statistiken: Accountsumme und Charakterzeilen
+    -- -----------------------------------------------------------------------
+
+    WAT:SetActiveTab("statistics")
+    local statisticsPanel = WAT.panels.statistics
+    assert(statisticsPanel, context("Statistik-Panel fehlt"))
+    assert(WAT.pageTitle.text == expect.statisticsPanel,
+        context("Statistik-Seitentitel nicht lokalisiert: " .. tostring(WAT.pageTitle.text)))
+
+    -- Die Spalten folgen exakt Data.STATISTICS - eine zweite Wahrheit ueber
+    -- Reihenfolge oder Menge der Statistiken darf es nicht geben.
+    local statisticColumns = statisticsPanel.columns
+    assert(#statisticColumns == #WAT.Data.STATISTICS + 1,
+        context("Statistik-Panel muss Charakterspalte plus alle neun Statistiken zeigen, hat aber "
+            .. #statisticColumns .. " Spalten"))
+    assert(statisticColumns[1].key == "character", context("erste Statistik-Spalte ist nicht der Charakter"))
+    local statisticsWidth = 0
+    for index, column in ipairs(statisticColumns) do
+        statisticsWidth = statisticsWidth + column.width
+        if index > 1 then
+            local definition = WAT.Data.STATISTICS[index - 1]
+            assert(column.key == definition.key,
+                context("Statistik-Spalte " .. index .. " weicht von Data.STATISTICS ab: "
+                    .. tostring(column.key) .. " statt " .. tostring(definition.key)))
+            assert(column.label == WAT.L(definition.labelKey),
+                context("Statistik-Spaltenkopf nicht lokalisiert: " .. tostring(column.label)))
+            assert(not string.find(column.label, "[", 1, true),
+                context("unaufgeloester Roh-Schluessel im Spaltenkopf: " .. tostring(column.label)))
+        end
+    end
+    assert(statisticsWidth <= 920,
+        context("Statistik-Panel ist mit " .. statisticsWidth .. "px breiter als CONTENT_WIDTH"))
+
+    -- Zeile 1 ist die Accountsumme, danach die sortierten Charakterzeilen.
+    local totalRow = statisticsPanel.rows[1]
+    local mainRow = statisticsPanel.rows[2]
+    local altRow = statisticsPanel.rows[3]
+    assert(totalRow and totalRow.shown == true, context("Accountsummenzeile fehlt"))
+    assert(mainRow and mainRow.shown == true, context("erste Charakterzeile der Statistiken fehlt"))
+    assert(altRow and altRow.shown == true, context("zweite Charakterzeile der Statistiken fehlt"))
+    assert(totalRow.isAccountTotal == true, context("Summenzeile ist nicht als solche markiert"))
+    assert(totalRow.character == nil, context("Summenzeile darf keinem Charakter gehoeren"))
+    assert(string.find(totalRow.values.character.text or "", expect.accountTotal, 1, true),
+        context("Accountsummenzeile nicht lokalisiert, erhalten: "
+            .. tostring(totalRow.values.character.text)))
+    -- Optisch abgesetzt: die Summenzeile traegt eine eigene Zeilenfarbe.
+    assert(totalRow.rowColor ~= mainRow.rowColor,
+        context("Summenzeile ist optisch nicht von den Charakterzeilen abgesetzt"))
+
+    assert(string.find(mainRow.values.character.text or "", "Testheld", 1, true),
+        context("Charakterzeile 1 ist nicht Testheld: " .. tostring(mainRow.values.character.text)))
+    assert(string.find(altRow.values.character.text or "", "Zweitheld", 1, true),
+        context("Charakterzeile 2 ist nicht Zweitheld: " .. tostring(altRow.values.character.text)))
+
+    -- Echte Aggregation, nicht Durchreichen: 120 + 80 = 200.
+    assert(string.find(totalRow.values.delvesTotal.text or "", "200", 1, true),
+        context("Accountsumme addiert die bekannten Werte nicht (erwartet 200), erhalten: "
+            .. tostring(totalRow.values.delvesTotal.text)))
+    assert(string.find(totalRow.values.deathsTotal.text or "", "50", 1, true),
+        context("Accountsumme der Tode falsch (erwartet 50), erhalten: "
+            .. tostring(totalRow.values.deathsTotal.text)))
+    -- Nur ein Charakter kennt den Wert: die Summe ist dieser eine Wert.
+    assert(string.find(totalRow.values.delvesMidnight.text or "", "7", 1, true),
+        context("Accountsumme mit nur einem bekannten Wert falsch (erwartet 7), erhalten: "
+            .. tostring(totalRow.values.delvesMidnight.text)))
+    assert(string.find(totalRow.values.questsCompleted.text or "", "1000", 1, true),
+        context("Accountsumme der Quests falsch (erwartet 1000), erhalten: "
+            .. tostring(totalRow.values.questsCompleted.text)))
+
+    -- Kennt kein Charakter den Wert, bleibt die Summe unbekannt - niemals 0.
+    for _, key in ipairs({ "deathsDungeon", "deathsRaid", "deathsFalling",
+                           "questsDaily", "questsAbandoned" }) do
+        local text = totalRow.values[key].text or ""
+        assert(string.find(text, "-", 1, true),
+            context("unbekannte Accountsumme muss ein Strich sein, erhalten fuer " .. key .. ": " .. text))
+        assert(not string.find(text, "0", 1, true),
+            context("unbekannte Accountsumme darf niemals 0 anzeigen, erhalten fuer " .. key .. ": " .. text))
+    end
+
+    -- Charakterwerte einzeln, Luecken bleiben Luecken.
+    assert(string.find(mainRow.values.delvesTotal.text or "", "120", 1, true),
+        context("eigener Charakterwert fehlt, erhalten: " .. tostring(mainRow.values.delvesTotal.text)))
+    assert(string.find(altRow.values.delvesTotal.text or "", "80", 1, true),
+        context("Charakterwert des zweiten Charakters fehlt, erhalten: "
+            .. tostring(altRow.values.delvesTotal.text)))
+    local missing = mainRow.values.delvesMidnight.text or ""
+    assert(string.find(missing, "-", 1, true) and not string.find(missing, "0", 1, true),
+        context("fehlender Charakterwert muss ein Strich sein und darf nie 0 werden, erhalten: " .. missing))
+
+    -- Lebenslange Werte veralten nicht mit der Woche.
+    local savedIsStale = WAT.IsStale
+    WAT.IsStale = function() return true end
+    WAT:RefreshUI()
+    local staleText = WAT.panels.statistics.rows[2].values.delvesTotal.text or ""
+    assert(string.find(staleText, "120", 1, true),
+        context("lebenslange Statistiken duerfen nicht als alte Woche ausgegraut werden, erhalten: "
+            .. staleText))
+    assert(not string.find(staleText, expect.staleWeek, 1, true),
+        context("Statistikzelle zeigt faelschlich den Wochen-Veraltet-Text: " .. staleText))
+    WAT.IsStale = savedIsStale
+    WAT:RefreshUI()
+
+    -- Tooltip: clientlokalisierter Statistikname gewinnt vor dem Ersatztext.
+    local statisticsTooltipRow = WAT.panels.statistics.rows[2]
+    statisticsTooltipRow.scripts.OnEnter(statisticsTooltipRow)
+    local statisticsTooltip = GameTooltip:TooltipText()
+    assert(string.find(statisticsTooltip, "Client-Statistik-40734", 1, true),
+        context("Statistik-Tooltip zeigt nicht den clientlokalisierten Namen, erhalten: "
+            .. statisticsTooltip))
+    assert(string.find(statisticsTooltip, "120", 1, true),
+        context("Statistik-Tooltip nennt den Wert nicht, erhalten: " .. statisticsTooltip))
+    assert(string.find(statisticsTooltip, expect.statisticsOfflineHint, 1, true),
+        context("Offline-Hinweis der Statistiken nicht lokalisiert, erhalten: " .. statisticsTooltip))
+
+    -- Ohne lesbaren Clientnamen greift der eigene, uebersetzte Ersatzname.
+    local savedInfo = GetAchievementInfo
+    GetAchievementInfo = function() error("kein Erfolg lesbar") end
+    statisticsTooltipRow.scripts.OnEnter(statisticsTooltipRow)
+    local fallbackTooltip = GameTooltip:TooltipText()
+    assert(string.find(fallbackTooltip, expect.statisticFallbackName, 1, true),
+        context("ohne Clientnamen fehlt der lokalisierte Ersatzname, erhalten: " .. fallbackTooltip))
+    GetAchievementInfo = savedInfo
+
+    -- Die Summenzeile erklaert sich selbst und gehoert keinem Charakter.
+    totalRow.scripts.OnEnter(totalRow)
+    local totalTooltip = GameTooltip:TooltipText()
+    assert(string.find(totalTooltip, expect.accountTooltip, 1, true),
+        context("Tooltip der Summenzeile nicht lokalisiert, erhalten: " .. totalTooltip))
+
+    -- -----------------------------------------------------------------------
+    -- Einstellungen: Formularseite statt Charakterzeilen
+    -- -----------------------------------------------------------------------
+
+    WAT:SetActiveTab("settings")
+    local settingsPanel = WAT.panels.settings
+    assert(settingsPanel, context("Einstellungspanel fehlt"))
+    assert(settingsPanel.isForm == true,
+        context("Einstellungspanel muss als Formular markiert sein, sonst rendert RefreshUI Zeilen hinein"))
+    assert(WAT.pageTitle.text == expect.settingsPanel,
+        context("Einstellungs-Seitentitel nicht lokalisiert: " .. tostring(WAT.pageTitle.text)))
+    assert(#settingsPanel.rows == 0,
+        context("Einstellungsseite darf keine Charakterzeilen erzeugen, hat aber "
+            .. #settingsPanel.rows))
+    -- Auf der Formularseite gibt es keine Zeilen zum Berühren.
+    assert(WAT.toolbar.text == WAT.L("CHROME_TOOLBAR_SETTINGS"),
+        context("Werkzeugleiste zeigt auf der Einstellungsseite den falschen Text: "
+            .. tostring(WAT.toolbar.text)))
+    assert(not string.find(WAT.toolbar.text or "", expect.rowHint, 1, true),
+        context("Zeilen-Hinweis gehört nicht auf die Einstellungsseite: "
+            .. tostring(WAT.toolbar.text)))
+
+    local controls = WAT.settingsControls
+    assert(type(controls) == "table", context("Einstellungs-Bedienelemente fehlen"))
+
+    -- Skalierungs-Presets: exakt sechs feste Stufen, kein Schieberegler.
+    local EXPECTED_SCALES = { 0.70, 0.85, 1.00, 1.15, 1.30, 1.50 }
+    assert(type(controls.scalePresets) == "table"
+            and #controls.scalePresets == #EXPECTED_SCALES,
+        context("es muss genau " .. #EXPECTED_SCALES .. " Skalierungs-Presets geben, gefunden "
+            .. tostring(controls.scalePresets and #controls.scalePresets)))
+    for index, expectedScale in ipairs(EXPECTED_SCALES) do
+        local preset = controls.scalePresets[index]
+        assert(math.abs(preset.scale - expectedScale) < 0.0001,
+            context("Preset " .. index .. " ist " .. tostring(preset.scale)
+                .. " statt " .. expectedScale))
+        local percent = tostring(math.floor(expectedScale * 100 + 0.5))
+        assert(string.find(preset.label.text or "", percent, 1, true),
+            context("Preset " .. index .. " beschriftet die Prozentstufe nicht, erhalten: "
+                .. tostring(preset.label.text)))
+    end
+
+    -- Ein Preset setzt gespeicherten Wert und laufende Fensterskalierung.
+    controls.scalePresets[5].scripts.OnClick(controls.scalePresets[5])
+    assert(math.abs(WAT.db.settings.scale - 1.30) < 0.0001,
+        context("Preset speichert die Skalierung nicht, erhalten: "
+            .. tostring(WAT.db.settings.scale)))
+    assert(math.abs(WAT.frame.scale - 1.30) < 0.0001,
+        context("Preset wendet die Skalierung nicht auf das Fenster an, erhalten: "
+            .. tostring(WAT.frame.scale)))
+    controls.scalePresets[3].scripts.OnClick(controls.scalePresets[3])
+    assert(math.abs(WAT.db.settings.scale - 1.00) < 0.0001,
+        context("Rückkehr auf 100% schlägt fehl"))
+
+    -- Minimap-Symbol sichtbar/verborgen, sofort wirksam und persistent.
+    assert(controls.minimapHide and controls.minimapShow,
+        context("Bedienelemente für das Minimap-Symbol fehlen"))
+    controls.minimapHide.scripts.OnClick(controls.minimapHide)
+    assert(WAT.db.settings.minimapHidden == true,
+        context("Verbergen speichert minimapHidden nicht"))
+    assert(WAT.minimapButton:IsShown() == false,
+        context("Verbergen blendet das Minimap-Symbol nicht sofort aus"))
+    controls.minimapShow.scripts.OnClick(controls.minimapShow)
+    assert(WAT.db.settings.minimapHidden == false,
+        context("Anzeigen speichert minimapHidden nicht"))
+    assert(WAT.minimapButton:IsShown() == true,
+        context("Anzeigen blendet das Minimap-Symbol nicht sofort ein"))
+
+    -- Fensterposition zurücksetzen nutzt den vorhandenen Core-Weg.
+    local resetCalls = 0
+    local savedReset = WAT.ResetPosition
+    WAT.ResetPosition = function() resetCalls = resetCalls + 1 end
+    controls.resetPosition.scripts.OnClick(controls.resetPosition)
+    assert(resetCalls == 1, context("Position zurücksetzen ruft ResetPosition nicht auf"))
+    WAT.ResetPosition = savedReset
+
+    -- Aktualisieren geht über den regulären Refresh mit eigenem Grund.
+    local refreshReasons = {}
+    local savedRefresh = WAT.Refresh
+    WAT.Refresh = function(_, reason) refreshReasons[#refreshReasons + 1] = reason end
+    controls.refresh.scripts.OnClick(controls.refresh)
+    assert(refreshReasons[1] == "settings",
+        context("Aktualisieren ruft Refresh nicht mit dem Grund 'settings' auf, erhalten: "
+            .. tostring(refreshReasons[1])))
+    WAT.Refresh = savedRefresh
+
+    -- Keine zerstörerische Aktion auf der Seite.
+    for _, forbidden in ipairs({ "wipe", "Wipe", "delete", "Delete" }) do
+        assert(controls[forbidden] == nil,
+            context("zerstörerisches Bedienelement auf der Einstellungsseite: " .. forbidden))
+    end
+
+    -- Alle sichtbaren Beschriftungen sind aufgelöst, kein Roh-Schlüssel.
+    for _, label in ipairs(controls.labels) do
+        assert(type(label.text) == "string" and label.text ~= "",
+            context("leere Beschriftung auf der Einstellungsseite"))
+        assert(not string.find(label.text, "[", 1, true),
+            context("unaufgelöster Roh-Schlüssel auf der Einstellungsseite: " .. label.text))
+        assert(not string.find(label.text, "nil", 1, true),
+            context("sichtbares nil auf der Einstellungsseite: " .. label.text))
+    end
+    assert(string.find(controls.headingWindow.text or "", expect.settingsWindow, 1, true),
+        context("Abschnittstitel nicht lokalisiert, erhalten: "
+            .. tostring(controls.headingWindow.text)))
 
     WAT:SetActiveTab("overview")
 
@@ -613,6 +889,15 @@ RunSuite("deDE", {
     ritualFarm = "5 M je T6",
     metaLabel = "Tiefen",
     legacyMetaLabel = "Dungeons",
+    settingsPanel = "Einstellungen",
+    settingsWindow = "Fenster",
+    rowHint = "Zeile berühren",
+    statisticsPanel = "Statistiken",
+    accountTotal = "ALLE CHARAKTERE",
+    accountTooltip = "Accountsumme",
+    statisticsOfflineHint = "Lebenslange Werte",
+    statisticFallbackName = "Abgeschlossene Tiefen",
+    staleWeek = "alte Woche",
     keystonePanel = "Schlüsselsteine",
     overviewShort = "ÜBERSICHT",
     colCharacter = "CHARAKTER",
@@ -636,6 +921,15 @@ RunSuite("enUS", {
     ritualFarm = "5 M per T6",
     metaLabel = "Delves",
     legacyMetaLabel = "Dungeons",
+    settingsPanel = "Settings",
+    settingsWindow = "Window",
+    rowHint = "hover a row",
+    statisticsPanel = "Statistics",
+    accountTotal = "ALL CHARACTERS",
+    accountTooltip = "Account total",
+    statisticsOfflineHint = "Lifetime values",
+    statisticFallbackName = "Delves completed",
+    staleWeek = "old week",
     keystonePanel = "Keystones",
     overviewShort = "OVERVIEW",
     colCharacter = "CHARACTER",
@@ -660,6 +954,15 @@ RunSuite("frFR", {
     ritualFarm = "5 M per T6",
     metaLabel = "Delves",
     legacyMetaLabel = "Dungeons",
+    settingsPanel = "Settings",
+    settingsWindow = "Window",
+    rowHint = "hover a row",
+    statisticsPanel = "Statistics",
+    accountTotal = "ALL CHARACTERS",
+    accountTooltip = "Account total",
+    statisticsOfflineHint = "Lifetime values",
+    statisticFallbackName = "Delves completed",
+    staleWeek = "old week",
     keystonePanel = "Keystones",
     overviewShort = "OVERVIEW",
     colCharacter = "CHARACTER",
@@ -669,8 +972,10 @@ RunSuite("frFR", {
     forbiddenInTooltip = { "Klasse", "Angelegte Gegenstandsstufe", "Wochenstand" },
 })
 
-print("LUA UI RUNTIME OK: 5/5 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10,"
+print("LUA UI RUNTIME OK: 7/7 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10,"
     .. " offene Berufs-Wochenquest, gesperrter Wappentausch und Wappensymbole"
     .. " (3343/3345/3347) inklusive 8 Fehlerfälle, short aus Data.CRESTS,"
     .. " keine iconFileID und kein Locale-Text in der DB, questID schlägt Legacy-Label,"
-    .. " Dungeon-ID statt fremdsprachigem Namen - je einmal in deDE, enUS und frFR")
+    .. " Dungeon-ID statt fremdsprachigem Namen, Statistiken mit echter Accountsumme"
+    .. " (200/50/7/1000) und Strich statt 0, Einstellungsformular mit 6 Skalierungsstufen,"
+    .. " Minimap-Sichtbarkeit und Positions-Reset - je einmal in deDE, enUS und frFR")

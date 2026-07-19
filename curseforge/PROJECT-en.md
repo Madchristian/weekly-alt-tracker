@@ -47,7 +47,7 @@ with the changed client language, already-recorded characters appear in the new
 language too; with no localization available you get a neutral dungeon ID
 instead of a name stored in another language.
 
-### Five views
+### Seven views
 
 **Overview** - character level, equipped item level, Gilded Stash (0/4 per week),
 Champion / Hero / Myth Twilight Crests, Great Vault slots for Delves/World and
@@ -68,6 +68,14 @@ Hero-to-Myth exchange potential.
 **Keystones** - the currently owned Mythic+ keystone per character with dungeon
 name and level as an offline snapshot.
 
+**Statistics** - nine lifetime WoW achievement statistics per character,
+including completed delves and deaths. Logged-out characters keep their last
+snapshot; the account total adds only safely known values and shows `-` rather
+than an invented zero when every value is unknown.
+
+**Settings** - refresh data, reset the window position, show or hide the
+minimap button, and change the UI scale directly inside the addon.
+
 ### Honest data
 
 Unknown is never invented as zero. An API value that cannot be read safely is
@@ -81,14 +89,11 @@ Raid progress and the raid vault are deliberately not tracked.
 ### Commands
 
 - `/wat` - show/hide the window
-- `/wat show` / `/wat hide`
-- `/wat refresh` - re-read the logged-in character
-- `/wat resetpos` - centre the window
-- `/wat scale 0.7` to `/wat scale 1.5`
-- `/wat debug` - print the most important raw state to chat
+- `/weeklyalt` - equivalent alias
 
 The minimap button opens the window on left click and can be dragged around the
-minimap edge.
+minimap edge. Refresh, position, scale and button visibility are controlled in
+the **Settings** section; there are no public slash subcommands from 0.3.0 on.
 
 ### Notes
 

@@ -18,7 +18,7 @@ The language follows the WoW client automatically (`GetLocale`); there is no sep
 
 Names that come from the game – class, dungeon, item, profession and achievement – are never translated by the addon. They are always taken from the WoW API in the client's own language. The addon's own translation labels are no longer stored as the authoritative display source: for the Midnight weekly quest, professions and the keystone, stable IDs (`questID`, `baseSkillLineID`, `mapID`) are stored and resolved only when they are displayed – that runtime resolution wins over whatever the snapshot contains. Client-localized names supplied by the WoW API may still end up in the snapshot; they are kept for backwards compatibility and as a fallback. After restarting WoW with the changed client language, already-recorded data appears in the new language as well. If no localization is available at display time, the keystone view shows the language-neutral dungeon ID instead of a name stored in another language.
 
-The slash commands themselves (`/wat show`, `hide`, `refresh`, `resetpos`, `scale`, `debug`) are identical in both languages; only their output is translated.
+The slash command `/wat` is identical in both languages; only its output is translated.
 
 ## What it tracks
 
@@ -77,17 +77,42 @@ The repeatable sources have no retroactive per-source weekly counter. The addon 
 
 The dungeon name is resolved at display time from the map ID via the WoW API. If the client cannot supply a name, the addon shows the language-neutral `Dungeon ID <id>` rather than a possibly foreign-language name stored during an earlier scan.
 
+### Statistics
+
+New in 0.3.0. This section shows nine lifetime WoW achievement statistics per character plus a visually distinct account total above them:
+
+- Delves completed in total and Midnight delves completed
+- Total deaths, deaths in dungeons, deaths in raids and deaths from falling
+- Quests completed, daily quests completed and quests abandoned
+
+The values are read through `GetStatistic` for the logged-in character only. Offline characters keep their last snapshot; the values are lifetime figures and are therefore never greyed out as `old week`. They live next to the weekly block and survive the weekly reset.
+
+The account total sums only safely known character values. If no character knows a value, the total shows `-` and never `0` - otherwise a character that has never logged in would be indistinguishable from a character with a genuine zero deaths. Characters without a recorded value are not counted. The full, client-localized statistic names are in the tooltip; only the numeric statistic ID is ever written to the SavedVariables.
+
+### Settings
+
+New in 0.3.0. Every option lives in the last section of the left navigation instead of behind slash subcommands:
+
+- `Refresh now` - re-reads the logged-in character
+- `Reset position` - centres the window
+- Minimap button `Visible` / `Hidden` - applies immediately and account-wide
+- Window scale as fixed steps: 70%, 85%, 100%, 115%, 130%, 150%
+
+There is deliberately no slider: the fixed steps stay exactly inside the range the addon accepts on load. There is likewise deliberately no action to delete the database - such a loss would be unrecoverable and does not belong behind a single click.
+
 ## Interface
 
-Version 0.2.6 uses a standalone Midnight-dark layout inspired by EllesmereUI principles: a fixed left navigation, a large page header with description, flat buttons and compact comparison tables. The addon copies no EllesmereUI assets and does not require EllesmereUI as a dependency.
+Version 0.3.0 uses a standalone Midnight-dark layout inspired by EllesmereUI principles: a fixed left navigation, a large page header with description, flat buttons and compact comparison tables. The addon copies no EllesmereUI assets and does not require EllesmereUI as a dependency.
 
-The left navigation has five sections:
+The left navigation has seven sections:
 
 1. `Overview`
 2. `Midnight Week`
 3. `Professions`
 4. `Crest Sources`
 5. `Keystones`
+6. `Statistics`
+7. `Settings`
 
 Status colours:
 
@@ -108,13 +133,9 @@ The installation path depends on the drive you chose; the Windows default is `C:
 
 ## Usage
 
-- `/wat` – show/hide the window
-- `/wat show` / `/wat hide`
-- `/wat refresh` – re-read the logged-in character
-- `/wat resetpos` – centre the window
-- `/wat scale 0.7` to `/wat scale 1.5`
-- `/wat debug` – print the most important raw state to chat
-- Minimap button: left click opens or closes the window; dragging changes the stored position
+- `/wat` – show/hide the window; `/weeklyalt` remains an equivalent alias. From 0.3.0 on there are no public subcommands.
+- Any argument after `/wat` opens the `Settings` section directly; the former subcommands `show`, `hide`, `refresh`, `resetpos` and `scale` moved there without replacement.
+- Minimap button: left click opens or closes the window; dragging changes the stored position. The button can be hidden in the `Settings` section.
 
 ## Important technical limits
 
@@ -133,17 +154,18 @@ The overview shows `M+10` in green as `Yes` as soon as the Blizzard vault report
 ## In-game test procedure
 
 1. Enable the addon and run `/reload`.
-2. Open `/wat` and click all five entries of the left navigation.
-3. Run `/wat debug`.
-4. Open the Great Vault and run `/wat refresh`.
+2. Open `/wat` and click all seven entries of the left navigation.
+3. In the `Settings` section pick a scale step, hide and show the minimap button again and reset the position.
+4. Open the Great Vault and click `Refresh now` in the `Settings` section.
 5. Hover the vault row and check the item level per slot.
 6. After a completion at +10 or higher, check `M+10 / 272` in the overview for a green `Yes`.
 7. Enter a Tier 11 Bountiful Delve and afterwards check the Gilded Stash.
 8. Open the quest log or complete a Midnight activity and check the `Midnight Week` section.
 9. In the `Professions` section check skill, `Free / Bags`, profession weekly and treatise; hover the row for item details.
 10. In the `Keystones` section check dungeon name and level of a character holding a Mythic+ keystone.
-11. Log in an alt and check that both character snapshots are visible.
-12. Check for Lua errors with BugSack/!BugGrabber.
+11. In the `Statistics` section check that the logged-in character's values appear and that the account total really adds up across at least two characters. Statistics are only filled once the achievement data has been loaded; until then `-` is shown.
+12. Log in an alt and check that both character snapshots are visible.
+13. Check for Lua errors with BugSack/!BugGrabber.
 
 ## Development
 
@@ -178,7 +200,7 @@ Fengari, luaparse and the Python scripts are pure development tools and are not 
 
 Releases are produced by [BigWigsMods/packager](https://github.com/BigWigsMods/packager) via GitHub Actions (`.github/workflows/release.yml`).
 
-The workflow runs only for tags matching `v*`, for example `v0.2.6`. Normal pushes to `main` do not create a release. There is also `workflow_dispatch` for a manual dry run; it only packages and uploads nothing (packager option `-d`).
+The workflow runs only for tags matching `v*`, for example `v0.3.0`. Normal pushes to `main` do not create a release. There is also `workflow_dispatch` for a manual dry run; it only packages and uploads nothing (packager option `-d`).
 
 Before every tag, the fixed version in `WeeklyAltTracker.toc` and `Core.lua` as well as the guides and changelog must be updated to the same release state. The packager names the release after the tag but deliberately does not replace the fixed addon version automatically.
 
@@ -192,7 +214,7 @@ The GitHub release is created with the automatically provided `GITHUB_TOKEN`; no
 
 The addon is published on Wago Addons: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). The project ID `ZKxZJkNk` is declared as `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` and is also visible on the project page.
 
-Version 0.2.6 was published through the official Wago upload API as a stable release for Retail patch 12.0.7. The public CDN ZIP was downloaded and verified byte-for-byte against the uploaded package.
+Version 0.2.6 was published through the official Wago upload API as a stable release for Retail patch 12.0.7. The public CDN ZIP was downloaded and verified byte-for-byte against the uploaded package. Version 0.3.0 is prepared but not published yet.
 
 The secret `WAGO_API_TOKEN` is stored in the repository under *Settings → Secrets and variables → Actions*. The token value belongs exclusively in that secret and never in the repository.
 
@@ -202,7 +224,7 @@ The project-side CurseForge texts are versioned under `curseforge/`:
 
 - `PROJECT-en.md` – English title, summary and description. CurseForge requires English as the project language.
 - `PROJECT-de.md` – German additional version of the same description.
-- `CHANGELOG-0.2.6-en.md` and `CHANGELOG-0.2.6-de.md` – change log for the release.
+- `CHANGELOG-0.3.0-en.md` and `CHANGELOG-0.3.0-de.md` – change log for the release.
 
 The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 
@@ -217,7 +239,7 @@ The separate workflow `.github/workflows/curseforge-package.yml` (**Build CurseF
 
 The workflow runs the full `tools/check.py` first and then verifies the built ZIP with `tools/verify_package.py` (14 expected files under `WeeklyAltTracker/`, byte-identical to the repository, TOC fields, no secret assignments). The bundled `SHA256SUMS.txt` is there to check the downloaded file.
 
-The addon is listed on CurseForge at [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker). The project uses Project ID `1616769` under the **All Rights Reserved** licence; the ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.2.6 is initially uploaded manually through the CurseForge project page, which does not require an API key. Automated CurseForge uploads are deliberately not configured without `CF_API_KEY`.
+The addon is listed on CurseForge at [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker). The project uses Project ID `1616769` under the **All Rights Reserved** licence; the ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.3.0 is uploaded manually through the CurseForge project page just like 0.2.6, which does not require an API key. Automated CurseForge uploads are deliberately not configured without `CF_API_KEY`.
 
 ## Data provenance and third parties
 

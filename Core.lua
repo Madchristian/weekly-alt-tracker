@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "0.2.6"
+WAT.version = "0.3.0"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -41,6 +41,9 @@ local function NormalizeCharacter(record, oldKey)
     record.weekly = SafeTable(record.weekly) or {}
     record.season = SafeTable(record.season) or {}
     record.professions = SafeTable(record.professions) or {}
+    -- Additiv: eine 0.2.6-Datenbank kennt noch keine Statistiken. Der Container
+    -- wird nur ergaenzt, das Schema bleibt deshalb bei Version 2.
+    record.statistics = SafeTable(record.statistics) or {}
     record.guid = SafeString(record.guid)
     -- Kein Ersatztext: ein unlesbarer Name bleibt nil und wird erst zur
     -- Renderzeit lokalisiert. In die SavedVariables gehoert kein Locale-Text.
@@ -97,9 +100,18 @@ function WAT:InitializeDatabase()
         y = SafeNumber(position.y, 0),
     }
     settings.minimapAngle = SafeNumber(settings.minimapAngle, 225) % 360
+    -- Ein echter Boolean mit Vorgabe false. Ein kaputter oder unlesbarer Wert
+    -- darf nicht zu nil kollabieren, sonst waere "sichtbar" nicht mehr von
+    -- "nie eingestellt" zu unterscheiden.
+    local minimapHidden = settings.minimapHidden
+    if (issecretvalue and issecretvalue(minimapHidden)) or type(minimapHidden) ~= "boolean" then
+        minimapHidden = false
+    end
+    settings.minimapHidden = minimapHidden
     local activeTab = SafeString(settings.activeTab)
     settings.activeTab = (activeTab == "overview" or activeTab == "midnight"
-        or activeTab == "professions" or activeTab == "sources" or activeTab == "keystones")
+        or activeTab == "professions" or activeTab == "sources" or activeTab == "keystones"
+        or activeTab == "statistics" or activeTab == "settings")
         and activeTab or "overview"
     db.version = 2
     self.db = db
@@ -204,6 +216,14 @@ function WAT:RefreshKeystone(reason)
     if self.RefreshUI then self:RefreshUI() end
 end
 
+function WAT:RefreshStatistics(reason)
+    if not self.db then return end
+    local character = self:PrepareCurrentCharacter()
+    if self.ScanStatistics then self:ScanStatistics(character, reason) end
+    character.lastSeen = time()
+    if self.RefreshUI then self:RefreshUI() end
+end
+
 function WAT:SaveFramePosition()
     if not self.frame or not self.db then return end
     local point, _, relativePoint, x, y = self.frame:GetPoint(1)
@@ -222,29 +242,10 @@ function WAT:ResetPosition()
 end
 
 local function HandleSlash(message)
-    local command, argument = string.match(message or "", "^%s*(%S*)%s*(.-)%s*$")
+    local command = string.match(message or "", "^%s*(%S*)")
     command = string.lower(command or "")
     if command == "" then
-        WAT:ToggleUI()
-    elseif command == "show" then
-        WAT:ShowUI()
-    elseif command == "hide" then
-        WAT:HideUI()
-    elseif command == "refresh" then
-        WAT:Refresh("slash")
-        Print(WAT.L("SLASH_REFRESHED"))
-    elseif command == "resetpos" then
-        WAT:ResetPosition()
-        Print(WAT.L("SLASH_POSITION_RESET"))
-    elseif command == "scale" then
-        local scale = tonumber(argument)
-        if scale and scale >= 0.7 and scale <= 1.5 then
-            WAT.db.settings.scale = scale
-            if WAT.frame then WAT.frame:SetScale(scale) end
-            Print(WAT.L("SLASH_SCALE_SET", tostring(scale)))
-        else
-            Print(WAT.L("SLASH_SCALE_USAGE"))
-        end
+        if WAT.ToggleUI then WAT:ToggleUI() end
     elseif command == "debug" then
         local character = WAT.db.characters[WAT.currentKey]
         local weekly = character and character.weekly or {}
@@ -266,6 +267,14 @@ local function HandleSlash(message)
             tostring(champion), tostring(hero), tostring(myth), keystoneText,
             character and date(WAT.L("DATE_FORMAT_SHORT"), character.weekEnd or 0) or "?"))
     else
+        -- Ab 0.3.0 gibt es keine oeffentlichen Unterbefehle mehr. Statt eine
+        -- Befehlsliste zu drucken, fuehrt jedes Argument dorthin, wo die
+        -- Optionen jetzt liegen. Die Guards sind noetig, weil Core.lua vor
+        -- UI.lua geladen wird und ein Aufruf theoretisch davor liegen kann.
+        if WAT.ShowUI then WAT:ShowUI() end
+        if WAT.SetActiveTab and WAT.panels and WAT.panels.settings then
+            WAT:SetActiveTab("settings")
+        end
         Print(WAT.L("SLASH_HELP"))
     end
 end
@@ -304,9 +313,19 @@ WAT.events:SetScript("OnEvent", function(_, event, ...)
         RegisterEventSafely("SKILL_LINE_SPECS_RANKS_CHANGED")
         RegisterEventSafely("TRAIT_CONFIG_UPDATED")
         RegisterEventSafely("ACHIEVEMENT_EARNED")
+        -- Statistiken. RECEIVED_ACHIEVEMENT_LIST feuert, sobald der Client die
+        -- Erfolgsdaten nachgeladen hat - vorher liefert GetStatistic nur "--".
+        -- CRITERIA_UPDATE waere der naheliegende, aber falsche Kandidat: es
+        -- feuert im Kampf im Sekundentakt und wuerde den Scan sinnlos treiben.
+        RegisterEventSafely("RECEIVED_ACHIEVEMENT_LIST")
+        RegisterEventSafely("PLAYER_DEAD")
     elseif event == "PLAYER_LOGIN" then
         WAT:Refresh(event)
         C_Timer.After(2, function() WAT:Refresh("delayed-login") end)
+    elseif event == "PLAYER_DEAD" then
+        -- Neun Statistikaufrufe genuegen. Vault, Taschen, Widgets und Berufe
+        -- muessen im Todesmoment nicht komplett neu gescannt werden.
+        WAT:RefreshStatistics(event)
     elseif event == "BAG_UPDATE_DELAYED" then
         WAT:Refresh(event)
     elseif event == "MYTHIC_PLUS_CURRENT_AFFIX_UPDATE" then

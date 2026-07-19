@@ -15,6 +15,7 @@ local COLORS = {
     surface = { 0.043, 0.058, 0.075, 0.98 },
     alternate = { 0.035, 0.048, 0.063, 0.98 },
     hover = { 0.072, 0.112, 0.120, 1 },
+    total = { 0.055, 0.105, 0.115, 0.99 },
     line = { 1, 1, 1, 0.07 },
     turquoise = { 0.050, 0.820, 0.620, 1 },
     violet = { 0.655, 0.482, 1, 1 },
@@ -102,7 +103,38 @@ local PANELS = {
             { key = "updated", label = L("COL_DATA_AGE"), width = 120 },
         },
     },
+    -- Die Spaltenschluessel sind identisch mit Data.STATISTICS[i].key und in
+    -- derselben Reihenfolge; der Runtime-Harness prueft das gegeneinander,
+    -- damit es ueber Reihenfolge und Menge keine zweite Wahrheit gibt.
+    statistics = {
+        label = L("PANEL_STATISTICS"),
+        shortLabel = L("PANEL_STATISTICS_SHORT"),
+        description = L("PANEL_STATISTICS_DESC"),
+        columns = {
+            { key = "character", label = L("COL_CHARACTER"), width = 152, left = true },
+            { key = "delvesTotal", label = L("STAT_COL_DELVES"), width = 85 },
+            { key = "delvesMidnight", label = L("STAT_COL_DELVES_MIDNIGHT"), width = 85 },
+            { key = "deathsTotal", label = L("STAT_COL_DEATHS"), width = 85 },
+            { key = "deathsDungeon", label = L("STAT_COL_DEATHS_DUNGEON"), width = 85 },
+            { key = "deathsRaid", label = L("STAT_COL_DEATHS_RAID"), width = 85 },
+            { key = "deathsFalling", label = L("STAT_COL_DEATHS_FALLING"), width = 85 },
+            { key = "questsCompleted", label = L("STAT_COL_QUESTS"), width = 85 },
+            { key = "questsDaily", label = L("STAT_COL_QUESTS_DAILY"), width = 85 },
+            { key = "questsAbandoned", label = L("STAT_COL_QUESTS_ABANDONED"), width = 85 },
+        },
+    },
+    -- Formularseite ohne Spalten und ohne Charakterzeilen.
+    settings = {
+        label = L("PANEL_SETTINGS"),
+        shortLabel = L("PANEL_SETTINGS_SHORT"),
+        description = L("PANEL_SETTINGS_DESC"),
+    },
 }
+
+-- Feste Stufen statt eines Schiebereglers: der Wertebereich bleibt damit exakt
+-- der, den Core.lua beim Laden akzeptiert, und jeder Schritt ist reproduzierbar
+-- statt von einer Pixelposition abhaengig.
+local SCALE_PRESETS = { 0.70, 0.85, 1.00, 1.15, 1.30, 1.50 }
 
 local function SetBackdrop(frame, background, border)
     frame:SetBackdrop({
@@ -627,7 +659,89 @@ local function ShowKeystoneTooltip(weekly, stale)
     AddTooltipLine(L("KEY_RECORDED"), FormatAge(keystone.updated))
 end
 
+-- ---------------------------------------------------------------------------
+-- Erfolgsstatistiken
+--
+-- Lebenslange Werte: sie veralten nicht mit der Woche und werden deshalb nie
+-- als "alte Woche" ausgegraut. Unbekannt bleibt ein Strich - ein fehlender
+-- Wert darf nie als 0 erscheinen, sonst waere ein nie eingeloggter Charakter
+-- von einem Charakter mit echten 0 Toden nicht mehr zu unterscheiden.
+-- ---------------------------------------------------------------------------
+
+local function StatisticValue(character, statisticID)
+    if type(character) ~= "table" or type(statisticID) ~= "number" then return nil end
+    local store = character.statistics
+    if type(store) ~= "table" then return nil end
+    local entry = store[statisticID]
+    if type(entry) ~= "table" or type(entry.value) ~= "number" then return nil end
+    return entry.value
+end
+
+local function StatisticCellText(value)
+    if type(value) ~= "number" then return COLORS.unknown .. "-|r" end
+    return "|cffd8e0e7" .. tostring(value) .. "|r"
+end
+
+-- Summiert ausschliesslich sicher bekannte Charakterwerte. Kennt kein
+-- Charakter den Wert, bleibt die Summe unbekannt statt 0 zu behaupten.
+local function AccountStatisticTotal(characters, statisticID)
+    local total
+    if type(characters) ~= "table" then return nil end
+    for _, character in ipairs(characters) do
+        local value = StatisticValue(character, statisticID)
+        if value ~= nil then
+            if total == nil then total = 0 end
+            total = total + value
+        end
+    end
+    return total
+end
+
+local function StatisticDefinitions()
+    local definitions = WAT.Data and WAT.Data.STATISTICS
+    return type(definitions) == "table" and definitions or {}
+end
+
+-- Der Statistikname kommt clientlokalisiert aus GetAchievementInfo. Nur wenn
+-- er nicht sicher lesbar ist, greift der eigene uebersetzte Ersatzname.
+local function StatisticDisplayName(definition)
+    local name = AchievementName(definition.statisticID)
+    if name then return name end
+    return type(definition.nameKey) == "string" and L(definition.nameKey) or L("STATUS_UNKNOWN")
+end
+
+local function ShowStatisticsTooltip(character)
+    for _, definition in ipairs(StatisticDefinitions()) do
+        local value = StatisticValue(character, definition.statisticID)
+        AddTooltipLine(StatisticDisplayName(definition),
+            type(value) == "number" and tostring(value) or L("STAT_NOT_RECORDED"))
+    end
+    local store = type(character) == "table" and type(character.statistics) == "table"
+        and character.statistics or {}
+    AddTooltipLine(L("STAT_RECORDED"), FormatAge(store.scanned))
+end
+
+local function ShowAccountTotalTooltip(characters)
+    for _, definition in ipairs(StatisticDefinitions()) do
+        local total = AccountStatisticTotal(characters, definition.statisticID)
+        AddTooltipLine(StatisticDisplayName(definition),
+            type(total) == "number" and tostring(total) or L("STAT_NOT_RECORDED"))
+    end
+end
+
 function WAT:ShowCharacterTooltip(row)
+    -- Die Summenzeile gehoert keinem Charakter und hat einen eigenen Tooltip.
+    if row.isAccountTotal then
+        GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+        GameTooltip:ClearLines()
+        GameTooltip:AddLine(L("STAT_ACCOUNT_TOOLTIP"),
+            COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
+        ShowAccountTotalTooltip(row.characters)
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(L("STAT_ACCOUNT_HINT"), 0.56, 0.6, 0.66, true)
+        GameTooltip:Show()
+        return
+    end
     local character = row.character
     if not character then return end
     local weekly = type(character.weekly) == "table" and character.weekly or {}
@@ -645,11 +759,16 @@ function WAT:ShowCharacterTooltip(row)
         ShowSourcesTooltip(character, weekly)
     elseif row.panelKey == "keystones" then
         ShowKeystoneTooltip(weekly, stale)
+    elseif row.panelKey == "statistics" then
+        ShowStatisticsTooltip(character)
     else
         ShowOverviewTooltip(character, weekly, stale)
     end
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine(L("TOOLTIP_OFFLINE_HINT"), 0.56, 0.6, 0.66, true)
+    -- Statistiken sind lebenslang, nicht woechentlich: der Hinweis erklaert
+    -- deshalb den Offline-Stand, nicht den Wochenstand.
+    local hint = row.panelKey == "statistics" and L("STAT_OFFLINE_HINT") or L("TOOLTIP_OFFLINE_HINT")
+    GameTooltip:AddLine(hint, 0.56, 0.6, 0.66, true)
     GameTooltip:Show()
 end
 
@@ -741,6 +860,150 @@ local function CreatePanel(parent, key, definition)
     return panel
 end
 
+-- ---------------------------------------------------------------------------
+-- Einstellungsseite
+--
+-- Eigene, flache Buttons statt Blizzard-Templates: die uebrige UI verwendet
+-- ebenfalls keine, und ein Template braechte fremde Schrift und Metrik in die
+-- Seite. Ein Schieberegler ist bewusst nicht dabei - feste Prozentstufen
+-- bleiben im von Core.lua akzeptierten Bereich und sind reproduzierbar.
+-- ---------------------------------------------------------------------------
+
+local function CreateFormButton(parent, label, width, x, y)
+    local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    button:SetSize(width, 30)
+    button:SetPoint("TOPLEFT", x, y)
+    SetBackdrop(button, { 0.061, 0.095, 0.120, 0.60 }, { 1, 1, 1, 0.18 })
+    local text = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    text:SetPoint("CENTER")
+    text:SetTextColor(1, 1, 1, 0.62)
+    text:SetText(label)
+    button.label = text
+    button:SetScript("OnEnter", function(self)
+        if self.active then return end
+        self:SetBackdropColor(0.075, 0.113, 0.141, 0.98)
+        self:SetBackdropBorderColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.55)
+        self.label:SetTextColor(1, 1, 1, 0.92)
+    end)
+    button:SetScript("OnLeave", function(self)
+        if self.active then return end
+        self:SetBackdropColor(0.061, 0.095, 0.120, 0.60)
+        self:SetBackdropBorderColor(1, 1, 1, 0.18)
+        self.label:SetTextColor(1, 1, 1, 0.62)
+    end)
+    return button
+end
+
+-- Hebt genau die Schaltflaeche hervor, die den aktuellen Zustand abbildet.
+local function SetFormButtonActive(button, active)
+    button.active = active
+    if active then
+        button:SetBackdropColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.16)
+        button:SetBackdropBorderColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.65)
+        button.label:SetTextColor(1, 1, 1, 1)
+        return
+    end
+    button:SetBackdropColor(0.061, 0.095, 0.120, 0.60)
+    button:SetBackdropBorderColor(1, 1, 1, 0.18)
+    button.label:SetTextColor(1, 1, 1, 0.62)
+end
+
+function WAT:UpdateSettingsState()
+    local controls = self.settingsControls
+    if not controls then return end
+    local scale = self.SafeNumber(self.db.settings.scale, 1)
+    for _, preset in ipairs(controls.scalePresets) do
+        SetFormButtonActive(preset, math.abs(preset.scale - scale) < 0.001)
+    end
+    local hidden = self.db.settings.minimapHidden == true
+    SetFormButtonActive(controls.minimapShow, not hidden)
+    SetFormButtonActive(controls.minimapHide, hidden)
+end
+
+function WAT:SetMinimapHidden(hidden)
+    self.db.settings.minimapHidden = hidden and true or false
+    if self.minimapButton then
+        if hidden then self.minimapButton:Hide() else self.minimapButton:Show() end
+    end
+    self:UpdateSettingsState()
+end
+
+function WAT:SetScalePreset(scale)
+    self.db.settings.scale = scale
+    if self.frame then self.frame:SetScale(scale) end
+    self:UpdateSettingsState()
+end
+
+local function CreateSettingsPanel(parent, definition)
+    local panel = CreateFrame("Frame", nil, parent)
+    panel:SetPoint("TOPLEFT", CONTENT_LEFT, -150)
+    panel:SetPoint("BOTTOMRIGHT", -20, 48)
+    panel.key = "settings"
+    panel.isForm = true
+    panel.columns = {}
+    panel.rows = {}
+
+    local controls = { scalePresets = {}, labels = {} }
+
+    local function Heading(text, y)
+        local heading = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        heading:SetPoint("TOPLEFT", 0, y)
+        heading:SetTextColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.9)
+        heading:SetText(text)
+        controls.labels[#controls.labels + 1] = heading
+        return heading
+    end
+
+    local function Description(text, y)
+        local line = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        line:SetPoint("TOPLEFT", 0, y)
+        line:SetWidth(CONTENT_WIDTH - 20)
+        line:SetJustifyH("LEFT")
+        line:SetTextColor(1, 1, 1, 0.42)
+        line:SetText(text)
+        controls.labels[#controls.labels + 1] = line
+        return line
+    end
+
+    local function Button(label, width, x, y)
+        local button = CreateFormButton(panel, label, width, x, y)
+        controls.labels[#controls.labels + 1] = button.label
+        return button
+    end
+
+    controls.headingWindow = Heading(L("SETTINGS_HEADING_WINDOW"), 0)
+    controls.refresh = Button(L("SETTINGS_REFRESH"), 180, 0, -26)
+    controls.refresh:SetScript("OnClick", function() WAT:Refresh("settings") end)
+    controls.resetPosition = Button(L("SETTINGS_RESET_POSITION"), 180, 192, -26)
+    controls.resetPosition:SetScript("OnClick", function() WAT:ResetPosition() end)
+    Description(L("SETTINGS_WINDOW_DESC"), -64)
+
+    controls.headingMinimap = Heading(L("SETTINGS_HEADING_MINIMAP"), -108)
+    controls.minimapShow = Button(L("SETTINGS_MINIMAP_SHOW"), 120, 0, -134)
+    controls.minimapShow:SetScript("OnClick", function() WAT:SetMinimapHidden(false) end)
+    controls.minimapHide = Button(L("SETTINGS_MINIMAP_HIDE"), 120, 132, -134)
+    controls.minimapHide:SetScript("OnClick", function() WAT:SetMinimapHidden(true) end)
+    Description(L("SETTINGS_MINIMAP_DESC"), -172)
+
+    controls.headingScale = Heading(L("SETTINGS_HEADING_SCALE"), -216)
+    for index, scale in ipairs(SCALE_PRESETS) do
+        -- Lua 5.1: der Wert muss pro Durchlauf gebunden werden, sonst sehen
+        -- alle Klickziele denselben letzten Schleifenwert.
+        local presetScale = scale
+        local percent = math.floor(presetScale * 100 + 0.5)
+        local button = Button(L("SETTINGS_SCALE_PERCENT", percent), 84, (index - 1) * 92, -242)
+        button.scale = presetScale
+        button:SetScript("OnClick", function() WAT:SetScalePreset(presetScale) end)
+        controls.scalePresets[index] = button
+    end
+    Description(L("SETTINGS_SCALE_DESC"), -280)
+
+    WAT.settingsControls = controls
+    -- Der Titel steht im Seitenkopf; definition liefert ihn ueber SetActiveTab.
+    panel.definition = definition
+    return panel
+end
+
 local function Atan2(y, x)
     if math.atan2 then return math.atan2(y, x) end
     if x > 0 then return math.atan(y / x) end
@@ -816,6 +1079,9 @@ function WAT:CreateMinimapButton()
 
     self.minimapButton = button
     self:UpdateMinimapButtonPosition()
+    -- Die gespeicherte Sichtbarkeit gilt sofort, nicht erst nach dem ersten
+    -- Oeffnen der Einstellungen.
+    if self.db.settings.minimapHidden == true then button:Hide() end
 end
 
 function WAT:SetActiveTab(key)
@@ -907,14 +1173,19 @@ function WAT:CreateUI()
 
     self.tabButtons = {}
     self.panels = {}
-    local tabOrder = { "overview", "midnight", "professions", "sources", "keystones" }
+    local tabOrder = { "overview", "midnight", "professions", "sources", "keystones",
+                       "statistics", "settings" }
     for index, key in ipairs(tabOrder) do
         local targetKey = key
         local definition = PANELS[targetKey]
         local button = CreateNavButton(sidebar, definition, -108 - ((index - 1) * 42))
         button:SetScript("OnClick", function() WAT:SetActiveTab(targetKey) end)
         self.tabButtons[targetKey] = button
-        self.panels[targetKey] = CreatePanel(frame, targetKey, definition)
+        if targetKey == "settings" then
+            self.panels[targetKey] = CreateSettingsPanel(frame, definition)
+        else
+            self.panels[targetKey] = CreatePanel(frame, targetKey, definition)
+        end
     end
 
     local sideHint = sidebar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -1149,35 +1420,92 @@ local function FillKeystones(row, character, weekly, stale)
         .. FormatAge(keystone.updated) .. "|r")
 end
 
+local function FillStatistics(row, character)
+    -- Lebenslange Werte veralten nicht mit der Woche: bewusst ohne stale.
+    row.values.character:SetText(ClassColoredName(character, false))
+    for _, definition in ipairs(StatisticDefinitions()) do
+        local cell = row.values[definition.key]
+        if cell then
+            cell:SetText(StatisticCellText(StatisticValue(character, definition.statisticID)))
+        end
+    end
+end
+
+local function FillStatisticsTotal(row, characters)
+    row.values.character:SetText("|cff32e6c4" .. L("STAT_ACCOUNT_TOTAL") .. "|r")
+    for _, definition in ipairs(StatisticDefinitions()) do
+        local cell = row.values[definition.key]
+        if cell then
+            cell:SetText(StatisticCellText(
+                AccountStatisticTotal(characters, definition.statisticID)))
+        end
+    end
+end
+
+local function PlaceRow(panel, index)
+    local row = panel.rows[index] or CreateRow(panel, index)
+    row:SetPoint("TOPLEFT", 0, -((index - 1) * ROW_HEIGHT))
+    return row
+end
+
+local function PaintRow(row, color)
+    row.rowColor = color
+    row:SetBackdropColor(color[1], color[2], color[3], color[4])
+end
+
 function WAT:RefreshUI()
     if not self.frame or not self.panels then return end
     local characters = GetCharacters()
-    self.toolbar:SetText(L("CHROME_TOOLBAR_COUNT", #characters))
+    if self.activeTab == "settings" then
+        self.toolbar:SetText(L("CHROME_TOOLBAR_SETTINGS"))
+    else
+        self.toolbar:SetText(L("CHROME_TOOLBAR_COUNT", #characters))
+    end
+    self:UpdateSettingsState()
 
     for panelKey, panel in pairs(self.panels) do
-        for _, row in ipairs(panel.rows) do row:Hide() end
-        for index, character in ipairs(characters) do
-            local row = panel.rows[index] or CreateRow(panel, index)
-            row.character = character
-            row:SetPoint("TOPLEFT", 0, -((index - 1) * ROW_HEIGHT))
-            row.rowColor = index % 2 == 0 and COLORS.alternate or COLORS.surface
-            row:SetBackdropColor(row.rowColor[1], row.rowColor[2], row.rowColor[3], row.rowColor[4])
-            local weekly = type(character.weekly) == "table" and character.weekly or {}
-            local stale = self:IsStale(character)
-            if panelKey == "midnight" then
-                FillMidnight(row, character, weekly, stale)
-            elseif panelKey == "professions" then
-                FillProfessions(row, character, weekly, stale)
-            elseif panelKey == "sources" then
-                FillSources(row, character, weekly, stale)
-            elseif panelKey == "keystones" then
-                FillKeystones(row, character, weekly, stale)
-            else
-                FillOverview(row, character, weekly, stale)
+        -- Das Einstellungspanel ist ein Formular ohne Charakterzeilen.
+        if not panel.isForm then
+            for _, row in ipairs(panel.rows) do row:Hide() end
+            local index = 0
+            -- Die Accountsumme steht als eigene, optisch abgesetzte Zeile ganz
+            -- oben und gehoert keinem Charakter.
+            if panelKey == "statistics" then
+                index = index + 1
+                local row = PlaceRow(panel, index)
+                row.character = nil
+                row.isAccountTotal = true
+                row.characters = characters
+                PaintRow(row, COLORS.total)
+                FillStatisticsTotal(row, characters)
+                row:Show()
             end
-            row:Show()
+            for _, character in ipairs(characters) do
+                index = index + 1
+                local row = PlaceRow(panel, index)
+                row.character = character
+                row.isAccountTotal = nil
+                row.characters = nil
+                PaintRow(row, index % 2 == 0 and COLORS.alternate or COLORS.surface)
+                local weekly = type(character.weekly) == "table" and character.weekly or {}
+                local stale = self:IsStale(character)
+                if panelKey == "midnight" then
+                    FillMidnight(row, character, weekly, stale)
+                elseif panelKey == "professions" then
+                    FillProfessions(row, character, weekly, stale)
+                elseif panelKey == "sources" then
+                    FillSources(row, character, weekly, stale)
+                elseif panelKey == "keystones" then
+                    FillKeystones(row, character, weekly, stale)
+                elseif panelKey == "statistics" then
+                    FillStatistics(row, character)
+                else
+                    FillOverview(row, character, weekly, stale)
+                end
+                row:Show()
+            end
+            panel.child:SetHeight(math.max(1, index * ROW_HEIGHT))
         end
-        panel.child:SetHeight(math.max(1, #characters * ROW_HEIGHT))
     end
 end
 

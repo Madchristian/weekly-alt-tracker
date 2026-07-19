@@ -200,12 +200,17 @@ for _, dictionary in ipairs({ rawDE, rawEN }) do
 end
 
 -- Formatierung liefert die eingesetzten Werte.
-local formatted = de.L("SLASH_SCALE_SET", 1.25)
-check(type(formatted) == "string" and string.find(formatted, "1.25", 1, true) ~= nil,
+local formatted = de.L("ITEM_FALLBACK", 1234)
+check(type(formatted) == "string" and string.find(formatted, "1234", 1, true) ~= nil,
     "Formatstring setzt Argumente nicht ein, erhalten " .. tostring(formatted))
 
+-- Prozentzeichen im Format bleiben sichtbar und werden nicht verschluckt.
+local percent = de.L("SETTINGS_SCALE_PERCENT", 85)
+check(type(percent) == "string" and string.find(percent, "85%%") ~= nil,
+    "Prozentformat der Skalierung ist falsch, erhalten " .. tostring(percent))
+
 -- Ein Formataufruf mit zu wenigen Argumenten darf nicht fatal sein.
-local okShort, shortValue = pcall(de.L, "SLASH_SCALE_SET")
+local okShort, shortValue = pcall(de.L, "ITEM_FALLBACK")
 check(okShort and type(shortValue) == "string",
     "fehlende Formatargumente dürfen nicht fatal sein")
 

@@ -52,7 +52,7 @@ mit der geänderten Clientsprache erscheinen auch bereits erfasste Charaktere in
 verfügbare Lokalisierung erscheint eine neutrale Dungeon-ID statt eines
 fremdsprachig gespeicherten Namens.
 
-### Fünf Ansichten
+### Sieben Ansichten
 
 **Übersicht** - Charakterlevel, angelegte Gegenstandsstufe, Goldene Truhe (0/4
 pro Woche), Champion-, Helden- und Mythische Dämmerwappen, Schatzkammer-Slots
@@ -74,6 +74,14 @@ ab +9 und das Tauschpotential von Helden- zu Mythischen Wappen.
 **Schlüsselsteine** - der aktuell besessene Mythic+-Schlüsselstein pro Charakter
 mit Dungeonname und Stufe als Offline-Snapshot.
 
+**Statistiken** - neun lebenslange WoW-Erfolgsstatistiken pro Charakter,
+darunter absolvierte Tiefen und Tode. Offline-Charaktere behalten ihren letzten
+Snapshot; die Accountsumme addiert ausschließlich sicher bekannte Werte und
+zeigt bei vollständig unbekannten Daten `-` statt einer erfundenen Null.
+
+**Einstellungen** - Aktualisieren, Fensterposition zurücksetzen, Minimap-Symbol
+ein- oder ausblenden und die UI-Skalierung bequem im Addon ändern.
+
 ### Ehrliche Daten
 
 Unbekannt wird nie als Null erfunden. Ein nicht sicher lesbarer API-Wert
@@ -87,14 +95,12 @@ Raid-Fortschritt und Raid-Vault werden bewusst nicht getrackt.
 ### Befehle
 
 - `/wat` - Fenster ein-/ausblenden
-- `/wat show` / `/wat hide`
-- `/wat refresh` - eingeloggten Charakter neu einlesen
-- `/wat resetpos` - Fenster zentrieren
-- `/wat scale 0.7` bis `/wat scale 1.5`
-- `/wat debug` - wichtigsten Rohstand im Chat ausgeben
+- `/weeklyalt` - gleichwertiger Alias
 
 Das Minimap-Symbol öffnet das Fenster per Linksklick und lässt sich am
-Minimap-Rand verschieben.
+Minimap-Rand verschieben. Aktualisieren, Position, Skalierung und Sichtbarkeit
+des Symbols werden im Bereich **Einstellungen** gesteuert; öffentliche
+Slash-Unterbefehle gibt es ab 0.3.0 nicht mehr.
 
 ### Hinweise
 

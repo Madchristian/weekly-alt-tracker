@@ -33,6 +33,12 @@ local enUS = {
     PANEL_KEYSTONES = "Keystones",
     PANEL_KEYSTONES_SHORT = "KEYSTONES",
     PANEL_KEYSTONES_DESC = "Currently owned Mythic+ keystone as an offline snapshot per character.",
+    PANEL_STATISTICS = "Statistics",
+    PANEL_STATISTICS_SHORT = "STATISTICS",
+    PANEL_STATISTICS_DESC = "Lifetime achievement statistics per character plus the account total.",
+    PANEL_SETTINGS = "Settings",
+    PANEL_SETTINGS_SHORT = "SETTINGS",
+    PANEL_SETTINGS_DESC = "Window, scale and minimap button. Every option lives here.",
 
     -- Spaltenkoepfe
     COL_CHARACTER = "CHARACTER",
@@ -62,6 +68,34 @@ local enUS = {
     COL_EXCHANGE = "HERO to MYTH\nEXCHANGEABLE",
     COL_DUNGEON = "DUNGEON",
     COL_KEYSTONE_LEVEL = "LEVEL",
+
+    -- Statistiken: kurzer Spaltenkopf und ausgeschriebener Name. Der Name ist
+    -- nur der Ersatz - bevorzugt zeigt der Tooltip den clientlokalisierten
+    -- Namen aus GetAchievementInfo.
+    STAT_COL_DELVES = "DELVES",
+    STAT_COL_DELVES_MIDNIGHT = "DELVES\nMIDNIGHT",
+    STAT_COL_DEATHS = "DEATHS",
+    STAT_COL_DEATHS_DUNGEON = "DEATHS\nDUNGEON",
+    STAT_COL_DEATHS_RAID = "DEATHS\nRAID",
+    STAT_COL_DEATHS_FALLING = "DEATHS\nFALLING",
+    STAT_COL_QUESTS = "QUESTS",
+    STAT_COL_QUESTS_DAILY = "QUESTS\nDAILY",
+    STAT_COL_QUESTS_ABANDONED = "QUESTS\nABANDONED",
+    STAT_NAME_DELVES = "Delves completed",
+    STAT_NAME_DELVES_MIDNIGHT = "Midnight delves completed",
+    STAT_NAME_DEATHS = "Total deaths",
+    STAT_NAME_DEATHS_DUNGEON = "Deaths in dungeons",
+    STAT_NAME_DEATHS_RAID = "Deaths in raids",
+    STAT_NAME_DEATHS_FALLING = "Deaths from falling",
+    STAT_NAME_QUESTS = "Quests completed",
+    STAT_NAME_QUESTS_DAILY = "Daily quests completed",
+    STAT_NAME_QUESTS_ABANDONED = "Quests abandoned",
+    STAT_ACCOUNT_TOTAL = "ALL CHARACTERS",
+    STAT_ACCOUNT_TOOLTIP = "Account total",
+    STAT_ACCOUNT_HINT = "Sum of all known character values. Characters without a recorded value are not counted.",
+    STAT_RECORDED = "Recorded",
+    STAT_NOT_RECORDED = "not recorded yet",
+    STAT_OFFLINE_HINT = "Lifetime values. They are updated the next time this character logs in.",
 
     -- Status
     STATUS_DONE = "done",
@@ -203,19 +237,29 @@ local enUS = {
     CHROME_REFRESH = "REFRESH",
     CHROME_TOOLBAR = "Character comparison / hover a row for details",
     CHROME_TOOLBAR_COUNT = "%d CHARACTERS  /  hover a row for details",
+    CHROME_TOOLBAR_SETTINGS = "Settings apply immediately and are stored account-wide",
     CHROME_LEGEND = "Green: done  /  Yellow: in progress  /  Red: open  /  Grey: unknown or old week",
     TOOLTIP_OFFLINE_HINT = "Offline data updates the next time this character logs in.",
     MINIMAP_LEFTCLICK = "Left click: open or close",
     MINIMAP_DRAG = "Drag: change position",
 
+    -- Einstellungsseite
+    SETTINGS_HEADING_WINDOW = "Window",
+    SETTINGS_HEADING_MINIMAP = "Minimap button",
+    SETTINGS_HEADING_SCALE = "Window scale",
+    SETTINGS_REFRESH = "Refresh now",
+    SETTINGS_RESET_POSITION = "Reset position",
+    SETTINGS_WINDOW_DESC = "Reads the character you are logged in on again and moves the window back to the centre of the screen.",
+    SETTINGS_MINIMAP_SHOW = "Visible",
+    SETTINGS_MINIMAP_HIDE = "Hidden",
+    SETTINGS_MINIMAP_DESC = "The addon window always stays reachable through /wat, even without the minimap button.",
+    SETTINGS_SCALE_PERCENT = "%d%%",
+    SETTINGS_SCALE_DESC = "Applies immediately and is stored account-wide for every character.",
+
     -- Chat und Slash-Befehle. Die Tokens selbst bleiben unveraendert.
-    SLASH_REFRESHED = "Current character refreshed.",
-    SLASH_POSITION_RESET = "Window position reset.",
-    SLASH_SCALE_SET = "Scale: %s",
-    SLASH_SCALE_USAGE = "Usage: /wat scale 0.7 to 1.5",
     -- Ohne Pipes: WoW liest |h und |r im Chat als Hyperlink- bzw.
     -- Farbcode-Escape und zerlegt die Zeile sonst sichtbar.
-    SLASH_HELP = "Commands: /wat show, hide, refresh, resetpos, scale 0.7-1.5, debug",
+    SLASH_HELP = "All options live in the Settings area of /wat.",
     SLASH_DEBUG = "Char=%s | Stash=%s/%s | Crests C/H/M=%s/%s/%s | Keystone=%s | Week ends=%s",
 
     CHARACTER_UNKNOWN = "Unknown",
@@ -238,6 +282,12 @@ local deDE = {
     PANEL_KEYSTONES = "Schlüsselsteine",
     PANEL_KEYSTONES_SHORT = "SCHLÜSSELSTEINE",
     PANEL_KEYSTONES_DESC = "Aktuell besessener Mythic+-Schlüsselstein als Offline-Snapshot pro Charakter.",
+    PANEL_STATISTICS = "Statistiken",
+    PANEL_STATISTICS_SHORT = "STATISTIKEN",
+    PANEL_STATISTICS_DESC = "Lebenslange Erfolgsstatistiken je Charakter und die Accountsumme.",
+    PANEL_SETTINGS = "Einstellungen",
+    PANEL_SETTINGS_SHORT = "EINSTELLUNGEN",
+    PANEL_SETTINGS_DESC = "Fenster, Skalierung und Minimap-Symbol. Alle Optionen liegen hier.",
 
     -- Spaltenkoepfe
     COL_CHARACTER = "CHARAKTER",
@@ -267,6 +317,32 @@ local deDE = {
     COL_EXCHANGE = "HELD zu MYTHISCH\nTAUSCHBAR",
     COL_DUNGEON = "DUNGEON",
     COL_KEYSTONE_LEVEL = "STUFE",
+
+    -- Statistiken
+    STAT_COL_DELVES = "TIEFEN",
+    STAT_COL_DELVES_MIDNIGHT = "TIEFEN\nMIDNIGHT",
+    STAT_COL_DEATHS = "TODE",
+    STAT_COL_DEATHS_DUNGEON = "TODE\nDUNGEON",
+    STAT_COL_DEATHS_RAID = "TODE\nSCHLACHTZUG",
+    STAT_COL_DEATHS_FALLING = "TODE\nSTURZ",
+    STAT_COL_QUESTS = "QUESTS",
+    STAT_COL_QUESTS_DAILY = "QUESTS\nTÄGLICH",
+    STAT_COL_QUESTS_ABANDONED = "QUESTS\nABGEBROCHEN",
+    STAT_NAME_DELVES = "Abgeschlossene Tiefen",
+    STAT_NAME_DELVES_MIDNIGHT = "Abgeschlossene Midnight-Tiefen",
+    STAT_NAME_DEATHS = "Tode insgesamt",
+    STAT_NAME_DEATHS_DUNGEON = "Tode in Dungeons",
+    STAT_NAME_DEATHS_RAID = "Tode in Schlachtzügen",
+    STAT_NAME_DEATHS_FALLING = "Tode durch Sturz",
+    STAT_NAME_QUESTS = "Abgeschlossene Quests",
+    STAT_NAME_QUESTS_DAILY = "Abgeschlossene Tagesquests",
+    STAT_NAME_QUESTS_ABANDONED = "Abgebrochene Quests",
+    STAT_ACCOUNT_TOTAL = "ALLE CHARAKTERE",
+    STAT_ACCOUNT_TOOLTIP = "Accountsumme",
+    STAT_ACCOUNT_HINT = "Summe aller bekannten Charakterwerte. Charaktere ohne erfassten Wert zählen nicht mit.",
+    STAT_RECORDED = "Erfasst",
+    STAT_NOT_RECORDED = "noch nicht erfasst",
+    STAT_OFFLINE_HINT = "Lebenslange Werte. Sie werden beim nächsten Login dieses Charakters aktualisiert.",
 
     -- Status
     STATUS_DONE = "fertig",
@@ -407,19 +483,29 @@ local deDE = {
     CHROME_REFRESH = "AKTUALISIEREN",
     CHROME_TOOLBAR = "Charaktervergleich / Zeile berühren für Details",
     CHROME_TOOLBAR_COUNT = "%d CHARAKTERE  /  Zeile berühren für Details",
+    CHROME_TOOLBAR_SETTINGS = "Einstellungen wirken sofort und gelten accountweit",
     CHROME_LEGEND = "Grün: fertig  /  Gelb: läuft  /  Rot: offen  /  Grau: unbekannt oder alte Woche",
     TOOLTIP_OFFLINE_HINT = "Offline-Daten werden beim nächsten Login dieses Charakters aktualisiert.",
     MINIMAP_LEFTCLICK = "Linksklick: öffnen oder schließen",
     MINIMAP_DRAG = "Ziehen: Position verändern",
 
+    -- Einstellungsseite
+    SETTINGS_HEADING_WINDOW = "Fenster",
+    SETTINGS_HEADING_MINIMAP = "Minimap-Symbol",
+    SETTINGS_HEADING_SCALE = "Fensterskalierung",
+    SETTINGS_REFRESH = "Jetzt aktualisieren",
+    SETTINGS_RESET_POSITION = "Position zurücksetzen",
+    SETTINGS_WINDOW_DESC = "Liest den aktuell eingeloggten Charakter neu ein und setzt das Fenster zurück in die Bildschirmmitte.",
+    SETTINGS_MINIMAP_SHOW = "Sichtbar",
+    SETTINGS_MINIMAP_HIDE = "Verborgen",
+    SETTINGS_MINIMAP_DESC = "Das Addonfenster bleibt auch ohne Minimap-Symbol jederzeit über /wat erreichbar.",
+    SETTINGS_SCALE_PERCENT = "%d%%",
+    SETTINGS_SCALE_DESC = "Wirkt sofort und gilt accountweit für alle Charaktere.",
+
     -- Chat und Slash-Befehle. Die Tokens selbst bleiben unveraendert.
-    SLASH_REFRESHED = "Aktueller Charakter wurde aktualisiert.",
-    SLASH_POSITION_RESET = "Fensterposition wurde zurückgesetzt.",
-    SLASH_SCALE_SET = "Skalierung: %s",
-    SLASH_SCALE_USAGE = "Verwendung: /wat scale 0.7 bis 1.5",
     -- Ohne Pipes: WoW liest |h und |r im Chat als Hyperlink- bzw.
     -- Farbcode-Escape und zerlegt die Zeile sonst sichtbar.
-    SLASH_HELP = "Befehle: /wat show, hide, refresh, resetpos, scale 0.7-1.5, debug",
+    SLASH_HELP = "Alle Optionen liegen im Bereich Einstellungen von /wat.",
     SLASH_DEBUG = "Char=%s | Goldtruhe=%s/%s | Wappen C/H/M=%s/%s/%s | Schlüsselstein=%s | Woche endet=%s",
 
     CHARACTER_UNKNOWN = "Unbekannt",

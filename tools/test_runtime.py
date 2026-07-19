@@ -23,6 +23,7 @@ HARNESSES = {
     "test_core_runtime.lua": "LUA CORE RUNTIME OK:",
     "test_vault_runtime.lua": "LUA RUNTIME OK:",
     "test_profession_runtime.lua": "LUA PROFESSION RUNTIME OK:",
+    "test_statistics_runtime.lua": "LUA STATISTICS RUNTIME OK:",
     "test_ui_runtime.lua": "LUA UI RUNTIME OK:",
 }
 

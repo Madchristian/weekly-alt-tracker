@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#070b10">
-  <meta name="description" content="Deutsche Anleitung für WeeklyAltTracker 0.2.6: Installation, Funktionen, Sprachen, erste Schritte und Fehlerbehebung.">
-  <title>WeeklyAltTracker 0.2.6 – Anleitung</title>
+  <meta name="description" content="Deutsche Anleitung für WeeklyAltTracker 0.3.0: Installation, Funktionen, Sprachen, erste Schritte und Fehlerbehebung.">
+  <title>WeeklyAltTracker 0.3.0 – Anleitung</title>
   <style>
     :root {
       --bg: #070b10;
@@ -536,7 +536,7 @@
     <div class="topbar-inner">
       <a class="brand" href="#start" aria-label="Zur Startseite der Anleitung">
         <span class="brand-mark" aria-hidden="true">W</span>
-        <span>WeeklyAltTracker<small>ANLEITUNG · 0.2.6</small></span>
+        <span>WeeklyAltTracker<small>ANLEITUNG · 0.3.0</small></span>
       </a>
       <nav class="nav" aria-label="Inhaltsnavigation">
         <a href="#installation">Installation</a>
@@ -555,7 +555,7 @@
         <h1>Deine Woche.<br><span class="hero-accent">Alle Charaktere.</span></h1>
         <p class="lead">WeeklyAltTracker bündelt Schatzkammer, Midnight-Aktivitäten, Berufe, Wissenspunkte, Wappenquellen und Mythic+-Schlüsselsteine in einer kompakten Übersicht.</p>
         <div class="badges" aria-label="Versionsinformationen">
-          <span class="badge live">Release 0.2.6</span>
+          <span class="badge live">Release 0.3.0</span>
           <span class="badge">Retail 12.0.7</span>
           <span class="badge">Deutsch &amp; Englisch</span>
           <span class="badge">Keine Abhängigkeiten</span>
@@ -583,7 +583,7 @@
       <div class="install-grid">
         <article class="step">
           <h3>ZIP herunterladen</h3>
-          <p>Lade <strong>WeeklyAltTracker-0.2.6.zip</strong> von der offiziellen Projektseite oder direkt vom Autor herunter.</p>
+          <p>Lade <strong>WeeklyAltTracker-0.3.0.zip</strong> von der offiziellen Projektseite oder direkt vom Autor herunter.</p>
         </article>
         <article class="step">
           <h3>Archiv entpacken</h3>
@@ -634,7 +634,7 @@
           <ol>
             <li><div><strong>Addon aktivieren</strong>Prüfe in der Charakterauswahl unter „AddOns“, ob WeeklyAltTracker aktiviert ist.</div></li>
             <li><div><strong>Fenster öffnen</strong>Klicke das Minimap-Symbol oder gib <code>/wat</code> im Chat ein.</div></li>
-            <li><div><strong>Snapshot aktualisieren</strong>Nutze <code>/wat refresh</code>, nachdem Schatzkammer, Questlog und Berufsdaten geladen sind.</div></li>
+            <li><div><strong>Snapshot aktualisieren</strong>Klicke im Bereich <strong>Einstellungen</strong> auf <strong>Jetzt aktualisieren</strong>, nachdem Schatzkammer, Questlog und Berufsdaten geladen sind.</div></li>
             <li><div><strong>Twinks einmal einloggen</strong>Wiederhole das für jeden Charakter, der in der accountweiten Übersicht erscheinen soll.</div></li>
             <li><div><strong>Eine Tiefe betreten</strong>Nur so kann Blizzard den Fortschritt der Goldenen Truhe erstmals bereitstellen.</div></li>
           </ol>
@@ -656,7 +656,7 @@
 
     <section class="section" id="funktionen">
       <div class="section-head">
-        <div><p class="kicker">Funktionsumfang</p><h2>Fünf Ansichten. Ein Wochenbild.</h2></div>
+        <div><p class="kicker">Funktionsumfang</p><h2>Sieben Ansichten. Ein Wochenbild.</h2></div>
         <p class="section-intro">Die Oberfläche bleibt bewusst kompakt. Jede Ansicht beantwortet eine konkrete Frage, statt alle Daten in eine überbreite Tabelle zu pressen.</p>
       </div>
 
@@ -686,6 +686,16 @@
           <h3>Schlüsselsteine</h3>
           <div><p>Speichert Dungeonname und Stufe des aktuell besessenen Mythic+-Schlüsselsteins pro Charakter. Sichere Daten bleiben bei frühen oder geschützten API-Antworten erhalten.</p><div class="feature-tags"><span>Dungeon</span><span>Stufe</span><span>Datenstand</span></div></div>
         </article>
+        <article class="feature">
+          <span class="feature-index">06</span>
+          <h3>Statistiken</h3>
+          <div><p>Zeigt neun lebenslange Erfolgsstatistiken je Charakter – abgeschlossene Tiefen, Tode und Quests – und darüber eine abgesetzte Accountsumme. Summiert werden ausschließlich sicher bekannte Werte; ist kein Wert bekannt, erscheint „−“ und niemals eine erfundene Null.</p><div class="feature-tags"><span>Tiefen</span><span>Tode</span><span>Quests</span><span>Accountsumme</span></div></div>
+        </article>
+        <article class="feature">
+          <span class="feature-index">07</span>
+          <h3>Einstellungen</h3>
+          <div><p>Bündelt alle Optionen: Aktualisieren, Fensterposition zurücksetzen, Minimap-Symbol ein- oder ausblenden und sechs feste Skalierungsstufen von 70 % bis 150 %. Eine Löschfunktion für die Datenbank gibt es bewusst nicht.</p><div class="feature-tags"><span>Skalierung</span><span>Minimap</span><span>Position</span></div></div>
+        </article>
       </div>
     </section>
 
@@ -705,16 +715,12 @@
     <section class="section" id="befehle">
       <div class="section-head">
         <div><p class="kicker">Chatbefehle</p><h2>Direkter Zugriff mit /wat.</h2></div>
-        <p class="section-intro">Alle Befehle funktionieren im normalen WoW-Chat. Groß- und Kleinschreibung spielt keine Rolle.</p>
+        <p class="section-intro">Seit Version 0.3.0 gibt es nur noch einen öffentlichen Befehl. Alle Optionen liegen im Bereich <strong>Einstellungen</strong> der linken Navigation.</p>
       </div>
       <div class="command-table" role="table" aria-label="WeeklyAltTracker Chatbefehle">
         <div class="command-row" role="row"><code>/wat</code><span>Fenster öffnen oder schließen.</span></div>
-        <div class="command-row" role="row"><code>/wat show</code><span>Fenster gezielt anzeigen.</span></div>
-        <div class="command-row" role="row"><code>/wat hide</code><span>Fenster gezielt ausblenden.</span></div>
-        <div class="command-row" role="row"><code>/wat refresh</code><span>Daten des aktuell eingeloggten Charakters neu einlesen.</span></div>
-        <div class="command-row" role="row"><code>/wat resetpos</code><span>Hauptfenster wieder mittig positionieren.</span></div>
-        <div class="command-row" role="row"><code>/wat scale 0.7–1.5</code><span>Größe der Oberfläche anpassen, zum Beispiel <code>/wat scale 0.9</code>.</span></div>
-        <div class="command-row" role="row"><code>/wat debug</code><span>Wichtigste Rohdaten zur Fehleranalyse im Chat ausgeben.</span></div>
+        <div class="command-row" role="row"><code>/weeklyalt</code><span>Gleichbedeutender Zweitname.</span></div>
+        <div class="command-row" role="row"><code>/wat &lt;beliebig&gt;</code><span>Öffnet das Fenster direkt im Bereich <strong>Einstellungen</strong>. Die früheren Unterbefehle <code>show</code>, <code>hide</code>, <code>refresh</code>, <code>resetpos</code> und <code>scale</code> sind ersatzlos dorthin gewandert.</span></div>
       </div>
     </section>
 
@@ -730,7 +736,7 @@
         </details>
         <details>
           <summary>Ein Charakter oder neue Felder fehlen</summary>
-          <p>Logge den betreffenden Charakter einmal mit aktiviertem Addon ein und nutze <code>/wat refresh</code>. Ausgeloggte Charaktere können von WoW nicht live abgefragt werden.</p>
+          <p>Logge den betreffenden Charakter einmal mit aktiviertem Addon ein und klicke im Bereich <strong>Einstellungen</strong> auf <strong>Jetzt aktualisieren</strong>. Ausgeloggte Charaktere können von WoW nicht live abgefragt werden.</p>
         </details>
         <details>
           <summary>Die Goldene Truhe zeigt „nicht erfasst“</summary>
@@ -738,7 +744,7 @@
         </details>
         <details>
           <summary>Vault-Itemlevel oder andere Werte zeigen „−“</summary>
-          <p>„−“ bedeutet unbekannt, nicht geladen oder geschützt – nicht Null. Öffne die Große Schatzkammer, warte kurz auf die Gegenstandsdaten und nutze anschließend <code>/wat refresh</code>.</p>
+          <p>„−“ bedeutet unbekannt, nicht geladen oder geschützt – nicht Null. Öffne die Große Schatzkammer, warte kurz auf die Gegenstandsdaten und klicke anschließend im Bereich <strong>Einstellungen</strong> auf <strong>Jetzt aktualisieren</strong>. Auch Statistiken erscheinen erst, wenn WoW die Erfolgsdaten nachgeladen hat.</p>
         </details>
         <details>
           <summary>Welche Taschen werden für Berufswissen gescannt?</summary>
@@ -758,7 +764,7 @@
         </details>
         <details>
           <summary>Es tritt ein Lua-Fehler auf</summary>
-          <p>Notiere den genauen Fehler oder kopiere ihn aus BugSack/!BugGrabber. Führe <code>/wat debug</code> aus und melde Version, betroffene Ansicht und den letzten ausgeführten Schritt über die offizielle Projektseite.</p>
+          <p>Notiere den genauen Fehler oder kopiere ihn aus BugSack/!BugGrabber. Melde Version, betroffene Ansicht und den letzten ausgeführten Schritt über die offizielle Projektseite.</p>
         </details>
       </div>
     </section>
@@ -781,7 +787,7 @@
   </main>
 
   <footer>
-    <div><strong>WeeklyAltTracker 0.2.6</strong><br>Für WoW Retail 12.0.7 · Midnight</div>
+    <div><strong>WeeklyAltTracker 0.3.0</strong><br>Für WoW Retail 12.0.7 · Midnight</div>
     <div>Copyright © 2026 Christian. All Rights Reserved.<br>Unabhängiges Fanprojekt, nicht mit Blizzard Entertainment verbunden.<br>Angezeigte Spielsymbole sind Client-Assets von Blizzard und werden nur zur Laufzeit referenziert, nicht mitgeliefert. Datenherkunft und Referenzen sind in <code>THIRD_PARTY_NOTICES.md</code> im Addon-Ordner offengelegt.</div>
   </footer>
 

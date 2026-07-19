@@ -138,6 +138,49 @@ def main() -> int:
     for token in ("midnightSkillLineID", "skillLevel", "maxSkillLevel", "unspentKnowledge",
                   "bagKnowledgePoints", "bagKnowledgeItems", "bagKnowledgeDetails"):
         require(token in activities, f"Berufsfortschritts-Snapshot fehlt: {token}")
+    # -----------------------------------------------------------------------
+    # Statistiken: verifizierte, charakterbezogene GetStatistic-IDs.
+    #
+    # Die IDs sind teuer verifiziert und stehen ausschliesslich in Data.lua.
+    # Erfunden werden darf keine weitere: der Test friert die exakte Menge und
+    # ihre Reihenfolge ein.
+    # -----------------------------------------------------------------------
+    statistics_body = table_body(data, "STATISTICS")
+    statistic_ids = [int(value) for value in
+                     re.findall(r"statisticID\s*=\s*(\d+)", statistics_body)]
+    require(statistic_ids == [40734, 61790, 60, 14787, 14784, 114, 98, 97, 94],
+            f"Data.STATISTICS muss exakt die neun verifizierten IDs in fester Reihenfolge "
+            f"fuehren, gefunden: {statistic_ids}")
+    statistic_keys = re.findall(r'key\s*=\s*"([A-Za-z][A-Za-z0-9]*)"', statistics_body)
+    require(statistic_keys == ["delvesTotal", "delvesMidnight", "deathsTotal", "deathsDungeon",
+                               "deathsRaid", "deathsFalling", "questsCompleted", "questsDaily",
+                               "questsAbandoned"],
+            f"Stabile, sprachneutrale Statistik-Schluessel fehlen oder sind vertauscht: "
+            f"{statistic_keys}")
+    require("ScanStatistics" in activities, "Statistik-Scanner fehlt in Activities.lua")
+    require("GetStatistic" in activities,
+            "Statistiken muessen ueber GetStatistic gelesen werden")
+    require("character.statistics" in activities,
+            "Statistiken muessen als Geschwister von weekly gespeichert werden")
+    require("weekly.statistics" not in activities,
+            "Statistiken sind kein Wochenwert und duerfen nicht unter weekly liegen")
+    require("self:ScanStatistics(character)" in activities,
+            "ScanActivities ruft den Statistikscan nicht auf")
+    require("record.statistics" in core,
+            "NormalizeCharacter muss die Statistiktabelle additiv sicherstellen")
+    require("db.version = 2" in core,
+            "Das Datenbankschema bleibt bei Version 2 - die Migration ist additiv")
+    for event in ("RECEIVED_ACHIEVEMENT_LIST", "PLAYER_DEAD"):
+        require(event in core, f"Statistik-Event fehlt: {event}")
+    # Geprueft wird die Registrierung, nicht die blosse Erwaehnung: der
+    # Kommentar in Core.lua begruendet ausdruecklich, warum dieses Event
+    # NICHT registriert wird, und muss stehen bleiben duerfen.
+    require('RegisterEventSafely("CRITERIA_UPDATE")' not in core,
+            "CRITERIA_UPDATE feuert zu haeufig und darf nicht registriert werden")
+    # Der Statistikname im Tooltip kommt aus dem Client, nie aus dem Snapshot.
+    require("GetAchievementInfo" in ui,
+            "Statistiknamen muessen sicher aus GetAchievementInfo kommen")
+
     require("GetUnspentPointsForSkillLine" not in activities,
             "Entfernte Retail-API GetUnspentPointsForSkillLine darf nicht verwendet werden")
     require("character.professions" in activities,
@@ -232,6 +275,9 @@ def main() -> int:
         # Wappen-Tooltip: Data.CRESTS[...].labelKey. Die Literale werden
         # unmittelbar darunter gegen beide Wörterbücher geprüft.
         ("UI.lua", "definition.labelKey"),
+        # Statistik-Tooltip: Data.STATISTICS[...].nameKey. Die Literale werden
+        # unmittelbar darunter gegen beide Wörterbücher geprüft.
+        ("UI.lua", "definition.nameKey"),
     }
 
     seen_dynamic: set[tuple[str, str]] = set()
@@ -262,6 +308,15 @@ def main() -> int:
     for key in crest_label_keys:
         require(key in en_keys, f"Data.lua: labelKey {key!r} fehlt im enUS-Wörterbuch")
         require(key in de_keys, f"Data.lua: labelKey {key!r} fehlt im deDE-Wörterbuch")
+
+    # Statische Absicherung der dynamischen Quelle Data.STATISTICS[...].nameKey.
+    statistic_name_keys = re.findall(r'nameKey\s*=\s*"([A-Za-z_][A-Za-z0-9_]*)"', strip_comments(data))
+    require(len(statistic_name_keys) == 9,
+            f"Data.lua muss fuer jede der neun Statistiken einen nameKey fuehren, "
+            f"gefunden: {len(statistic_name_keys)}")
+    for key in statistic_name_keys:
+        require(key in en_keys, f"Data.lua: nameKey {key!r} fehlt im enUS-Wörterbuch")
+        require(key in de_keys, f"Data.lua: nameKey {key!r} fehlt im deDE-Wörterbuch")
 
     # Statische Absicherung der dynamischen Quelle Data.MetaQuestLabelKey.
     require('"META_QUEST_"' in data or "'META_QUEST_'" in data,
@@ -308,7 +363,8 @@ def main() -> int:
     require(scanner.count('return "-"') >= 3,
             "GetVaultSummary muss unbekannt weiterhin als sprachneutrales '-' liefern")
 
-    panel_order = ("overview", "midnight", "professions", "sources", "keystones")
+    panel_order = ("overview", "midnight", "professions", "sources", "keystones",
+                   "statistics", "settings")
     # Der Schlüsselstein-Bereich existiert weiterhin; sein Titel kommt jetzt
     # aus dem Wörterbuch statt aus einem Literal in UI.lua.
     require('label = L("PANEL_KEYSTONES")' in ui and "FillKeystones" in ui,
@@ -326,6 +382,92 @@ def main() -> int:
                               ("Free Knowledge Points", en_dict, "enUS"),
                               ("Knowledge Points in Bags", en_dict, "enUS")):
         require(label in body, f"Berufsfortschritts-Text fehlt in {name}: {label}")
+    # -----------------------------------------------------------------------
+    # Einstellungsbereich: Formularseite statt Charakterzeilen.
+    # -----------------------------------------------------------------------
+    require('label = L("PANEL_SETTINGS")' in ui and "CreateSettingsPanel" in ui,
+            "Einstellungsbereich fehlt oder ist nicht lokalisiert")
+    require("isForm" in ui,
+            "Das Einstellungspanel muss als Formular markiert sein, sonst rendert RefreshUI Zeilen")
+    require('PANEL_SETTINGS = "Einstellungen"' in de_dict
+            and 'PANEL_SETTINGS = "Settings"' in en_dict,
+            "Titel des Einstellungsbereichs fehlt in einem der beiden Wörterbücher")
+    require('PANEL_STATISTICS = "Statistiken"' in de_dict
+            and 'PANEL_STATISTICS = "Statistics"' in en_dict,
+            "Titel des Statistikbereichs fehlt in einem der beiden Wörterbücher")
+    # Feste Presets statt Schieberegler: der Wertebereich bleibt damit exakt der,
+    # den Core.lua beim Laden akzeptiert (0.7 bis 1.5).
+    require("SCALE_PRESETS" in ui, "Feste Skalierungsstufen fehlen")
+    presets = re.search(r"SCALE_PRESETS\s*=\s*\{(.*?)\}", ui, re.S)
+    require(presets is not None, "SCALE_PRESETS ist nicht lesbar")
+    if presets:
+        values = [float(value) for value in re.findall(r"(\d+\.\d+)", presets.group(1))]
+        require(values == [0.70, 0.85, 1.00, 1.15, 1.30, 1.50],
+                f"Skalierungs-Presets muessen exakt 70/85/100/115/130/150 Prozent sein: {values}")
+    require("Slider" not in ui, "Ein Schieberegler ist fuer die Skalierung nicht vorgesehen")
+    require("minimapHidden" in ui and "minimapHidden" in core,
+            "Die Sichtbarkeit des Minimap-Symbols muss gespeichert und angewendet werden")
+    require('WAT:Refresh("settings")' in ui or 'Refresh(self, "settings")' in ui
+            or 'WAT:Refresh(\n' in ui,
+            "Der Aktualisieren-Knopf der Einstellungen muss ueber Refresh laufen")
+    require("CHROME_TOOLBAR_SETTINGS" in ui,
+            "Die Einstellungsseite braucht einen eigenen Werkzeugleisten-Text ohne Zeilen-Hinweis")
+    # Keine zerstoererische Aktion: eine geloeschte Datenbank waere nicht
+    # wiederherstellbar und gehoert nicht hinter einen einzelnen Klick.
+    for destructive in ("wipe(", "WipeDatabase", "ResetDatabase", "DeleteAllCharacters"):
+        require(destructive not in ui,
+                f"Zerstoerende Datenbankaktion in der UI: {destructive}")
+
+    # Slash-UX: keine oeffentlichen Unterbefehle mehr, debug bleibt erhalten.
+    for removed in ('command == "show"', 'command == "hide"', 'command == "refresh"',
+                    'command == "resetpos"', 'command == "scale"'):
+        require(removed not in core,
+                f"Entfallener oeffentlicher Slash-Unterbefehl steht noch in Core.lua: {removed}")
+    require('command == "debug"' in core,
+            "Der interne debug-Pfad muss exakt erhalten bleiben")
+    for body, name in ((de_dict, "deDE"), (en_dict, "enUS")):
+        help_line = re.search(r'(?m)^\s*SLASH_HELP = "([^"]*)"', body)
+        require(help_line is not None, f"SLASH_HELP fehlt in {name}")
+        if help_line:
+            text_value = help_line.group(1)
+            for token in ("show", "hide", "refresh", "resetpos", "scale", "debug"):
+                require(token not in text_value,
+                        f"{name}: entfallener Unterbefehl {token!r} steht wieder in SLASH_HELP")
+            require("/wat" in text_value, f"{name}: SLASH_HELP nennt /wat nicht")
+
+    platform_docs = {
+        "curseforge/PROJECT-de.md": text("curseforge/PROJECT-de.md"),
+        "curseforge/PROJECT-en.md": text("curseforge/PROJECT-en.md"),
+        "wago/BESCHREIBUNG.md": text("wago/BESCHREIBUNG.md"),
+    }
+    html_guides = {
+        "Anleitung.html": text("Anleitung.html"),
+        "Guide.en.html": text("Guide.en.html"),
+    }
+    require("Sieben Ansichten. Ein Wochenbild." in html_guides["Anleitung.html"],
+            "Deutsche HTML-Anleitung nennt nicht sieben Ansichten")
+    require("Seven views. One weekly picture." in html_guides["Guide.en.html"],
+            "Englische HTML-Anleitung nennt nicht sieben Ansichten")
+    for name, body in html_guides.items():
+        require("Fünf Ansichten" not in body and "Five views" not in body,
+                f"HTML-Anleitung {name} nennt noch fünf Ansichten")
+    require("Sieben Ansichten" in platform_docs["curseforge/PROJECT-de.md"],
+            "Deutsche CurseForge-Beschreibung nennt nicht sieben Ansichten")
+    require("Seven views" in platform_docs["curseforge/PROJECT-en.md"],
+            "Englische CurseForge-Beschreibung nennt nicht sieben Ansichten")
+    require("sieben kompakte Ansichten" in platform_docs["wago/BESCHREIBUNG.md"],
+            "Wago-Beschreibung nennt nicht sieben Ansichten")
+    for name, body in platform_docs.items():
+        require(("Statistik" in body or "Statistics" in body)
+                and ("Einstellungen" in body or "Settings" in body),
+                f"Plattformtext {name} beschreibt Statistik und Einstellungen nicht")
+        for removed in ("/wat show", "/wat hide", "/wat refresh", "/wat resetpos",
+                        "/wat scale", "/wat debug"):
+            require(removed not in body,
+                    f"Plattformtext {name} bewirbt entfernten Unterbefehl: {removed}")
+        require("/wat" in body and "/weeklyalt" in body,
+                f"Plattformtext {name} muss nur die beiden oeffentlichen Fensternamen nennen")
+
     for token in ('key = "mythic10"', 'label = L("COL_MYTHIC10")', "MythicPlusTenText"):
         require(token in ui, f"M+10-Status in der Übersicht fehlt: {token}")
     for name, body in (("deDE", de_dict), ("enUS", en_dict)):

@@ -442,6 +442,115 @@ local function AchievementCompleted(achievementID, perCharacter)
     return completed
 end
 
+-- ---------------------------------------------------------------------------
+-- Erfolgsstatistiken
+--
+-- GetStatistic liefert keinen Zahlwert, sondern einen bereits formatierten,
+-- clientlokalisierten String. Je nach Sprache stehen darin Gruppentrenner:
+-- Punkt, Komma, Apostroph oder ein normales, geschuetztes bzw. schmales
+-- geschuetztes Leerzeichen. Solange die Statistik nicht geladen ist, kommt
+-- "--" zurueck.
+--
+-- Der Parser ist bewusst fail-closed. Ein dezimal aussehender Wert wie "1,5"
+-- ist KEIN gruppierter Tausenderwert, sondern eine Statistik mit
+-- Nachkommastelle (etwa eine Durchschnittsquote). Wuerde man Trenner einfach
+-- entfernen, ergaebe das still 15 statt eines verworfenen Werts. Deshalb wird
+-- die Gruppenstruktur selbst geprueft: die erste Gruppe hat ein bis drei
+-- Ziffern, jede weitere exakt drei. Alles andere ist unbekannt und damit nil.
+-- ---------------------------------------------------------------------------
+
+local MAX_STATISTIC_RAW_LENGTH = 64
+local MAX_STATISTIC_DIGITS = 15
+local MAX_STATISTIC_VALUE = 999999999999999
+
+local function StatisticDigits(text)
+    -- Jeder Trennerkandidat wird zunaechst auf ein einziges ASCII-Zeichen
+    -- normalisiert; die mehrbyteigen Varianten zuerst, damit ihre Bytes nicht
+    -- vom Zeichenklassen-Ersatz zerlegt werden.
+    local normalized = string.gsub(text, "\226\128\175", ",")
+    normalized = string.gsub(normalized, "\194\160", ",")
+    normalized = string.gsub(normalized, "[%.'%s]", ",")
+
+    local groups = {}
+    for group in string.gmatch(normalized .. ",", "([^,]*),") do
+        groups[#groups + 1] = group
+    end
+    if #groups == 0 then return nil end
+    for index, group in ipairs(groups) do
+        if group == "" or string.find(group, "%D") then return nil end
+        if #groups > 1 then
+            if index == 1 then
+                if #group > 3 then return nil end
+            elseif #group ~= 3 then
+                return nil
+            end
+        end
+    end
+    local digits = table.concat(groups)
+    if #digits > MAX_STATISTIC_DIGITS then return nil end
+    return digits
+end
+
+local function ParseStatisticValue(raw)
+    if not IsSafe(raw) then return nil end
+    if type(raw) == "number" then
+        -- NaN, Unendlich, negative und gebrochene Werte fallen ueber denselben
+        -- Test heraus: x % 1 ist dort nie exakt 0.
+        if raw ~= raw or raw < 0 or raw % 1 ~= 0 then return nil end
+        if raw > MAX_STATISTIC_VALUE then return nil end
+        return raw
+    end
+    if type(raw) ~= "string" then return nil end
+    if raw == "" or #raw > MAX_STATISTIC_RAW_LENGTH then return nil end
+    local digits = StatisticDigits(raw)
+    if not digits then return nil end
+    local value = tonumber(digits)
+    if type(value) ~= "number" or value < 0 or value % 1 ~= 0 then return nil end
+    return value
+end
+
+local function ReadStatistic(statisticID)
+    if type(GetStatistic) ~= "function" then return nil end
+    local ok, raw = pcall(GetStatistic, statisticID)
+    if not ok then return nil end
+    return ParseStatisticValue(raw)
+end
+
+-- Liest ausschliesslich fuer den gerade eingeloggten Charakter. Offline-
+-- Charaktere behalten ihren letzten Snapshot; ein unlesbarer Wert laesst den
+-- bekannten Vorwert unangetastet und wird nie zu 0.
+function WAT:ScanStatistics(character)
+    if not IsSafe(character) or type(character) ~= "table" then return end
+    if type(Data.STATISTICS) ~= "table" then return end
+
+    local store = character.statistics
+    if not IsSafe(store) or type(store) ~= "table" then
+        store = {}
+        character.statistics = store
+    end
+
+    local now = time()
+    local scanned
+    for _, definition in ipairs(Data.STATISTICS) do
+        local statisticID = IsSafe(definition) and type(definition) == "table"
+            and SafeNumber(definition.statisticID) or nil
+        if statisticID then
+            local value = ReadStatistic(statisticID)
+            if value ~= nil then
+                local entry = store[statisticID]
+                if not IsSafe(entry) or type(entry) ~= "table" then
+                    entry = {}
+                    store[statisticID] = entry
+                end
+                entry.value = value
+                entry.updated = now
+                scanned = true
+            end
+        end
+    end
+    if scanned then store.scanned = now end
+end
+
 function WAT:ScanCrestSources(character)
     if type(character) ~= "table" then return end
     character.season = type(character.season) == "table" and character.season or {}
@@ -547,5 +656,8 @@ function WAT:ScanActivities(character, reason)
     if professions then weekly.professions = professions end
     if professionProgress then character.professions = professionProgress end
     self:ScanCrestSources(character)
+    -- Statistiken sind lebenslang und kein Wochenwert: sie liegen bewusst
+    -- neben weekly und ueberleben deshalb den Wochenreset.
+    self:ScanStatistics(character)
     weekly.activitiesUpdated = time()
 end

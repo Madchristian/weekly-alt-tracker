@@ -46,10 +46,23 @@ WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 1
 - sicherer Offline-Snapshot
 - Schutz vor frühen, partiellen oder geschützten API-Antworten
 
+### Statistiken
+
+- neun lebenslange WoW-Erfolgsstatistiken pro Charakter
+- unter anderem absolvierte Tiefen und Tode
+- letzter sicherer Offline-Snapshot je Charakter
+- Accountsumme nur aus bekannten Werten; vollständig unbekannt bleibt `-`
+
+### Einstellungen
+
+- Daten aktualisieren und Fensterposition zurücksetzen
+- Minimap-Symbol ein- oder ausblenden
+- UI-Skalierung direkt im Addon wählen
+
 ### Bedienung
 
 - eigenständige Midnight-Dark-Oberfläche in Deutsch (deDE) und Englisch (enUS/enGB)
-- fünf kompakte Ansichten
+- sieben kompakte Ansichten
 - Minimap-Symbol: Linksklick öffnet oder schließt das Fenster
 - Minimap-Symbol per Drag verschiebbar
 - keine externen Bibliotheken
@@ -90,11 +103,11 @@ Eine ausführliche, responsive Offline-Anleitung befindet sich als `Anleitung.ht
 ## Chatbefehle
 
 - `/wat` – Fenster ein-/ausblenden
-- `/wat show` / `/wat hide`
-- `/wat refresh` – aktuellen Charakter neu einlesen
-- `/wat resetpos` – Fenster zentrieren
-- `/wat scale 0.7` bis `/wat scale 1.5`
-- `/wat debug` – Rohdaten zur Fehleranalyse ausgeben
+- `/weeklyalt` – gleichwertiger Alias
+
+Aktualisieren, Position, Skalierung und Minimap-Sichtbarkeit werden im Bereich
+**Einstellungen** gesteuert; öffentliche Slash-Unterbefehle gibt es ab 0.3.0
+nicht mehr.
 
 ## Lizenz
 

@@ -159,7 +159,35 @@ do
 end
 
 -- ---------------------------------------------------------------------------
--- 3. Migration eines realistischen 0.2.5-Snapshots
+-- 3. Todes-Event: nur Statistiken, kein teurer Vollscan
+-- ---------------------------------------------------------------------------
+
+do
+    local WAT = Load("deDE")
+    WeeklyAltTrackerDB = nil
+    WAT:InitializeDatabase()
+    player.guid = "Player-Test-Death"
+    player.name = "Statistiktest"
+    player.realm = "Testrealm"
+    player.secondsUntilReset = 3600
+
+    local fullScans, statisticScans, uiRefreshes = 0, 0, 0
+    WAT.ScanCharacter = function() fullScans = fullScans + 1 end
+    WAT.ScanStatistics = function(_, character)
+        statisticScans = statisticScans + 1
+        check(type(character) == "table", "Statistik-Refresh bekommt keinen Charakter")
+    end
+    WAT.RefreshUI = function() uiRefreshes = uiRefreshes + 1 end
+
+    local onEvent = WAT.events:GetScript("OnEvent")
+    onEvent(nil, "PLAYER_DEAD")
+    checkEqual(statisticScans, 1, "PLAYER_DEAD startet genau einen Statistikscan")
+    checkEqual(fullScans, 0, "PLAYER_DEAD darf keinen Vollscan starten")
+    checkEqual(uiRefreshes, 1, "PLAYER_DEAD aktualisiert die sichtbare Statistikseite")
+end
+
+-- ---------------------------------------------------------------------------
+-- 4. Migration eines realistischen 0.2.5-Snapshots
 -- ---------------------------------------------------------------------------
 
 local GUID_MAIN = "Player-1084-0A1B2C3D"
@@ -340,6 +368,8 @@ end
 
 -- Führt einen Slash-Befehl über die registrierte Funktion aus und liefert die
 -- letzte Chatzeile ohne das Addon-Präfix.
+-- Zeichnet zusätzlich auf, ob das Fenster geöffnet und auf welchen Bereich
+-- umgeschaltet wurde. Ab 0.3.0 führt jedes Argument in die Einstellungen.
 local function RunSlash(locale, command)
     local WAT, messages = Load(locale)
     player = {
@@ -350,23 +380,33 @@ local function RunSlash(locale, command)
     WeeklyAltTrackerDB = LegacySnapshot()
     WAT:InitializeDatabase()
     WAT.currentKey = GUID_MAIN
+    local opened = 0
+    local tabs = {}
+    WAT.ShowUI = function() opened = opened + 1 end
+    WAT.SetActiveTab = function(_, key) tabs[#tabs + 1] = key end
+    -- Ohne dieses Feld haelt der Slash-Handler das Einstellungspanel fuer
+    -- nicht vorhanden und schaltet nicht um.
+    WAT.panels = { settings = {} }
     local handler = SlashCmdList.WEEKLYALTTRACKER
     local ok, err = pcall(handler, command)
     check(ok, "Slash-Befehl '" .. tostring(command) .. "' (" .. locale .. ") warf: " .. tostring(err))
     local last = messages[#messages]
-    return WAT, last and string.gsub(last, "^|cff33ff99WeeklyAltTracker:|r ", "") or nil, messages
+    return WAT, last and string.gsub(last, "^|cff33ff99WeeklyAltTracker:|r ", "") or nil,
+        messages, opened, tabs
 end
 
+-- Ab 0.3.0 gibt es keine oeffentlichen Unterbefehle mehr: JEDES Argument
+-- oeffnet das Fenster direkt auf den Einstellungen und druckt genau eine
+-- knappe Hinweiszeile. Die alten Tokens sind bewusst mit aufgefuehrt - sie
+-- duerfen weiterhin nicht ins Leere laufen, sondern muessen dort landen.
 local SLASH_CASES = {
-    { command = "refresh", key = "SLASH_REFRESHED" },
-    { command = "resetpos", key = "SLASH_POSITION_RESET" },
-    -- Ungültige Skalierung: kein Absturz, sondern der Hinweistext.
-    { command = "scale abc", key = "SLASH_SCALE_USAGE" },
-    { command = "scale 9", key = "SLASH_SCALE_USAGE" },
-    { command = "scale 0.1", key = "SLASH_SCALE_USAGE" },
-    { command = "scale", key = "SLASH_SCALE_USAGE" },
-    -- Unbekannter Befehl landet in der Hilfe.
     { command = "help", key = "SLASH_HELP" },
+    { command = "show", key = "SLASH_HELP" },
+    { command = "hide", key = "SLASH_HELP" },
+    { command = "refresh", key = "SLASH_HELP" },
+    { command = "resetpos", key = "SLASH_HELP" },
+    { command = "scale 1.25", key = "SLASH_HELP" },
+    { command = "scale", key = "SLASH_HELP" },
     { command = "voellig unbekannt", key = "SLASH_HELP" },
 }
 
@@ -385,46 +425,94 @@ for _, case in ipairs(SLASH_CASES) do
         "deDE-Ausgabe für '" .. case.command .. "' ist leer oder ein Roh-Schlüssel: " .. tostring(deText))
 end
 
--- Die beiden Sprachen müssen für diese Meldungen tatsächlich auseinanderlaufen,
+-- Die beiden Sprachen müssen für diese Meldung tatsächlich auseinanderlaufen,
 -- sonst prüfte der Vergleich oben nichts.
 do
-    local de = RunSlash("deDE", "refresh")
-    local en = RunSlash("enUS", "refresh")
-    check(de.L("SLASH_REFRESHED") ~= en.L("SLASH_REFRESHED"),
-        "SLASH_REFRESHED ist in beiden Sprachen identisch - der Locale-Test prüfte nichts")
+    local de = RunSlash("deDE", "help")
+    local en = RunSlash("enUS", "help")
     check(de.L("SLASH_HELP") ~= en.L("SLASH_HELP"),
         "SLASH_HELP ist in beiden Sprachen identisch - der Locale-Test prüfte nichts")
 end
 
--- Die Befehls-Tokens selbst bleiben in jeder Sprache englisch und unverändert.
+-- Jedes Argument öffnet das Fenster auf den Einstellungen.
+for _, case in ipairs(SLASH_CASES) do
+    for _, locale in ipairs({ "deDE", "enUS", "frFR" }) do
+        local _, text, messages, opened, tabs = RunSlash(locale, case.command)
+        checkEqual(opened, 1,
+            "'" .. case.command .. "' (" .. locale .. ") öffnet das Fenster nicht genau einmal")
+        checkEqual(tabs[1], "settings",
+            "'" .. case.command .. "' (" .. locale .. ") landet nicht im Einstellungsbereich")
+        checkEqual(#messages, 1,
+            "'" .. case.command .. "' (" .. locale .. ") druckt nicht genau eine Hinweiszeile")
+        check(type(text) == "string" and text ~= "",
+            "'" .. case.command .. "' (" .. locale .. ") druckt keinen Hinweis")
+    end
+end
+
+-- Die öffentliche Hilfezeile nennt keine Unterbefehle mehr. Sie sind ersatzlos
+-- entfallen; wer sie eintippt, landet im Einstellungsbereich. Ein
+-- zurückgekehrtes Token wäre eine Falschaussage gegenüber dem Spieler.
 for _, locale in ipairs({ "deDE", "enUS", "frFR" }) do
     local WAT = RunSlash(locale, "help")
     local help = WAT.L("SLASH_HELP")
-    for _, token in ipairs({ "/wat", "show", "hide", "refresh", "resetpos", "scale", "debug" }) do
-        check(string.find(help, token, 1, true) ~= nil,
-            "Slash-Token '" .. token .. "' fehlt im Hilfetext (" .. locale .. "): " .. help)
+    check(string.find(help, "/wat", 1, true) ~= nil,
+        "Hilfetext nennt den Slash-Befehl nicht (" .. locale .. "): " .. help)
+    for _, token in ipairs({ "show", "hide", "refresh", "resetpos", "scale", "debug" }) do
+        check(string.find(help, token, 1, true) == nil,
+            "entfallener Unterbefehl '" .. token .. "' steht wieder im Hilfetext ("
+                .. locale .. "): " .. help)
     end
-    check(string.find(help, "0.7-1.5", 1, true) ~= nil,
-        "Skalierungsbereich fehlt im Hilfetext (" .. locale .. "): " .. help)
+    check(string.find(help, "0.7-1.5", 1, true) == nil,
+        "Skalierungsbereich gehört nicht mehr in den Hilfetext (" .. locale .. "): " .. help)
     check(string.find(help, "|", 1, true) == nil,
         "Hilfetext enthält eine Pipe und würde im Chat zerlegt (" .. locale .. "): " .. help)
 end
 
--- Gültige Skalierung wird übernommen und bestätigt.
+-- Der entfallene scale-Unterbefehl darf die gespeicherte Skalierung nicht
+-- mehr anfassen - die Presets im Einstellungsbereich sind der einzige Weg.
 do
-    local WAT, text = RunSlash("deDE", "scale 1.25")
-    checkEqual(WAT.db.settings.scale, 1.25, "gültige Skalierung wird nicht gespeichert")
-    check(string.find(text, "1.25", 1, true) ~= nil,
-        "Bestätigung nennt die gesetzte Skalierung nicht: " .. tostring(text))
-    local _, enText = RunSlash("enUS", "scale 1.25")
-    check(string.find(enText, "1.25", 1, true) ~= nil,
-        "enUS-Bestätigung nennt die gesetzte Skalierung nicht: " .. tostring(enText))
+    local WAT = RunSlash("deDE", "scale 1.25")
+    checkEqual(WAT.db.settings.scale, 1,
+        "entfallener scale-Unterbefehl verändert weiterhin die Skalierung")
+    local other = RunSlash("deDE", "scale 42")
+    checkEqual(other.db.settings.scale, 1, "ungültige Skalierung darf den Wert nicht verändern")
 end
 
--- Ungültige Skalierung lässt den gespeicherten Wert unberührt.
+-- Die neuen Bereiche müssen als gespeicherte Navigation zulässig sein.
+for _, tab in ipairs({ "statistics", "settings" }) do
+    local WAT = Load("deDE")
+    WeeklyAltTrackerDB = { settings = { activeTab = tab } }
+    WAT:InitializeDatabase()
+    checkEqual(WeeklyAltTrackerDB.settings.activeTab, tab,
+        "Bereich '" .. tab .. "' wird nicht als aktive Navigation akzeptiert")
+end
+
+-- minimapHidden ist ein echter Boolean mit Vorgabe false und überlebt kaputte
+-- Werte, ohne zu nil zu kollabieren.
 do
-    local WAT = RunSlash("deDE", "scale 42")
-    checkEqual(WAT.db.settings.scale, 1, "ungültige Skalierung darf den Wert nicht verändern")
+    local WAT = Load("deDE")
+    WeeklyAltTrackerDB = nil
+    WAT:InitializeDatabase()
+    checkEqual(WeeklyAltTrackerDB.settings.minimapHidden, false,
+        "Vorgabe für minimapHidden")
+    WeeklyAltTrackerDB = { settings = { minimapHidden = true } }
+    WAT:InitializeDatabase()
+    checkEqual(WeeklyAltTrackerDB.settings.minimapHidden, true,
+        "gespeichertes minimapHidden = true geht verloren")
+    for _, bad in ipairs({ "ja", 1, {}, SECRET_VALUE }) do
+        WeeklyAltTrackerDB = { settings = { minimapHidden = bad } }
+        WAT:InitializeDatabase()
+        checkEqual(WeeklyAltTrackerDB.settings.minimapHidden, false,
+            "kaputtes minimapHidden (" .. type(bad) .. ") fällt nicht auf false zurück")
+    end
+end
+
+-- debug bleibt exakt erhalten, ist aber nicht öffentlich: es darf weder in der
+-- Hilfe stehen (siehe oben) noch die Einstellungen öffnen.
+do
+    local _, _, _, opened, tabs = RunSlash("deDE", "debug")
+    checkEqual(opened, 0, "debug darf das Fenster nicht öffnen")
+    checkEqual(tabs[1], nil, "debug darf nicht in die Einstellungen schalten")
 end
 
 -- debug rendert einen echten Snapshot in beiden Sprachen ohne Roh-Schlüssel.
@@ -456,22 +544,37 @@ do
     check(#messages >= 1, "debug ohne Snapshot gab nichts aus")
 end
 
--- Leerer Befehl und show/hide dürfen ohne UI nicht werfen.
+-- Der leere Befehl schaltet weiterhin um; jedes Argument öffnet dagegen.
 do
     local WAT = Load("deDE")
     WeeklyAltTrackerDB = nil
     WAT:InitializeDatabase()
-    local toggled = 0
+    local toggled, shown, hidden = 0, 0, 0
     WAT.ToggleUI = function() toggled = toggled + 1 end
-    WAT.ShowUI = function() toggled = toggled + 10 end
-    WAT.HideUI = function() toggled = toggled + 100 end
+    WAT.ShowUI = function() shown = shown + 1 end
+    WAT.HideUI = function() hidden = hidden + 1 end
+    WAT.SetActiveTab = function() end
+    WAT.panels = { settings = {} }
     local handler = SlashCmdList.WEEKLYALTTRACKER
     check(pcall(handler, ""), "leerer Slash-Befehl warf")
     check(pcall(handler, "  "), "Slash-Befehl aus Leerzeichen warf")
     check(pcall(handler, "SHOW"), "Slash-Befehl in Großschreibung warf")
     check(pcall(handler, "hide"), "hide warf")
-    -- 2x Toggle (leer und nur Leerzeichen) + 1x Show + 1x Hide.
-    checkEqual(toggled, 2 + 10 + 100, "Slash-Befehle erreichen ToggleUI/ShowUI/HideUI nicht")
+    checkEqual(toggled, 2, "leerer Slash-Befehl schaltet das Fenster nicht um")
+    checkEqual(shown, 2, "Argumente öffnen das Fenster nicht")
+    checkEqual(hidden, 0, "der entfallene hide-Unterbefehl schließt weiterhin das Fenster")
+end
+
+-- Ohne UI darf der Slash-Handler nicht werfen: Core.lua wird vor UI.lua
+-- geladen, ein Klick könnte theoretisch davor liegen.
+do
+    local WAT = Load("deDE")
+    WeeklyAltTrackerDB = nil
+    WAT:InitializeDatabase()
+    for _, command in ipairs({ "", "show", "irgendwas" }) do
+        local ok, err = pcall(SlashCmdList.WEEKLYALTTRACKER, command)
+        check(ok, "Slash-Befehl '" .. command .. "' ohne UI warf: " .. tostring(err))
+    end
 end
 
 -- ---------------------------------------------------------------------------

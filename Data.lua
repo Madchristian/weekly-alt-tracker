@@ -61,6 +61,32 @@ Data.NULLAEUS_T11_MYTH_REWARD = 30
 Data.HERO_TO_MYTH_HERO_COST = 30
 Data.HERO_TO_MYTH_MYTH_REWARD = 10
 
+-- Charakterbezogene, additive WoW-Erfolgsstatistiken. Gelesen werden sie
+-- ausschließlich über GetStatistic(id) für den gerade eingeloggten Charakter.
+--
+-- Die IDs sind einzeln gegen Wowhead (Retail 12.0.7) und den Aufruf von
+-- GetStatistic(id) in Blizzards AchievementUI verifiziert. Es wird bewusst
+-- KEINE weitere ID geraten: eine falsche Statistik-ID liefert nicht etwa
+-- nichts, sondern still den Wert einer fremden Statistik.
+--
+-- key ist sprachneutral und stabil; er landet nie in den SavedVariables und
+-- ist nur der interne Bezeichner. labelKey ist der kurze Spaltenkopf, nameKey
+-- der ausgeschriebene Name für den Tooltip. Beide werden erst zur Renderzeit
+-- über Localization.lua aufgelöst. Bevorzugt zeigt der Tooltip ohnehin den
+-- clientlokalisierten Namen aus GetAchievementInfo; nameKey ist der Ersatz,
+-- wenn der nicht sicher lesbar ist.
+Data.STATISTICS = {
+    { key = "delvesTotal", statisticID = 40734, labelKey = "STAT_COL_DELVES", nameKey = "STAT_NAME_DELVES" },
+    { key = "delvesMidnight", statisticID = 61790, labelKey = "STAT_COL_DELVES_MIDNIGHT", nameKey = "STAT_NAME_DELVES_MIDNIGHT" },
+    { key = "deathsTotal", statisticID = 60, labelKey = "STAT_COL_DEATHS", nameKey = "STAT_NAME_DEATHS" },
+    { key = "deathsDungeon", statisticID = 14787, labelKey = "STAT_COL_DEATHS_DUNGEON", nameKey = "STAT_NAME_DEATHS_DUNGEON" },
+    { key = "deathsRaid", statisticID = 14784, labelKey = "STAT_COL_DEATHS_RAID", nameKey = "STAT_NAME_DEATHS_RAID" },
+    { key = "deathsFalling", statisticID = 114, labelKey = "STAT_COL_DEATHS_FALLING", nameKey = "STAT_NAME_DEATHS_FALLING" },
+    { key = "questsCompleted", statisticID = 98, labelKey = "STAT_COL_QUESTS", nameKey = "STAT_NAME_QUESTS" },
+    { key = "questsDaily", statisticID = 97, labelKey = "STAT_COL_QUESTS_DAILY", nameKey = "STAT_NAME_QUESTS_DAILY" },
+    { key = "questsAbandoned", statisticID = 94, labelKey = "STAT_COL_QUESTS_ABANDONED", nameKey = "STAT_NAME_QUESTS_ABANDONED" },
+}
+
 -- Schlüssel ist die lokalisierungsunabhängige Basis-Skill-Line-ID aus
 -- GetProfessionInfo(...), Rückgabewert 7.
 Data.PROFESSION_WEEKLIES = {
