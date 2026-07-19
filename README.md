@@ -166,14 +166,10 @@ Der Paketumfang wird über `.pkgmeta` gesteuert. Das ZIP enthält den Ordner `We
 
 Das GitHub-Release wird mit dem automatisch bereitgestellten `GITHUB_TOKEN` erstellt; ein eigenes Secret ist dafür nicht nötig.
 
-### Wago-Upload (noch nicht aktiv)
+### Wago-Veröffentlichung
 
-`WAGO_API_TOKEN` ist im Workflow bereits vorbereitet, der Upload ist aber noch nicht aktiv. Stand der drei nötigen Schritte:
+Das Addon ist auf Wago Addons veröffentlicht: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). Die Projekt-ID `ZKxZJkNk` steht als `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` und ist auch auf der Projektseite sichtbar.
 
-1. **Erledigt:** Das Projekt ist auf Wago Addons angelegt, die Projekt-ID lautet `ZKxZJkNk`.
-2. **Erledigt:** `WeeklyAltTracker.toc` enthält die Zeile `## X-Wago-ID: ZKxZJkNk`.
-3. **Offen:** Im Repository unter *Settings → Secrets and variables → Actions* muss das Secret `WAGO_API_TOKEN` hinterlegt werden. Der Tokenwert gehört ausschließlich in dieses Secret und nicht in das Repository.
+Version 0.2.5 wurde über die offizielle Wago-Upload-API als Stable für Retail-Patch 12.0.7 veröffentlicht. Das öffentlich ausgelieferte CDN-ZIP wurde zurückgeladen und stimmt bytegenau mit dem hochgeladenen Paket überein.
 
-Erst wenn das Secret gesetzt ist, lädt ein Tag-Release automatisch nach Wago hoch. Solange die TOC keine `## X-Wago-ID` enthielt, übersprang der Packager den Wago-Schritt kommentarlos; der Job schlug dadurch nicht fehl.
-
-Der bereits veröffentlichte Release 0.2.5 wird nicht rückwirkend hochgeladen, weil sein Tag-Workflow lief, bevor die Wago-ID in der TOC stand. Er kann bei Bedarf einmalig manuell über die offizielle Wago-Upload-API nachgereicht werden; alle folgenden Tag-Releases laufen dann automatisch, sobald Schritt 3 erledigt ist.
+Das Secret `WAGO_API_TOKEN` ist im Repository unter *Settings → Secrets and variables → Actions* hinterlegt. Der Tokenwert gehört ausschließlich in dieses Secret und niemals in das Repository. Damit lädt jeder künftige `v*`-Tag über den BigWigs-Packager automatisch sowohl zum GitHub-Release als auch zu Wago hoch.
