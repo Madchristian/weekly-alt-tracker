@@ -41,8 +41,8 @@ they are always taken from the WoW API in your client's language. The addon's ow
 translation labels are no longer stored as the display source: the snapshot
 keeps stable IDs that are localized at display time and take precedence.
 Client-localized names supplied by the WoW API may still sit in the snapshot,
-where they serve backwards compatibility as a fallback. Switching the client
-language therefore immediately shows already-recorded characters in the new
+where they serve backwards compatibility as a fallback. After restarting WoW
+with the changed client language, already-recorded characters appear in the new
 language too; with no localization available you get a neutral dungeon ID
 instead of a name stored in another language.
 

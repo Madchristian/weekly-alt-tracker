@@ -44,8 +44,8 @@ immer clientlokalisiert aus der WoW-API bezogen. Eigene Übersetzungslabels des 
 werden nicht mehr als Anzeigequelle gespeichert: Der Snapshot legt stabile IDs
 ab, die erst beim Anzeigen lokalisiert werden und Vorrang haben. Von der WoW-API
 gelieferte, bereits lokalisierte Namen können weiterhin im Snapshot stehen und
-dienen dort der Rückwärtskompatibilität als Fallback. Ein Sprachwechsel zeigt
-deshalb auch bereits erfasste Charaktere sofort in der neuen Sprache; ohne
+dienen dort der Rückwärtskompatibilität als Fallback. Nach einem Neustart von WoW
+mit der geänderten Clientsprache erscheinen auch bereits erfasste Charaktere in der neuen Sprache; ohne
 verfügbare Lokalisierung erscheint eine neutrale Dungeon-ID statt eines
 fremdsprachig gespeicherten Namens.
 

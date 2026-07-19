@@ -39,8 +39,8 @@ Client-localized names supplied by the WoW API (such as profession and dungeon
 names) may still be present in the snapshot - they are retained as a fallback
 for backwards compatibility and are used only when resolving via the ID fails.
 
-Because of that, switching your client language immediately shows already
-recorded characters in the new language as well. Existing 0.2.5 data is read
+Because of that, already-recorded characters appear in the new language after
+restarting WoW with the changed client language. Existing 0.2.5 data is read
 without migration; the database schema stays at version 2.
 
 If a dungeon name cannot be read from the client, the keystone view now shows

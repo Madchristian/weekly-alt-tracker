@@ -63,7 +63,7 @@ Die Oberfläche folgt automatisch der Sprache deines WoW-Clients:
 - **enUS / enGB** - vollständig englisch
 - jede andere Clientsprache verwendet sicher die englische Fassung
 
-Eine eigene Spracheinstellung gibt es nicht. Namen aus dem Spiel - Klasse, Dungeon, Gegenstand, Beruf und Erfolg - kommen immer clientlokalisiert aus der WoW-API und werden nie vom Addon übersetzt. Eigene Übersetzungslabels speichert das Addon nicht mehr als Anzeigequelle: Es legt stabile IDs ab und lokalisiert sie erst beim Anzeigen, und diese Laufzeitauflösung hat Vorrang. Von der WoW-API gelieferte, bereits lokalisierte Namen können weiterhin im Snapshot stehen, dienen dort aber nur der Rückwärtskompatibilität und als Fallback. Ein Sprachwechsel zeigt deshalb auch bereits erfasste Charaktere sofort in der neuen Sprache; ohne verfügbare Lokalisierung erscheint eine neutrale Dungeon-ID statt eines fremdsprachig gespeicherten Namens.
+Eine eigene Spracheinstellung gibt es nicht. Namen aus dem Spiel - Klasse, Dungeon, Gegenstand, Beruf und Erfolg - kommen immer clientlokalisiert aus der WoW-API und werden nie vom Addon übersetzt. Eigene Übersetzungslabels speichert das Addon nicht mehr als Anzeigequelle: Es legt stabile IDs ab und lokalisiert sie erst beim Anzeigen, und diese Laufzeitauflösung hat Vorrang. Von der WoW-API gelieferte, bereits lokalisierte Namen können weiterhin im Snapshot stehen, dienen dort aber nur der Rückwärtskompatibilität und als Fallback. Nach einem Neustart von WoW mit der geänderten Clientsprache erscheinen deshalb auch bereits erfasste Charaktere in der neuen Sprache; ohne verfügbare Lokalisierung erscheint eine neutrale Dungeon-ID statt eines fremdsprachig gespeicherten Namens.
 
 ## Manuelle Installation
 

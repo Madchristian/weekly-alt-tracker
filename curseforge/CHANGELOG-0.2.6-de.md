@@ -41,8 +41,8 @@ Dungeonname) können weiterhin im Snapshot stehen - sie bleiben aus Gründen der
 Rückwärtskompatibilität als Fallback erhalten und werden nur genutzt, wenn die
 Auflösung über die ID scheitert.
 
-Dadurch zeigt ein Sprachwechsel auch bereits erfasste Charaktere sofort in der
-neuen Sprache. Bestehende 0.2.5-Daten werden ohne Migration gelesen; das
+Nach einem Neustart von WoW mit der geänderten Clientsprache erscheinen dadurch
+auch bereits erfasste Charaktere in der neuen Sprache. Bestehende 0.2.5-Daten werden ohne Migration gelesen; das
 Datenbankschema bleibt bei Version 2.
 
 Lässt sich ein Dungeonname nicht aus dem Client lesen, zeigt die
