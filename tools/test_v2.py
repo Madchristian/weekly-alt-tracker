@@ -38,7 +38,8 @@ def main() -> int:
     ui = text("UI.lua")
 
     toc_order = [line.strip() for line in toc.splitlines() if line.strip().endswith(".lua")]
-    require(toc_order == ["Core.lua", "Data.lua", "Scanner.lua", "Activities.lua", "UI.lua"],
+    require(toc_order == ["Localization.lua", "Core.lua", "Data.lua", "Scanner.lua",
+                          "Activities.lua", "UI.lua"],
             f"Falsche V2-Ladereihenfolge: {toc_order}")
     toc_version = re.search(r"(?m)^## Version:\s*(\S+)", toc)
     core_version = re.search(r'WAT\.version\s*=\s*"([^"]+)"', core)
@@ -92,8 +93,8 @@ def main() -> int:
         require(token in scanner, f"Schlüsselstein-Snapshot fehlt: {token}")
     require("not FindPreviousSlot(fresh, old)" in scanner,
             "Partielle Vault-Scans müssen vollständig fehlende Same-Week-Slots erhalten")
-    require('"Belohnungsstufe"' in scanner,
-            "Unbekannte Vault-Rewards brauchen eine neutrale Kennzeichnung")
+    require('WAT.L("REWARD_LEVEL_GENERIC")' in scanner,
+            "Unbekannte Vault-Rewards brauchen eine neutrale, lokalisierte Kennzeichnung")
 
     for token in ("ScanMidnightWeekly", "ScanPrey", "ScanRitualSites", "ScanProfessions", "ScanCrestSources"):
         require(token in activities, f"Aktivitätsscanner fehlt: {token}")
@@ -128,11 +129,131 @@ def main() -> int:
     for migration_token in ("NormalizeCharacter", "migratedCharacters", "VALID_POINTS", "SafeTable"):
         require(migration_token in core, f"SavedVariable-Migration fehlt: {migration_token}")
 
-    user_facing_source = "\n".join((data, scanner, activities, ui))
+    localization = text("Localization.lua")
+    user_facing_source = "\n".join((data, scanner, activities, ui, localization))
+
+    # Die beiden Roh-Wörterbücher werden als Quelltextblöcke isoliert, damit
+    # geprüft werden kann, dass ein Text in der RICHTIGEN Sprache steht und
+    # nicht bloß irgendwo in der Datei vorkommt.
+    def dictionary_body(name: str) -> str:
+        match = re.search(rf"(?m)^local {name} = \{{\n(.*?)\n\}}\n", localization, re.S)
+        require(match is not None, f"Roh-Wörterbuch fehlt in Localization.lua: {name}")
+        return match.group(1) if match else ""
+
+    de_dict = dictionary_body("deDE")
+    en_dict = dictionary_body("enUS")
     for label in ("Übersicht", "Midnight-Woche", "Berufe", "Wappenquellen", "Goldene Truhe", "Dämmerwappen",
                   "Champion", "Held", "Mythisch", "Jagd", "Ritualstätten", "Thalassischer Traktat",
                   "Gegenstandsstufe", "bis Gegenstandsstufe", "alte Woche", "unbekannt"):
-        require(label in user_facing_source, f"Deutscher UI-Text fehlt: {label}")
+        require(label in de_dict, f"Deutscher UI-Text fehlt im deDE-Wörterbuch: {label}")
+    for label in ("Overview", "Midnight Week", "Professions", "Crest Sources", "Gilded Stash",
+                  "Twilight Crest", "Champion", "Hero", "Myth", "Hunt", "Ritual Sites",
+                  "Thalassian Treatise", "Item Level", "up to Item Level", "old week", "unknown"):
+        require(label in en_dict, f"Englischer UI-Text fehlt im enUS-Wörterbuch: {label}")
+
+    # Jagd-Kürzel: deDE N/S/A, enUS N/H/NM.
+    for line in ('HUNT_SHORT_NORMAL = "N"', 'HUNT_SHORT_HARD = "S"', 'HUNT_SHORT_NIGHTMARE = "A"'):
+        require(line in de_dict, f"deutsches Jagd-Kürzel fehlt: {line}")
+    for line in ('HUNT_SHORT_NORMAL = "N"', 'HUNT_SHORT_HARD = "H"', 'HUNT_SHORT_NIGHTMARE = "NM"'):
+        require(line in en_dict, f"englisches Jagd-Kürzel fehlt: {line}")
+
+    # Jede Midnight-Meta-Quest-ID braucht in beiden Sprachen ein Label. Der
+    # Snapshot speichert nur die questID, das Label entsteht zur Renderzeit.
+    for quest_id in meta:
+        for name, body in (("deDE", de_dict), ("enUS", en_dict)):
+            require(f"META_QUEST_{quest_id} =" in body,
+                    f"Label für Midnight-Meta-Quest {quest_id} fehlt in {name}")
+    require("META_LABELS" not in data and "META_LABELS" not in activities,
+            "Deutsche META_LABELS-Tabelle darf nicht zurückkehren; Labels kommen aus Localization.lua")
+    require(re.search(r"(?m)^\s*label = ", activities) is None,
+            "Activities darf kein übersetztes Label in den Snapshot und damit in die SavedVariables schreiben")
+
+    # -----------------------------------------------------------------------
+    # Referenzgate: jeder statisch aufgerufene Schlüssel muss es geben.
+    #
+    # WAT.L liefert für einen unbekannten Schlüssel bewusst "[KEY]" statt einen
+    # Fehler zu werfen - genau deshalb fällt ein Tippfehler zur Laufzeit nicht
+    # auf, sondern erst als sichtbarer Rohschlüssel beim Spieler. Dieses Gate
+    # fängt ihn im Quelltext ab, gegen BEIDE Roh-Wörterbücher.
+    # -----------------------------------------------------------------------
+
+    def strip_comments(source: str) -> str:
+        source = re.sub(r"--\[\[.*?\]\]", "", source, flags=re.S)
+        return re.sub(r"--[^\n]*", "", source)
+
+    def dictionary_keys(body: str) -> set[str]:
+        return set(re.findall(r"(?m)^\s*([A-Z][A-Z0-9_]*)\s*=", body))
+
+    de_keys = dictionary_keys(de_dict)
+    en_keys = dictionary_keys(en_dict)
+    require(len(de_keys) > 80 and len(en_keys) > 80,
+            f"Roh-Wörterbücher wirken unvollständig: deDE={len(de_keys)}, enUS={len(en_keys)}")
+
+    # Nur diese beiden Aufrufstellen dürfen einen berechneten Schlüssel
+    # übergeben. Die Liste ist bewusst eng und nennt den Ausdruck exakt - ein
+    # neuer dynamischer Aufruf muss hier eingetragen und seine Schlüsselquelle
+    # unten statisch abgesichert werden, statt pauschal durchzurutschen.
+    DYNAMIC_CALLS = {
+        # Midnight-Meta-Weekly: Data.MetaQuestLabelKey(questID) -> META_QUEST_<id>.
+        # Die Existenz jedes META_QUEST_<id> wird oben je Quest-ID geprüft.
+        ("UI.lua", "labelKey"),
+        # Wappen-Tooltip: Data.CRESTS[...].labelKey. Die Literale werden
+        # unmittelbar darunter gegen beide Wörterbücher geprüft.
+        ("UI.lua", "definition.labelKey"),
+    }
+
+    seen_dynamic: set[tuple[str, str]] = set()
+    for name, source in (("Localization.lua", localization), ("Core.lua", core), ("Data.lua", data),
+                         ("Scanner.lua", scanner), ("Activities.lua", activities), ("UI.lua", ui)):
+        clean = strip_comments(source)
+        # Beide Quoteformen; erfasst auch die Präfixformen WAT.L( und self.L(.
+        for quote, key in re.findall(r"(?<!function )\bL\(\s*([\"'])([A-Za-z_][A-Za-z0-9_]*)\1", clean):
+            require(key in en_keys, f"{name}: L({quote}{key}{quote}) - Schlüssel fehlt im enUS-Wörterbuch")
+            require(key in de_keys, f"{name}: L({quote}{key}{quote}) - Schlüssel fehlt im deDE-Wörterbuch")
+        # Alles, was kein String-Literal ist, muss auf der Ausnahmeliste stehen.
+        for expression in re.findall(r"(?<!function )\bL\(\s*([^\"'\s,)][^,)]*)", clean):
+            expression = expression.strip()
+            if expression in ("key", "..."):
+                continue  # die Definition von L selbst in Localization.lua
+            require((name, expression) in DYNAMIC_CALLS,
+                    f"{name}: dynamischer Lokalisierungsaufruf L({expression}) steht nicht auf der "
+                    "Ausnahmeliste - Schlüsselquelle statisch absichern und eintragen")
+            seen_dynamic.add((name, expression))
+
+    for entry in sorted(DYNAMIC_CALLS - seen_dynamic):
+        require(False, f"Ausnahmeliste nennt einen dynamischen Aufruf, den es nicht mehr gibt: {entry}")
+
+    # Statische Absicherung der dynamischen Quelle Data.CRESTS[...].labelKey.
+    crest_label_keys = re.findall(r'labelKey\s*=\s*"([A-Za-z_][A-Za-z0-9_]*)"', strip_comments(data))
+    require(len(crest_label_keys) >= 3,
+            "Data.lua definiert keine labelKey-Literale mehr - dynamischer L-Aufruf wäre ungedeckt")
+    for key in crest_label_keys:
+        require(key in en_keys, f"Data.lua: labelKey {key!r} fehlt im enUS-Wörterbuch")
+        require(key in de_keys, f"Data.lua: labelKey {key!r} fehlt im deDE-Wörterbuch")
+
+    # Statische Absicherung der dynamischen Quelle Data.MetaQuestLabelKey.
+    require('"META_QUEST_"' in data or "'META_QUEST_'" in data,
+            "Data.MetaQuestLabelKey baut den Schlüssel nicht mehr aus dem Präfix META_QUEST_")
+
+    # Migrationsgate: in den Produktionsdateien darf kein deutschsprachiges
+    # String-Literal mehr stehen. Kommentare bleiben deutsch und sind
+    # ausgenommen, deshalb wird vorher entkommentiert.
+    def literals(source: str) -> list[str]:
+        without_comments = re.sub(r"--\[\[.*?\]\]", "", source, flags=re.S)
+        without_comments = re.sub(r"--[^\n]*", "", without_comments)
+        return re.findall(r'"((?:\\.|[^"\\])*)"', without_comments)
+
+    for name, source in (("Data.lua", data), ("Scanner.lua", scanner),
+                         ("Activities.lua", activities), ("UI.lua", ui), ("Core.lua", core)):
+        for literal in literals(source):
+            for umlaut in "äöüßÄÖÜ":
+                require(umlaut not in literal,
+                        f"{name}: nicht lokalisiertes deutsches String-Literal {literal!r}")
+        for german in ("fertig", "offen", "aktiv", "gesperrt", "unbekannt", "nicht erfasst",
+                       "freigeschaltet", "gerade eben", "Klasse", "Erfasst", "Unbekannt"):
+            require(german not in literals(source),
+                    f"{name}: nicht lokalisiertes deutsches String-Literal {german!r}")
+
     require("Raid-Vault" not in ui and "Raid" not in toc_order, "Raid-Tracking darf nicht Teil der V2-UI sein")
 
     require("or 0" not in re.sub(r"(?:pos\.[xy]|offset[XY])\s+or 0", "", ui),
@@ -141,14 +262,43 @@ def main() -> int:
         require(glyph not in user_facing_source,
                 f"WoW-Font-unsichere UI-Glyphe darf nicht verwendet werden: {glyph}")
     require("||r" not in ui, "Beschädigter WoW-Farbcode im UI-Text")
+    # Übersetzungswerte tragen kein Markup: sonst könnte eine Übersetzung
+    # einen Farbcode der UI zerreißen. Geprüft werden die Werte selbst,
+    # nicht die deutschen Kommentare darüber.
+    for name, body in (("deDE", de_dict), ("enUS", en_dict)):
+        for literal in literals(body):
+            require("|c" not in literal and "|r" not in literal,
+                    f"Farbcode im {name}-Übersetzungswert: {literal!r}")
+
+    # Der interne Vertrag von GetVaultSummary ist sprachneutral und bleibt es.
+    require('return string.format("%d/%d", unlocked, known)' in scanner,
+            "GetVaultSummary muss weiterhin das sprachneutrale %d/%d liefern")
+    require(scanner.count('return "-"') >= 3,
+            "GetVaultSummary muss unbekannt weiterhin als sprachneutrales '-' liefern")
 
     panel_order = ("overview", "midnight", "professions", "sources", "keystones")
-    require('label = "Schlüsselsteine"' in ui and "FillKeystones" in ui,
-            "Deutscher Schlüsselstein-Bereich fehlt")
-    for label in ("SKILL", "FREI / TASCHE", "Freie Wissenspunkte", "Wissenspunkte in Taschen"):
-        require(label in ui, f"Berufsfortschritts-UI fehlt: {label}")
-    for token in ('key = "mythic10"', 'label = "M+10\\n272 ILVL"', "MythicPlusTenText"):
+    # Der Schlüsselstein-Bereich existiert weiterhin; sein Titel kommt jetzt
+    # aus dem Wörterbuch statt aus einem Literal in UI.lua.
+    require('label = L("PANEL_KEYSTONES")' in ui and "FillKeystones" in ui,
+            "Schlüsselstein-Bereich fehlt oder ist nicht lokalisiert")
+    require('PANEL_KEYSTONES = "Schlüsselsteine"' in de_dict
+            and 'PANEL_KEYSTONES = "Keystones"' in en_dict,
+            "Titel des Schlüsselstein-Bereichs fehlt in einem der beiden Wörterbücher")
+    for key in ('L("COL_SKILL")', 'L("COL_KNOWLEDGE")', 'L("PROF_FREE_KNOWLEDGE")',
+                'L("PROF_BAG_KNOWLEDGE")'):
+        require(key in ui, f"Berufsfortschritts-UI fehlt: {key}")
+    for label, body, name in (("SKILL", de_dict, "deDE"), ("FREI / TASCHE", de_dict, "deDE"),
+                              ("Freie Wissenspunkte", de_dict, "deDE"),
+                              ("Wissenspunkte in Taschen", de_dict, "deDE"),
+                              ("SKILL", en_dict, "enUS"), ("FREE / BAGS", en_dict, "enUS"),
+                              ("Free Knowledge Points", en_dict, "enUS"),
+                              ("Knowledge Points in Bags", en_dict, "enUS")):
+        require(label in body, f"Berufsfortschritts-Text fehlt in {name}: {label}")
+    for token in ('key = "mythic10"', 'label = L("COL_MYTHIC10")', "MythicPlusTenText"):
         require(token in ui, f"M+10-Status in der Übersicht fehlt: {token}")
+    for name, body in (("deDE", de_dict), ("enUS", en_dict)):
+        require('COL_MYTHIC10 = "M+10\\n272 ILVL"' in body,
+                f"M+10-Spaltenkopf fehlt in {name}")
     for token in ("CreateMinimapButton", "UpdateMinimapButtonPosition", "minimapAngle",
                   "RegisterForClicks", "OnDragStart", "OnDragStop", "SetMask"):
         require(token in ui or token in core, f"Minimap-Symbol fehlt: {token}")

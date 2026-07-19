@@ -1,6 +1,6 @@
 # WeeklyAltTracker
 
-**Dein Wochenfortschritt. Alle Charaktere. Eine kompakte deutsche Übersicht.**
+**Dein Wochenfortschritt. Alle Charaktere. Eine kompakte Übersicht - deutsch und englisch.**
 
 WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 12.0.7 / Midnight**. Es speichert sichere Offline-Snapshots deiner Charaktere und zeigt die wichtigsten wöchentlichen Aufgaben, Schatzkammer-Slots, Berufe, Wissenspunkte, Wappenquellen und Mythic+-Schlüsselsteine accountweit an.
 
@@ -48,12 +48,22 @@ WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 1
 
 ### Bedienung
 
-- eigenständige deutsche Midnight-Dark-Oberfläche
+- eigenständige Midnight-Dark-Oberfläche in Deutsch (deDE) und Englisch (enUS/enGB)
 - fünf kompakte Ansichten
 - Minimap-Symbol: Linksklick öffnet oder schließt das Fenster
 - Minimap-Symbol per Drag verschiebbar
 - keine externen Bibliotheken
 - Abhängigkeiten: keine
+
+## Sprachen
+
+Die Oberfläche folgt automatisch der Sprache deines WoW-Clients:
+
+- **deDE** - vollständig deutsch
+- **enUS / enGB** - vollständig englisch
+- jede andere Clientsprache verwendet sicher die englische Fassung
+
+Eine eigene Spracheinstellung gibt es nicht. Namen aus dem Spiel - Klasse, Dungeon, Gegenstand, Beruf und Erfolg - kommen immer clientlokalisiert aus der WoW-API und werden nie vom Addon übersetzt. Eigene Übersetzungslabels speichert das Addon nicht mehr als Anzeigequelle: Es legt stabile IDs ab und lokalisiert sie erst beim Anzeigen, und diese Laufzeitauflösung hat Vorrang. Von der WoW-API gelieferte, bereits lokalisierte Namen können weiterhin im Snapshot stehen, dienen dort aber nur der Rückwärtskompatibilität und als Fallback. Ein Sprachwechsel zeigt deshalb auch bereits erfasste Charaktere sofort in der neuen Sprache; ohne verfügbare Lokalisierung erscheint eine neutrale Dungeon-ID statt eines fremdsprachig gespeicherten Namens.
 
 ## Manuelle Installation
 

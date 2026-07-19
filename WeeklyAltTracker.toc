@@ -1,13 +1,15 @@
 ## Interface: 120007
 ## Title: WeeklyAltTracker
-## Notes: Lokaler Wochenfortschritt fuer alle Charaktere in WoW Midnight.
+## Notes: Local weekly progress for all your characters in WoW Midnight.
+## Notes-deDE: Lokaler Wochenfortschritt fuer alle Charaktere in WoW Midnight.
 ## Author: Christian
-## Version: 0.2.5
+## Version: 0.2.6
 ## X-License: All Rights Reserved
 ## X-Wago-ID: ZKxZJkNk
 ## SavedVariables: WeeklyAltTrackerDB
 ## IconTexture: Interface\AddOns\WeeklyAltTracker\Media\WeeklyAltTrackerIcon
 
+Localization.lua
 Core.lua
 Data.lua
 Scanner.lua

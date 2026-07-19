@@ -63,6 +63,16 @@ C_ChallengeMode = {
     end,
 }
 
+-- Localization.lua wird echt geladen; Scanner.lua benutzt WAT.L.
+local function LoadLocalization(locale)
+    GetLocale = function() return locale end
+    local chunk, localizationError = loadfile("Localization.lua")
+    assert(chunk, localizationError)
+    chunk("WeeklyAltTracker", WAT)
+    assert(type(WAT.L) == "function", "WAT.L fehlt nach dem Laden für " .. locale)
+end
+LoadLocalization("deDE")
+
 local scannerChunk, loadError = loadfile("Scanner.lua")
 assert(scannerChunk, loadError)
 scannerChunk("WeeklyAltTracker", WAT)
@@ -186,5 +196,74 @@ assert(previewSlot.rewardItemLevel == 720,
     "ein nil zwischen Beispiel-Links darf spätere Links nicht abschneiden, erwartet 720, erhalten "
         .. tostring(previewSlot.rewardItemLevel))
 
+-- GetVaultSummary ist ein interner, sprachneutraler Formatvertrag: "%d/%d"
+-- bzw. "-". Er darf sich mit der Lokalisierung NICHT aendern, weil die UI ihn
+-- wieder zerlegt. Deshalb in beiden Sprachen identisch geprueft.
+local SUMMARY_CASES = {
+    { vault = nil, expected = "-", name = "kein Vault" },
+    { vault = {}, expected = "-", name = "leerer Vault" },
+    { vault = { slots = {} }, expected = "-", name = "keine Slots" },
+    {
+        vault = { slots = { { threshold = 1, progress = 1 }, { threshold = 4, progress = 2 } } },
+        expected = "1/2", name = "ein Slot freigeschaltet",
+    },
+    {
+        vault = { slots = { { threshold = 1, progress = 1 }, { threshold = 4, progress = 4 } } },
+        expected = "2/2", name = "alle Slots freigeschaltet",
+    },
+    {
+        vault = { slots = { { threshold = 1, progress = 1 }, { threshold = 4 } } },
+        expected = "-", name = "ein unlesbarer Slot macht die Summary konservativ unbekannt",
+    },
+}
+for _, locale in ipairs({ "deDE", "enUS" }) do
+    LoadLocalization(locale)
+    for _, case in ipairs(SUMMARY_CASES) do
+        local summary = WAT:GetVaultSummary(case.vault)
+        assert(summary == case.expected,
+            "GetVaultSummary-Vertrag verletzt (" .. locale .. ", " .. case.name .. "): erwartet "
+                .. case.expected .. ", erhalten " .. tostring(summary))
+    end
+end
+
+-- Der Vault-Tooltip dagegen ist Anzeigetext und muss der Sprache folgen.
+local TOOLTIP_VAULT = {
+    slots = {
+        { threshold = 1, progress = 1, level = 12, rewardItemLevel = 710, rewardIsPreview = false },
+        { threshold = 4, progress = 2, level = 10, rewardItemLevel = 720, rewardIsPreview = true },
+        { threshold = 8 },
+    },
+}
+LoadLocalization("deDE")
+local germanTooltip = WAT:GetVaultTooltip(TOOLTIP_VAULT, "+")
+for _, expected in ipairs({ "freigeschaltet", "offen", "unbekannt", "Gegenstandsstufe",
+                            "bis Gegenstandsstufe" }) do
+    assert(string.find(germanTooltip, expected, 1, true),
+        "deutscher Vault-Tooltip fehlt: " .. expected .. ", erhalten: " .. germanTooltip)
+end
+assert(WAT:GetVaultTooltip(nil, "+") == "Noch keine Schatzkammer-Daten erfasst.",
+    "deutscher Leertext des Vault-Tooltips fehlt")
+
+LoadLocalization("enUS")
+local englishTooltip = WAT:GetVaultTooltip(TOOLTIP_VAULT, "+")
+for _, expected in ipairs({ "unlocked", "open", "unknown", "Item Level", "up to Item Level" }) do
+    assert(string.find(englishTooltip, expected, 1, true),
+        "englischer Vault-Tooltip fehlt: " .. expected .. ", erhalten: " .. englishTooltip)
+end
+for _, forbidden in ipairs({ "freigeschaltet", "Gegenstandsstufe", "Schatzkammer" }) do
+    assert(not string.find(englishTooltip, forbidden, 1, true),
+        "deutscher Text im englischen Vault-Tooltip: " .. forbidden)
+end
+assert(WAT:GetVaultTooltip(nil, "+") == "No Great Vault data recorded yet.",
+    "englischer Leertext des Vault-Tooltips fehlt")
+
+-- Eine unbekannte Clientsprache muss auf Englisch landen, nicht auf Deutsch.
+LoadLocalization("frFR")
+assert(WAT.Localization.locale == "enUS", "frFR muss auf enUS zurückfallen")
+assert(WAT:GetVaultTooltip(nil, "+") == "No Great Vault data recorded yet.",
+    "frFR-Client muss den englischen Vault-Text erhalten")
+
 print("LUA RUNTIME OK: Vault, Schlüsselstein +12, Secret-Erhalt, kein Schlüsselstein,"
-    .. " konservative Vault-Summary und lückensichere Vorschau-Itemlevel")
+    .. " konservative Vault-Summary und lückensichere Vorschau-Itemlevel,"
+    .. " sprachneutraler GetVaultSummary-Vertrag in deDE/enUS"
+    .. " und lokalisierter Vault-Tooltip inklusive frFR-Fallback")

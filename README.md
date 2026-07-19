@@ -1,8 +1,24 @@
 # WeeklyAltTracker
 
-Ein eigenständiges deutsches WoW-Retail-Addon für Midnight 12.0.7. Es speichert den Wochenfortschritt accountweit als Offline-Snapshots und zeigt mehrere Charaktere in einer kompakten Midnight-Dark-Oberfläche.
+Ein eigenständiges WoW-Retail-Addon für Midnight 12.0.7. Es speichert den Wochenfortschritt accountweit als Offline-Snapshots und zeigt mehrere Charaktere in einer kompakten Midnight-Dark-Oberfläche.
 
 Eine ausführliche Installations-, Bedienungs- und Fehlerbehebungsanleitung befindet sich in `Anleitung.html`. Die Nutzungsbedingungen stehen in `LICENSE.txt`; WeeklyAltTracker wird unter **All Rights Reserved** veröffentlicht.
+
+*English documentation: [`README.en.md`](README.en.md) and `Guide.en.html`.*
+
+## Sprachen
+
+Seit Version 0.2.6 ist die Oberfläche vollständig zweisprachig:
+
+- **deDE** – vollständig deutsch
+- **enUS / enGB** – vollständig englisch
+- jede andere Clientsprache fällt sicher auf Englisch zurück
+
+Die Sprache richtet sich automatisch nach dem WoW-Client (`GetLocale`); es gibt keine eigene Einstellung. Lässt sich die Clientsprache nicht sicher lesen, verwendet das Addon Englisch, statt einen Fehler zu erzeugen.
+
+Namen aus dem Spiel – Klasse, Dungeon, Gegenstand, Beruf und Erfolg – werden nie vom Addon übersetzt, sondern zur Laufzeit clientlokalisiert aus der WoW-API bezogen. Eigene Übersetzungslabels des Addons speichert der Snapshot nicht mehr als maßgebliche Anzeigequelle: Für Midnight-Wochenquest, Beruf und Schlüsselstein werden stabile IDs (`questID`, `baseSkillLineID`, `mapID`) abgelegt und erst beim Anzeigen aufgelöst – diese Laufzeitauflösung hat Vorrang vor allem, was im Snapshot steht. Von der WoW-API gelieferte, bereits clientlokalisierte Namen können weiterhin im Snapshot landen; sie dienen der Rückwärtskompatibilität und als Fallback. Ein Sprachwechsel zeigt deshalb sofort auch den bereits erfassten Altbestand in der neuen Sprache. Ist zur Anzeigezeit keine Lokalisierung verfügbar, zeigt die Schlüsselstein-Ansicht die sprachneutrale Dungeon-ID statt eines fremdsprachig gespeicherten Namens.
+
+Die Slash-Befehle selbst (`/wat show`, `hide`, `refresh`, `resetpos`, `scale`, `debug`) bleiben in beiden Sprachen identisch; nur ihre Ausgaben sind übersetzt.
 
 ## Enthalten
 
@@ -61,7 +77,7 @@ Die wiederholbaren Quellen besitzen keinen rückwirkenden quellenspezifischen Wo
 
 ## Oberfläche
 
-Version 0.2.5 verwendet ein eigenständiges, von EllesmereUI-Prinzipien inspiriertes Midnight-Dark-Layout: eine feste linke Navigation, einen großen Seitenkopf mit Beschreibung, flache Schaltflächen und kompakte Vergleichstabellen. Das Addon kopiert keine EllesmereUI-Assets und benötigt EllesmereUI nicht als Abhängigkeit.
+Version 0.2.6 verwendet ein eigenständiges, von EllesmereUI-Prinzipien inspiriertes Midnight-Dark-Layout: eine feste linke Navigation, einen großen Seitenkopf mit Beschreibung, flache Schaltflächen und kompakte Vergleichstabellen. Das Addon kopiert keine EllesmereUI-Assets und benötigt EllesmereUI nicht als Abhängigkeit.
 
 Die linke Navigation besitzt fünf Bereiche:
 
@@ -162,7 +178,7 @@ Der Workflow läuft ausschließlich bei Tags nach dem Muster `v*`, zum Beispiel 
 
 Vor jedem Tag müssen die feste Version in `WeeklyAltTracker.toc` und `Core.lua` sowie Anleitung und Changelog auf denselben Release-Stand aktualisiert werden. Der Packager benennt das Release nach dem Tag, ersetzt die feste Addon-Version aber bewusst nicht automatisch.
 
-Der Paketumfang wird über `.pkgmeta` gesteuert. Das ZIP enthält den Ordner `WeeklyAltTracker` mit den fünf Lua-Dateien, der TOC, `README.md`, `Anleitung.html`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, der Textur `Media/WeeklyAltTrackerIcon.tga` sowie einer vom Packager generierten `CHANGELOG.md`. Nicht enthalten sind `.github`, `.gitignore`, `.pkgmeta`, `artwork/`, `tools/`, `wago/` und alle lokalen Arbeitsordner. `.pkgmeta` arbeitet mit einer `ignore`-Liste, daher wird eine neue Datei im Projektstamm automatisch mitgepackt.
+Der Paketumfang wird über `.pkgmeta` gesteuert. Das ZIP enthält den Ordner `WeeklyAltTracker` mit den sechs Lua-Dateien (`Localization.lua`, `Core.lua`, `Data.lua`, `Scanner.lua`, `Activities.lua`, `UI.lua`), der TOC, `README.md`, `README.en.md`, `Anleitung.html`, `Guide.en.html`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, der Textur `Media/WeeklyAltTrackerIcon.tga` sowie einer vom Packager generierten `CHANGELOG.md`. Nicht enthalten sind `.github`, `.gitignore`, `.pkgmeta`, `artwork/`, `design/`, `tools/`, `wago/`, `curseforge/`, `Media/README.md` und alle lokalen Arbeitsordner. `.pkgmeta` arbeitet mit einer `ignore`-Liste, daher wird eine neue Datei im Projektstamm automatisch mitgepackt.
 
 Der versionierte Original-Master des Logos liegt als Vektorgrafik unter `artwork/WeeklyAltTracker-Logo.svg` und wird bewusst **nicht** ausgeliefert. Ausgeliefert wird nur der daraus erzeugte Rasterexport `Media/WeeklyAltTrackerIcon.tga`, den `UI.lua` als Minimap-Symbol referenziert.
 
@@ -175,6 +191,18 @@ Das Addon ist auf Wago Addons veröffentlicht: [addons.wago.io/addons/weekly-alt
 Version 0.2.5 wurde über die offizielle Wago-Upload-API als Stable für Retail-Patch 12.0.7 veröffentlicht. Das öffentlich ausgelieferte CDN-ZIP wurde zurückgeladen und stimmt bytegenau mit dem hochgeladenen Paket überein.
 
 Das Secret `WAGO_API_TOKEN` ist im Repository unter *Settings → Secrets and variables → Actions* hinterlegt. Der Tokenwert gehört ausschließlich in dieses Secret und niemals in das Repository. Damit lädt jeder künftige `v*`-Tag über den BigWigs-Packager automatisch sowohl zum GitHub-Release als auch zu Wago hoch.
+
+### CurseForge-Veröffentlichung
+
+Die projektseitigen CurseForge-Texte liegen versioniert unter `curseforge/`:
+
+- `PROJECT-en.md` – englischer Titel, Kurzbeschreibung und Beschreibung. CurseForge verlangt Englisch als Projektsprache.
+- `PROJECT-de.md` – deutsche Zusatzfassung derselben Beschreibung.
+- `CHANGELOG-0.2.6-en.md` und `CHANGELOG-0.2.6-de.md` – Änderungsprotokoll zum Release.
+
+Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mit ausgeliefert.
+
+Eine CurseForge-Projekt-ID liegt noch nicht vor. Deshalb steht bewusst **kein** `## X-Curse-Project-ID` in der TOC und im Repository ist keine CurseForge-URL hinterlegt; beides wird erst nach dem Anlegen des Projekts ergänzt. Ein CurseForge-Upload über den Packager ist damit noch nicht aktiv und benötigt später ein eigenes Secret (`CF_API_KEY`), das ebenfalls niemals ins Repository gehört.
 
 ## Datenherkunft und Dritte
 

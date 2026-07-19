@@ -227,5 +227,35 @@ WAT:ScanCrestSources(freshCharacter)
 assert(freshCharacter.weekly.crestSources.heroToMyth.unlocked == nil,
     "ohne Snapshot und ohne API muss der Tauschstatus unbekannt (nil) bleiben")
 
+-- Persistenz-Regression: der Midnight-Weekly-Snapshot speichert die questID,
+-- aber niemals ein eigenes uebersetztes Label. Sonst stuende deutscher Text in
+-- den accountweiten SavedVariables und ein Sprachwechsel zeigte ihn weiter an.
+local META_QUEST = WAT.Data.META_QUESTS[1]
+onQuest[META_QUEST] = true
+local metaSnapshot = WAT:ScanMidnightWeekly()
+assert(type(metaSnapshot) == "table", "Midnight-Weekly-Snapshot fehlt")
+assert(metaSnapshot.questID == META_QUEST,
+    "Snapshot muss die questID führen, erhalten " .. tostring(metaSnapshot.questID))
+assert(metaSnapshot.label == nil,
+    "Snapshot darf kein übersetztes Label speichern, erhalten " .. tostring(metaSnapshot.label))
+assert(metaSnapshot.variantKnown == true, "geloggte Meta-Weekly muss als bekannte Variante gelten")
+onQuest[META_QUEST] = nil
+
+-- Der Labelschluessel ist rein aus der ID ableitbar und sprachneutral.
+assert(WAT.Data.MetaQuestLabelKey(META_QUEST) == "META_QUEST_" .. META_QUEST,
+    "Labelschlüssel der Meta-Weekly ist nicht aus der questID ableitbar")
+assert(WAT.Data.MetaQuestLabelKey("keineZahl") == nil,
+    "Labelschlüssel darf nur für Zahlen entstehen")
+assert(WAT.Data.META_LABELS == nil,
+    "die deutsche META_LABELS-Tabelle darf nicht zurückkehren")
+
+-- Keine Wappen-Datentabelle darf noch einen deutschen Anzeigetext tragen.
+for key, definition in pairs(WAT.Data.CRESTS) do
+    assert(definition.label == nil,
+        "Data.CRESTS." .. key .. " trägt noch ein hartkodiertes Label")
+    assert(type(definition.labelKey) == "string",
+        "Data.CRESTS." .. key .. " braucht einen labelKey für Localization.lua")
+end
+
 print("LUA PROFESSION RUNTIME OK: echte Wissens-API, Skill 87/100, 14 frei, 5 Taschenpunkte, Slot-Erhalt,"
-    .. " QuestOnLog-false und heroToMyth-gesperrt")
+    .. " QuestOnLog-false, heroToMyth-gesperrt und label-freier Midnight-Snapshot")

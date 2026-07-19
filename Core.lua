@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "0.2.5"
+WAT.version = "0.2.6"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -42,8 +42,10 @@ local function NormalizeCharacter(record, oldKey)
     record.season = SafeTable(record.season) or {}
     record.professions = SafeTable(record.professions) or {}
     record.guid = SafeString(record.guid)
-    record.name = SafeString(record.name, "Unbekannt")
-    record.realm = SafeString(record.realm, "Unbekannt")
+    -- Kein Ersatztext: ein unlesbarer Name bleibt nil und wird erst zur
+    -- Renderzeit lokalisiert. In die SavedVariables gehoert kein Locale-Text.
+    record.name = SafeString(record.name)
+    record.realm = SafeString(record.realm)
     record.className = SafeString(record.className)
     record.classFile = SafeString(record.classFile)
     record.faction = SafeString(record.faction)
@@ -103,12 +105,17 @@ function WAT:InitializeDatabase()
     self.db = db
 end
 
+-- Sprachneutraler Baustein fuer den DB-Schluessel, wenn weder GUID noch Name
+-- lesbar sind. Bewusst NICHT lokalisiert: der Schluessel muss ueber alle
+-- Clientsprachen hinweg derselbe bleiben, sonst entstuenden Doppeleintraege.
+local UNKNOWN_KEY_PART = "Unknown"
+
 function WAT:GetCurrentCharacterKey()
     local guid = SafeString(UnitGUID("player"))
     if guid and guid ~= "" then return guid end
     local name, realm = UnitFullName("player")
-    name = SafeString(name) or SafeString(UnitName("player")) or "Unbekannt"
-    realm = SafeString(realm) or SafeString(GetRealmName()) or "Unbekannt"
+    name = SafeString(name) or SafeString(UnitName("player")) or UNKNOWN_KEY_PART
+    realm = SafeString(realm) or SafeString(GetRealmName()) or UNKNOWN_KEY_PART
     return name .. "-" .. realm
 end
 
@@ -165,8 +172,8 @@ function WAT:PrepareCurrentCharacter()
     local name, realm = UnitFullName("player")
     character.key = key
     character.guid = SafeString(UnitGUID("player"), character.guid)
-    character.name = SafeString(name) or SafeString(UnitName("player")) or character.name or "Unbekannt"
-    character.realm = SafeString(realm) or SafeString(GetRealmName()) or character.realm or "Unbekannt"
+    character.name = SafeString(name) or SafeString(UnitName("player")) or character.name
+    character.realm = SafeString(realm) or SafeString(GetRealmName()) or character.realm
     local className, classFile = UnitClass("player")
     character.className = SafeString(className, character.className)
     character.classFile = SafeString(classFile, character.classFile)
@@ -225,18 +232,18 @@ local function HandleSlash(message)
         WAT:HideUI()
     elseif command == "refresh" then
         WAT:Refresh("slash")
-        Print("Aktueller Charakter wurde aktualisiert.")
+        Print(WAT.L("SLASH_REFRESHED"))
     elseif command == "resetpos" then
         WAT:ResetPosition()
-        Print("Fensterposition wurde zurückgesetzt.")
+        Print(WAT.L("SLASH_POSITION_RESET"))
     elseif command == "scale" then
         local scale = tonumber(argument)
         if scale and scale >= 0.7 and scale <= 1.5 then
             WAT.db.settings.scale = scale
             if WAT.frame then WAT.frame:SetScale(scale) end
-            Print("Skalierung: " .. scale)
+            Print(WAT.L("SLASH_SCALE_SET", tostring(scale)))
         else
-            Print("Verwendung: /wat scale 0.7 bis 1.5")
+            Print(WAT.L("SLASH_SCALE_USAGE"))
         end
     elseif command == "debug" then
         local character = WAT.db.characters[WAT.currentKey]
@@ -247,19 +254,19 @@ local function HandleSlash(message)
         local hero = type(crests.hero) == "table" and crests.hero.quantity or nil
         local myth = type(crests.myth) == "table" and crests.myth.quantity or nil
         local keystone = type(weekly.keystone) == "table" and weekly.keystone or {}
-        local keystoneText = "unbekannt"
+        local keystoneText = WAT.L("STATUS_UNKNOWN")
         if keystone.hasKey == false then
-            keystoneText = "kein Schlüsselstein"
+            keystoneText = WAT.L("KEY_NONE")
         elseif keystone.hasKey == true and type(keystone.level) == "number" then
-            keystoneText = (type(keystone.dungeonName) == "string" and keystone.dungeonName or "Dungeon")
-                .. " +" .. keystone.level
+            keystoneText = (type(keystone.dungeonName) == "string" and keystone.dungeonName
+                or WAT.L("KEY_DUNGEON")) .. " +" .. keystone.level
         end
-        Print(string.format("Char=%s | Goldtruhe=%s/%s | Wappen C/H/M=%s/%s/%s | Schlüsselstein=%s | Woche endet=%s",
+        Print(WAT.L("SLASH_DEBUG",
             character and character.name or "?", tostring(stash.current), tostring(stash.maximum),
             tostring(champion), tostring(hero), tostring(myth), keystoneText,
-            character and date("%d.%m. %H:%M", character.weekEnd or 0) or "?"))
+            character and date(WAT.L("DATE_FORMAT_SHORT"), character.weekEnd or 0) or "?"))
     else
-        Print("Befehle: /wat [show|hide|refresh|resetpos|scale 0.7-1.5|debug]")
+        Print(WAT.L("SLASH_HELP"))
     end
 end
 

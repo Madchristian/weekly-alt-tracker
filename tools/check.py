@@ -6,8 +6,17 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import test_runtime  # noqa: E402  - kanonische Harnessmenge, eine Quelle der Wahrheit
+
 ROOT = Path(__file__).resolve().parents[1]
 TOC = ROOT / "WeeklyAltTracker.toc"
+
+# Ein Unterprozess des Gates darf nie unbegrenzt haengen. Der Runtime-Test
+# startet selbst bis zu fuenf Fengari-Laeufe und ggf. eine npm-Installation,
+# deshalb liegt sein Limit deutlich hoeher als das der reinen Quelltexttests.
+V2_TIMEOUT = 300
+RUNTIME_TIMEOUT = 1800
 ICON_TGA = ROOT / "Media" / "WeeklyAltTrackerIcon.tga"
 LOGO_SVG = ROOT / "artwork" / "WeeklyAltTracker-Logo.svg"
 ICON_TEXTURE_PATH = "Interface\\AddOns\\WeeklyAltTracker\\Media\\WeeklyAltTrackerIcon"
@@ -39,7 +48,8 @@ def check_toc() -> list[Path]:
         files.append(path)
         if not path.is_file():
             error(f"TOC referenziert fehlende Datei: {line}")
-    if [path.name for path in files] != ["Core.lua", "Data.lua", "Scanner.lua", "Activities.lua", "UI.lua"]:
+    if [path.name for path in files] != ["Localization.lua", "Core.lua", "Data.lua",
+                                         "Scanner.lua", "Activities.lua", "UI.lua"]:
         error("Unerwartete oder falsche Lua-Ladereihenfolge in der TOC")
     return files
 
@@ -272,6 +282,128 @@ def check_icon_wiring() -> None:
         error("README dokumentiert Media/WeeklyAltTrackerIcon.tga nicht als Paketinhalt")
 
 
+def pkgmeta_ignores() -> set[str]:
+    pkgmeta = ROOT / ".pkgmeta"
+    if not pkgmeta.exists():
+        return set()
+    entries: set[str] = set()
+    in_ignore = False
+    for raw in pkgmeta.read_text(encoding="utf-8").splitlines():
+        if not raw.startswith((" ", "\t", "-")) and raw.strip():
+            in_ignore = raw.strip().rstrip(":") == "ignore"
+            continue
+        stripped = raw.strip()
+        if in_ignore and stripped.startswith("- "):
+            entries.add(stripped[2:].strip().strip("\"'").replace("\\", "/").rstrip("/"))
+    return entries
+
+
+# Was der BigWigs-Packager aus diesem Arbeitsbaum tatsaechlich ausliefert.
+# Der Packager entfernt die ignore-Eintraege aus einem Git-Checkout; .git
+# selbst ist nie Teil des Pakets.
+EXPECTED_PACKAGE = {
+    "Activities.lua",
+    "Anleitung.html",
+    "Core.lua",
+    "Data.lua",
+    "Guide.en.html",
+    "LICENSE.txt",
+    "Localization.lua",
+    "Media/WeeklyAltTrackerIcon.tga",
+    "README.en.md",
+    "README.md",
+    "Scanner.lua",
+    "THIRD_PARTY_NOTICES.md",
+    "UI.lua",
+    "WeeklyAltTracker.toc",
+}
+
+
+def package_manifest() -> list[str]:
+    ignores = pkgmeta_ignores() | {".git"}
+
+    def ignored(relative: str) -> bool:
+        for entry in ignores:
+            if relative == entry or relative.startswith(entry + "/"):
+                return True
+        return False
+
+    manifest: list[str] = []
+    for path in sorted(ROOT.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(ROOT).as_posix()
+        if not ignored(relative):
+            manifest.append(relative)
+    return sorted(manifest)
+
+
+def check_package_manifest() -> None:
+    """Friert den exakten Paketinhalt ein.
+
+    Eine neue Datei im Projektstamm landet wegen der ignore-Liste automatisch
+    im Release-ZIP. Genau deshalb wird hier der vollstaendige Inhalt geprueft
+    und nicht nur einzelne Pflichtdateien: sonst rutschte eine Arbeitsdatei
+    unbemerkt in ein veroeffentlichtes Addon.
+    """
+    manifest = set(package_manifest())
+    for missing in sorted(EXPECTED_PACKAGE - manifest):
+        error(f"Release-Paket: Pflichtdatei fehlt oder wird ignoriert: {missing}")
+    for unexpected in sorted(manifest - EXPECTED_PACKAGE):
+        error(f"Release-Paket: unerwartete Datei wuerde ausgeliefert: {unexpected}")
+
+
+def run_subprocess(label: str, script: str, timeout: int) -> str | None:
+    """Fuehrt ein Teilskript aus und liefert dessen vollstaendige Ausgabe.
+
+    stdout UND stderr werden zusammengefuehrt und im Fehlerfall vollstaendig
+    weitergereicht - ein Traceback auf stderr ging frueher verloren, sobald das
+    Skript vorher irgendetwas auf stdout geschrieben hatte.
+    """
+    try:
+        completed = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / script)],
+            cwd=ROOT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            capture_output=True,
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as expired:
+        partial = ((expired.stdout or "") + (expired.stderr or "")).strip()
+        error(f"{label} nach {timeout}s abgebrochen (Timeout)"
+              + (f":\n{partial}" if partial else ""))
+        return None
+    output = ((completed.stdout or "") + (completed.stderr or "")).strip()
+    if completed.returncode != 0:
+        error(f"{label} fehlgeschlagen (Exitcode {completed.returncode}):\n{output}")
+        return None
+    return output
+
+
+def run_subtests() -> None:
+    run_subprocess("V2-Akzeptanztests", "test_v2.py", V2_TIMEOUT)
+
+    output = run_subprocess("Lua-Runtime-Test", "test_runtime.py", RUNTIME_TIMEOUT)
+    if output is None:
+        return
+    # Der Exitcode allein reicht nicht: der Fengari-CLI liefert bei einem
+    # Lua-Fehler weiterhin 0. Das Gate prueft deshalb selbst, dass jeder
+    # registrierte Harness seinen Erfolgsmarker tatsaechlich gedruckt hat.
+    harnesses = getattr(test_runtime, "HARNESSES", None)
+    if not isinstance(harnesses, dict) or not harnesses:
+        error("Lua-Runtime-Test: keine registrierten Harnesses - ein leeres "
+              "Harness-Set darf nie als Erfolg gelten")
+        return
+    for name, marker in sorted(harnesses.items()):
+        if marker not in output:
+            error(f"Lua-Runtime-Test: Erfolgsmarker {marker!r} von tools/{name} fehlt in der Ausgabe:\n{output}")
+    if "stack traceback" in output:
+        error(f"Lua-Runtime-Test: Lua-Stacktrace in der Ausgabe:\n{output}")
+
+
 def main() -> int:
     lua_files = check_toc()
     for path in lua_files:
@@ -283,30 +415,15 @@ def main() -> int:
     check_icon_tga()
     check_logo_svg()
     check_icon_wiring()
-    v2_test = subprocess.run(
-        [sys.executable, str(ROOT / "tools" / "test_v2.py")],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if v2_test.returncode != 0:
-        error("V2-Akzeptanztests fehlgeschlagen:\n" + (v2_test.stdout or v2_test.stderr).strip())
-    runtime_test = subprocess.run(
-        [sys.executable, str(ROOT / "tools" / "test_runtime.py")],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if runtime_test.returncode != 0:
-        error("Lua-Runtime-Test fehlgeschlagen:\n" + (runtime_test.stdout or runtime_test.stderr).strip())
+    check_package_manifest()
+    run_subtests()
     if ERRORS:
         print("CHECK FAILED")
         for item in ERRORS:
             print(f"- {item}")
         return 1
-    print(f"CHECK OK: TOC + {len(lua_files)} Lua-Dateien + README + Assets + Lua-Runtime geprüft")
+    print(f"CHECK OK: TOC + {len(lua_files)} Lua-Dateien + README + Assets + "
+          f"{len(test_runtime.HARNESSES)} Lua-Runtime-Harnesses geprüft")
     return 0
 
 

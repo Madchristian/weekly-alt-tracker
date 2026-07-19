@@ -4,11 +4,13 @@ local Data = {}
 WAT.Data = Data
 
 -- Currency-IDs der Midnight-Dämmerwappen. Namen kommen zur Laufzeit lokalisiert
--- aus C_CurrencyInfo; diese deutschen Kurzlabels dienen nur der kompakten UI.
+-- aus C_CurrencyInfo; labelKey verweist auf das eigene Kurzlabel in
+-- Localization.lua. Der Kurzbuchstabe ist in beiden Sprachen identisch und
+-- deshalb sprachneutral hier gespeichert.
 Data.CRESTS = {
-    champion = { currencyID = 3343, short = "C", label = "Champion" },
-    hero = { currencyID = 3345, short = "H", label = "Held" },
-    myth = { currencyID = 3347, short = "M", label = "Mythisch" },
+    champion = { currencyID = 3343, short = "C", labelKey = "CREST_CHAMPION" },
+    hero = { currencyID = 3345, short = "H", labelKey = "CREST_HERO" },
+    myth = { currencyID = 3347, short = "M", labelKey = "CREST_MYTH" },
 }
 
 -- Midnight-Meta-Weekly. Der Pool enthält auch die Raid-Variante, damit das Addon
@@ -19,23 +21,14 @@ Data.META_QUESTS = {
     93891, 93892, 93909, 93910, 93911,
     93912, 93913, 94457, 95842, 95843,
 }
-Data.META_LABELS = {
-    [93766] = "Weltquests",
-    [93767] = "Arcantina",
-    [93769] = "Behausung",
-    [93889] = "Saltherils Soiree",
-    [93890] = "Überfluss",
-    [93891] = "Legenden der Haranir",
-    [93892] = "Sturmarium-Angriff",
-    [93909] = "Tiefen",
-    [93910] = "Jagden",
-    [93911] = "Dungeons",
-    [93912] = "Schlachtzug-Weekly",
-    [93913] = "Weltboss",
-    [94457] = "Schlachtfelder",
-    [95842] = "Leerenangriffe",
-    [95843] = "Ritualstätten",
-}
+-- Das Label einer Meta-Weekly ist kein gespeicherter Text, sondern entsteht
+-- zur Renderzeit aus der questID. Gespeichert wird ausschliesslich die ID,
+-- damit in den SavedVariables kein eigener Locale-Text landet und ein
+-- Sprachwechsel den Altbestand sofort korrekt anzeigt.
+function Data.MetaQuestLabelKey(questID)
+    if type(questID) ~= "number" then return nil end
+    return "META_QUEST_" .. questID
+end
 
 Data.PREY_GOAL = 4
 Data.PREY_NORMAL = {

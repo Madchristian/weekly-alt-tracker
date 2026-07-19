@@ -25,76 +25,81 @@ local COLORS = {
     stale = "|cff6d7580",
 }
 
+-- Panel- und Spaltentexte entstehen beim Laden in der aufgeloesten Sprache.
+-- Die Breiten sind sprachunabhaengig und bleiben unveraendert; die englischen
+-- Labels sind so gewaehlt, dass sie in dieselben Spalten passen.
+local L = WAT.L
+
 local PANELS = {
     overview = {
-        label = "Übersicht",
-        shortLabel = "ÜBERSICHT",
-        description = "Charaktere, Gegenstandsstufe, Dämmerwappen, Schatzkammer und M+10 auf einen Blick.",
+        label = L("PANEL_OVERVIEW"),
+        shortLabel = L("PANEL_OVERVIEW_SHORT"),
+        description = L("PANEL_OVERVIEW_DESC"),
         columns = {
-            { key = "character", label = "CHARAKTER", width = 178, left = true },
-            { key = "level", label = "LVL", width = 40 },
-            { key = "itemLevel", label = "ILVL", width = 56 },
-            { key = "gilded", label = "GOLDENE\nTRUHE", width = 90 },
-            { key = "crests", label = "DÄMMERWAPPEN\nC / H / M", width = 144 },
-            { key = "world", label = "TIEFEN-VAULT", width = 106 },
-            { key = "mythic", label = "M+-VAULT", width = 96 },
-            { key = "mythic10", label = "M+10\n272 ILVL", width = 70 },
-            { key = "updated", label = "LETZTER STAND", width = 128 },
+            { key = "character", label = L("COL_CHARACTER"), width = 178, left = true },
+            { key = "level", label = L("COL_LEVEL"), width = 40 },
+            { key = "itemLevel", label = L("COL_ITEM_LEVEL"), width = 56 },
+            { key = "gilded", label = L("COL_GILDED"), width = 90 },
+            { key = "crests", label = L("COL_CRESTS"), width = 144 },
+            { key = "world", label = L("COL_WORLD_VAULT"), width = 106 },
+            { key = "mythic", label = L("COL_MYTHIC_VAULT"), width = 96 },
+            { key = "mythic10", label = L("COL_MYTHIC10"), width = 70 },
+            { key = "updated", label = L("COL_UPDATED"), width = 128 },
         },
     },
     midnight = {
-        label = "Midnight-Woche",
-        shortLabel = "MIDNIGHT-WOCHE",
-        description = "Wochenquest, Jagden und Ritualstätten für alle erfassten Charaktere.",
+        label = L("PANEL_MIDNIGHT"),
+        shortLabel = L("PANEL_MIDNIGHT_SHORT"),
+        description = L("PANEL_MIDNIGHT_DESC"),
         columns = {
-            { key = "character", label = "CHARAKTER", width = 184, left = true },
-            { key = "weekly", label = "MIDNIGHT-WOCHENQUEST", width = 250 },
-            { key = "prey", label = "JAGD\nNORMAL / SCHWER / ALBTRAUM", width = 245 },
-            { key = "ritual", label = "RITUALSTÄTTEN", width = 145 },
-            { key = "updated", label = "DATENSTAND", width = 96 },
+            { key = "character", label = L("COL_CHARACTER"), width = 184, left = true },
+            { key = "weekly", label = L("COL_WEEKLY_QUEST"), width = 250 },
+            { key = "prey", label = L("COL_PREY"), width = 245 },
+            { key = "ritual", label = L("COL_RITUAL"), width = 145 },
+            { key = "updated", label = L("COL_DATA_AGE"), width = 96 },
         },
     },
     professions = {
-        label = "Berufe",
-        shortLabel = "BERUFE",
-        description = "Midnight-Skill, freie Wissenspunkte, Taschenwissen, Wochenquests und Traktate.",
+        label = L("PANEL_PROFESSIONS"),
+        shortLabel = L("PANEL_PROFESSIONS_SHORT"),
+        description = L("PANEL_PROFESSIONS_DESC"),
         columns = {
-            { key = "character", label = "CHARAKTER", width = 150, left = true },
-            { key = "profession1", label = "BERUF 1", width = 130 },
-            { key = "skill1", label = "SKILL", width = 55 },
-            { key = "knowledge1", label = "FREI / TASCHE", width = 70 },
-            { key = "weekly1", label = "WOCHE", width = 65 },
-            { key = "treatise1", label = "TRAKTAT", width = 65 },
-            { key = "profession2", label = "BERUF 2", width = 130 },
-            { key = "skill2", label = "SKILL", width = 55 },
-            { key = "knowledge2", label = "FREI / TASCHE", width = 70 },
-            { key = "weekly2", label = "WOCHE", width = 65 },
-            { key = "treatise2", label = "TRAKTAT", width = 65 },
+            { key = "character", label = L("COL_CHARACTER"), width = 150, left = true },
+            { key = "profession1", label = L("COL_PROFESSION1"), width = 130 },
+            { key = "skill1", label = L("COL_SKILL"), width = 55 },
+            { key = "knowledge1", label = L("COL_KNOWLEDGE"), width = 70 },
+            { key = "weekly1", label = L("COL_WEEK"), width = 65 },
+            { key = "treatise1", label = L("COL_TREATISE"), width = 65 },
+            { key = "profession2", label = L("COL_PROFESSION2"), width = 130 },
+            { key = "skill2", label = L("COL_SKILL"), width = 55 },
+            { key = "knowledge2", label = L("COL_KNOWLEDGE"), width = 70 },
+            { key = "weekly2", label = L("COL_WEEK"), width = 65 },
+            { key = "treatise2", label = L("COL_TREATISE"), width = 65 },
         },
     },
     sources = {
-        label = "Wappenquellen",
-        shortLabel = "WAPPENQUELLEN",
-        description = "Wöchentliche, saisonale, wiederholbare und indirekte Quellen ohne Raid.",
+        label = L("PANEL_SOURCES"),
+        shortLabel = L("PANEL_SOURCES_SHORT"),
+        description = L("PANEL_SOURCES_DESC"),
         columns = {
-            { key = "character", label = "CHARAKTER", width = 150, left = true },
-            { key = "gilded", label = "GOLDENE TRUHE\nWÖCHENTLICH", width = 110 },
-            { key = "cracked", label = "GEBROCHENER\nSCHLÜSSELSTEIN", width = 140 },
-            { key = "nullaeus", label = "NULLAEUS T11\nSAISONBONUS", width = 125 },
-            { key = "ritualFarm", label = "RITUAL T6\nWIEDERHOLBAR", width = 120 },
-            { key = "mythicFarm", label = "M+\nWIEDERHOLBAR", width = 100 },
-            { key = "exchange", label = "HELD zu MYTHISCH\nTAUSCHBAR", width = 175 },
+            { key = "character", label = L("COL_CHARACTER"), width = 150, left = true },
+            { key = "gilded", label = L("COL_GILDED_WEEKLY"), width = 110 },
+            { key = "cracked", label = L("COL_CRACKED"), width = 140 },
+            { key = "nullaeus", label = L("COL_NULLAEUS"), width = 125 },
+            { key = "ritualFarm", label = L("COL_RITUAL_FARM"), width = 120 },
+            { key = "mythicFarm", label = L("COL_MYTHIC_FARM"), width = 100 },
+            { key = "exchange", label = L("COL_EXCHANGE"), width = 175 },
         },
     },
     keystones = {
-        label = "Schlüsselsteine",
-        shortLabel = "SCHLÜSSELSTEINE",
-        description = "Aktuell besessener Mythic+-Schlüsselstein als Offline-Snapshot pro Charakter.",
+        label = L("PANEL_KEYSTONES"),
+        shortLabel = L("PANEL_KEYSTONES_SHORT"),
+        description = L("PANEL_KEYSTONES_DESC"),
         columns = {
-            { key = "character", label = "CHARAKTER", width = 250, left = true },
-            { key = "dungeon", label = "DUNGEON", width = 430, left = true },
-            { key = "keystoneLevel", label = "STUFE", width = 120 },
-            { key = "updated", label = "DATENSTAND", width = 120 },
+            { key = "character", label = L("COL_CHARACTER"), width = 250, left = true },
+            { key = "dungeon", label = L("COL_DUNGEON"), width = 430, left = true },
+            { key = "keystoneLevel", label = L("COL_KEYSTONE_LEVEL"), width = 120 },
+            { key = "updated", label = L("COL_DATA_AGE"), width = 120 },
         },
     },
 }
@@ -112,14 +117,15 @@ end
 local function FormatAge(timestamp)
     if type(timestamp) ~= "number" or timestamp <= 0 then return "-" end
     local age = math.max(0, time() - timestamp)
-    if age < 60 then return "gerade eben" end
-    if age < 3600 then return math.floor(age / 60) .. " Min." end
-    if age < 86400 then return math.floor(age / 3600) .. " Std." end
-    return date("%d.%m. %H:%M", timestamp)
+    if age < 60 then return L("TIME_JUST_NOW") end
+    if age < 3600 then return L("TIME_MINUTES", math.floor(age / 60)) end
+    if age < 86400 then return L("TIME_HOURS", math.floor(age / 3600)) end
+    return date(L("DATE_FORMAT_SHORT"), timestamp)
 end
 
 local function ClassColoredName(character, stale)
-    local name = (character.name or "?") .. "-" .. (character.realm or "?")
+    local unknown = L("CHARACTER_UNKNOWN")
+    local name = (character.name or unknown) .. "-" .. (character.realm or unknown)
     if stale then return COLORS.stale .. name .. "|r" end
     local color = character.classFile and RAID_CLASS_COLORS[character.classFile]
     if color then
@@ -130,7 +136,7 @@ local function ClassColoredName(character, stale)
 end
 
 local function StatusFraction(current, maximum, stale)
-    if stale then return COLORS.stale .. "alte Woche|r" end
+    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
     if type(current) ~= "number" or type(maximum) ~= "number" then
         return COLORS.unknown .. "-|r"
     end
@@ -140,14 +146,14 @@ local function StatusFraction(current, maximum, stale)
 end
 
 local function BooleanStatus(value, stale)
-    if stale then return COLORS.stale .. "alte Woche|r" end
-    if value == true then return COLORS.green .. "fertig|r" end
-    if value == false then return COLORS.red .. "offen|r" end
+    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
+    if value == true then return COLORS.green .. L("STATUS_DONE") .. "|r" end
+    if value == false then return COLORS.red .. L("STATUS_OPEN") .. "|r" end
     return COLORS.unknown .. "-|r"
 end
 
 local function VaultText(vault, stale)
-    if stale then return COLORS.stale .. "alte Woche|r" end
+    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
     local summary = WAT:GetVaultSummary(vault)
     if summary == "-" then return COLORS.unknown .. "-|r" end
     local unlocked, total = string.match(summary, "(%d+)/(%d+)")
@@ -158,10 +164,10 @@ local function VaultText(vault, stale)
 end
 
 local function MythicPlusTenText(vault, stale)
-    if stale then return COLORS.stale .. "alte Woche|r" end
+    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
     local status = WAT:GetMythicPlusLevelStatus(vault, 10)
-    if status == true then return COLORS.green .. "Ja|r" end
-    if status == false then return COLORS.red .. "Offen|r" end
+    if status == true then return COLORS.green .. L("STATUS_YES") .. "|r" end
+    if status == false then return COLORS.red .. L("STATUS_OPEN_CAPITAL") .. "|r" end
     return COLORS.unknown .. "-|r"
 end
 
@@ -199,7 +205,7 @@ local function CrestIcon(currencyID)
 end
 
 local function CrestText(weekly, stale)
-    if stale then return COLORS.stale .. "alte Woche|r" end
+    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
     local crests = type(weekly.crests) == "table" and weekly.crests or {}
     local definitions = WAT.Data and WAT.Data.CRESTS or {}
     local function Quantity(key)
@@ -224,27 +230,48 @@ local function CrestText(weekly, stale)
     return table.concat(parts, "  ")
 end
 
+-- Das Label der Midnight-Weekly entsteht zur Renderzeit aus der questID. Ein
+-- in einer alten Version gespeichertes Label ist nur noch letzter Fallback,
+-- damit 0.2.5-Daten lesbar bleiben; die questID gewinnt immer.
+local function MidnightWeeklyLabel(snapshot)
+    local labelKey = WAT.Data and WAT.Data.MetaQuestLabelKey
+        and WAT.Data.MetaQuestLabelKey(snapshot.questID) or nil
+    if labelKey then
+        local dictionaries = WAT.Localization and WAT.Localization.dictionaries
+        local english = type(dictionaries) == "table" and dictionaries.enUS or nil
+        if type(english) == "table" and english[labelKey] ~= nil then return L(labelKey) end
+    end
+    return type(snapshot.label) == "string" and snapshot.label or nil
+end
+
 local function MidnightWeeklyText(snapshot, stale)
-    if stale then return COLORS.stale .. "alte Woche|r" end
+    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
     if type(snapshot) ~= "table" then return COLORS.unknown .. "-|r" end
+    local label = MidnightWeeklyLabel(snapshot)
     if snapshot.completed == true then
-        local label = snapshot.variantKnown and snapshot.label or "Variante unbekannt"
-        return COLORS.green .. "fertig|r  |cff8f9aa9" .. (label or "") .. "|r"
+        local variant = snapshot.variantKnown and label or L("STATUS_VARIANT_UNKNOWN")
+        return COLORS.green .. L("STATUS_DONE") .. "|r  |cff8f9aa9" .. (variant or "") .. "|r"
     end
     if snapshot.active == true then
         if type(snapshot.current) == "number" and type(snapshot.required) == "number" then
             return COLORS.amber .. string.format("%s / %s/%s|r",
-                snapshot.label or "aktiv", tostring(snapshot.current), tostring(snapshot.required))
+                label or L("STATUS_ACTIVE"), tostring(snapshot.current), tostring(snapshot.required))
         end
-        return COLORS.amber .. (snapshot.label or "aktiv") .. "|r"
+        return COLORS.amber .. (label or L("STATUS_ACTIVE")) .. "|r"
     end
-    if snapshot.completed == false then return COLORS.unknown .. "nicht aktiv|r" end
+    if snapshot.completed == false then return COLORS.unknown .. L("STATUS_NOT_ACTIVE") .. "|r" end
     return COLORS.unknown .. "-|r"
 end
 
 local function PreyText(prey, stale)
-    if stale then return COLORS.stale .. "alte Woche|r" end
-    if type(prey) ~= "table" then return COLORS.unknown .. "N -   S -   A -|r" end
+    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
+    local normalShort = L("HUNT_SHORT_NORMAL")
+    local hardShort = L("HUNT_SHORT_HARD")
+    local nightmareShort = L("HUNT_SHORT_NIGHTMARE")
+    if type(prey) ~= "table" then
+        return COLORS.unknown .. normalShort .. " -   " .. hardShort .. " -   "
+            .. nightmareShort .. " -|r"
+    end
     local function Short(label, entry)
         if type(entry) ~= "table" then return COLORS.unknown .. label .. " -|r" end
         local current, maximum = entry.current, entry.maximum
@@ -254,14 +281,15 @@ local function PreyText(prey, stale)
         local color = current >= maximum and COLORS.green or (current > 0 and COLORS.amber or COLORS.red)
         return color .. label .. " " .. current .. "/" .. maximum .. "|r"
     end
-    return Short("N", prey.normal) .. "   " .. Short("S", prey.hard) .. "   " .. Short("A", prey.nightmare)
+    return Short(normalShort, prey.normal) .. "   " .. Short(hardShort, prey.hard)
+        .. "   " .. Short(nightmareShort, prey.nightmare)
 end
 
 local function RitualText(ritual, stale)
-    if stale then return COLORS.stale .. "alte Woche|r" end
+    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
     if type(ritual) ~= "table" then return COLORS.unknown .. "-|r" end
-    if ritual.completed == true then return COLORS.green .. "100% / fertig|r" end
-    if ritual.active == false then return COLORS.unknown .. "nicht aktiv|r" end
+    if ritual.completed == true then return COLORS.green .. L("RITUAL_DONE") .. "|r" end
+    if ritual.active == false then return COLORS.unknown .. L("STATUS_NOT_ACTIVE") .. "|r" end
     if type(ritual.percent) == "number" then
         local color = ritual.percent > 0 and COLORS.amber or COLORS.red
         return color .. math.floor(ritual.percent) .. "%|r"
@@ -271,14 +299,14 @@ end
 
 local function SeasonalSourceText(source, reward)
     if type(source) ~= "table" then return COLORS.unknown .. "-|r" end
-    if source.completed == true then return COLORS.green .. "fertig / +" .. reward .. " M|r" end
-    if source.active == true then return COLORS.amber .. "aktiv / +" .. reward .. " M|r" end
-    if source.completed == false then return COLORS.red .. "offen / +" .. reward .. " M|r" end
+    if source.completed == true then return COLORS.green .. L("CELL_SEASONAL_DONE", reward) .. "|r" end
+    if source.active == true then return COLORS.amber .. L("CELL_SEASONAL_ACTIVE", reward) .. "|r" end
+    if source.completed == false then return COLORS.red .. L("CELL_SEASONAL_OPEN", reward) .. "|r" end
     return COLORS.unknown .. "-|r"
 end
 
 local function GildedSourceText(weekly, stale)
-    if stale then return COLORS.stale .. "alte Woche|r" end
+    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
     local gilded = weekly.gilded
     if type(gilded) ~= "table" or type(gilded.current) ~= "number" or type(gilded.maximum) ~= "number" then
         return COLORS.unknown .. "-|r"
@@ -302,58 +330,67 @@ local function CrestTooltip(weekly)
         local entry = crests[key]
         if key == "myth" and type(entry) ~= "table" then entry = weekly.mythCrests end
         local definition = definitions[key] or {}
-        local label = definition.label and definition.label .. "-Dämmerwappen" or "Dämmerwappen"
+        local label = type(definition.labelKey) == "string"
+            and L("CREST_TOOLTIP_LABEL", L(definition.labelKey)) or L("CREST_GENERIC")
         local quantity = type(entry) == "table" and entry.quantity
         local value = type(quantity) == "number" and tostring(quantity) or "-"
         if type(entry) == "table" and type(entry.earnedThisWeek) == "number"
                 and type(entry.weeklyMaximum) == "number" and entry.weeklyMaximum > 0 then
-            value = value .. string.format(" / Woche %d/%d", entry.earnedThisWeek, entry.weeklyMaximum)
+            value = value .. L("CREST_WEEK_SUFFIX", entry.earnedThisWeek, entry.weeklyMaximum)
         end
         AddTooltipLine(label, value)
     end
 end
 
 local function ShowOverviewTooltip(character, weekly, stale)
-    AddTooltipLine("Klasse", character.className or "-")
+    -- character.className kommt clientlokalisiert aus UnitClass und wird
+    -- deshalb unveraendert durchgereicht, nicht selbst uebersetzt.
+    AddTooltipLine(L("TOOLTIP_CLASS"), character.className or "-")
     local itemLevel = type(character.itemLevel) == "number" and string.format("%.1f", character.itemLevel) or "-"
-    AddTooltipLine("Angelegte Gegenstandsstufe", itemLevel)
-    AddTooltipLine("Wochenstand", stale and "alte Woche - Charakter einloggen" or "aktuell")
+    AddTooltipLine(L("TOOLTIP_EQUIPPED_ILVL"), itemLevel)
+    AddTooltipLine(L("TOOLTIP_WEEK_STATE"),
+        stale and L("TOOLTIP_WEEK_STALE") or L("STATUS_CURRENT"))
     GameTooltip:AddLine(" ")
     local gilded = type(weekly.gilded) == "table" and weekly.gilded or {}
     local gildedText = type(gilded.current) == "number" and type(gilded.maximum) == "number"
-        and string.format("%d/%d", gilded.current, gilded.maximum) or "noch nicht in einer Tiefe erfasst"
-    AddTooltipLine("Goldene Truhe", gildedText)
+        and string.format("%d/%d", gilded.current, gilded.maximum) or L("GILDED_NOT_SEEN")
+    AddTooltipLine(L("GILDED_STASH"), gildedText)
     CrestTooltip(weekly)
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Tiefen-/Welt-Schatzkammer", COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
-    for line in string.gmatch(WAT:GetVaultTooltip(weekly.worldVault, "Tier"), "[^\n]+") do
+    GameTooltip:AddLine(L("TOOLTIP_WORLD_VAULT"), COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
+    for line in string.gmatch(WAT:GetVaultTooltip(weekly.worldVault, L("VAULT_LEVEL_LABEL_WORLD")), "[^\n]+") do
         GameTooltip:AddLine(line, 0.92, 0.95, 0.97, true)
     end
-    GameTooltip:AddLine("M+-Schatzkammer", COLORS.violet[1], COLORS.violet[2], COLORS.violet[3])
-    for line in string.gmatch(WAT:GetVaultTooltip(weekly.mythicPlusVault, "+"), "[^\n]+") do
+    GameTooltip:AddLine(L("TOOLTIP_MYTHIC_VAULT"), COLORS.violet[1], COLORS.violet[2], COLORS.violet[3])
+    for line in string.gmatch(WAT:GetVaultTooltip(weekly.mythicPlusVault, L("VAULT_LEVEL_LABEL_MYTHIC")), "[^\n]+") do
         GameTooltip:AddLine(line, 0.92, 0.95, 0.97, true)
     end
     local mythicPlusTen = WAT:GetMythicPlusLevelStatus(weekly.mythicPlusVault, 10)
-    local mythicPlusTenText = mythicPlusTen == true and "Ja - 272er Belohnungsstufe erreicht"
-        or (mythicPlusTen == false and "Offen - noch kein Abschluss auf +10 oder höher" or "unbekannt")
-    AddTooltipLine("M+10 oder höher", mythicPlusTenText)
+    local mythicPlusTenText = mythicPlusTen == true and L("MYTHIC10_YES")
+        or (mythicPlusTen == false and L("MYTHIC10_NO") or L("STATUS_UNKNOWN"))
+    AddTooltipLine(L("TOOLTIP_MYTHIC10"), mythicPlusTenText)
 end
 
 local function ShowMidnightTooltip(weekly)
     local midnight = weekly.midnightWeekly
-    AddTooltipLine("Midnight-Wochenquest", type(midnight) == "table" and (midnight.label or (midnight.completed and "fertig" or "nicht aktiv")) or "unbekannt")
+    local midnightValue = L("STATUS_UNKNOWN")
+    if type(midnight) == "table" then
+        midnightValue = MidnightWeeklyLabel(midnight)
+            or (midnight.completed and L("STATUS_DONE") or L("STATUS_NOT_ACTIVE"))
+    end
+    AddTooltipLine(L("TOOLTIP_MIDNIGHT_WEEKLY"), midnightValue)
     local prey = type(weekly.prey) == "table" and weekly.prey or {}
     local function HuntValue(entry)
         if type(entry) ~= "table" or type(entry.current) ~= "number" or type(entry.maximum) ~= "number" then return "-" end
         return string.format("%d/%d", entry.current, entry.maximum)
     end
-    AddTooltipLine("Jagd - Normal", HuntValue(prey.normal))
-    AddTooltipLine("Jagd - Schwer", HuntValue(prey.hard))
-    AddTooltipLine("Jagd - Albtraum", HuntValue(prey.nightmare))
+    AddTooltipLine(L("HUNT_NORMAL"), HuntValue(prey.normal))
+    AddTooltipLine(L("HUNT_HARD"), HuntValue(prey.hard))
+    AddTooltipLine(L("HUNT_NIGHTMARE"), HuntValue(prey.nightmare))
     local ritual = weekly.ritualSites
     local ritualValue = type(ritual) == "table" and type(ritual.percent) == "number"
-        and math.floor(ritual.percent) .. "%" or "unbekannt"
-    AddTooltipLine("Ritualstätten", ritualValue)
+        and math.floor(ritual.percent) .. "%" or L("STATUS_UNKNOWN")
+    AddTooltipLine(L("RITUAL_SITES"), ritualValue)
 end
 
 local function FindProfessionProgress(character, weeklyProfession, index)
@@ -368,6 +405,30 @@ local function FindProfessionProgress(character, weeklyProfession, index)
         end
     end
     return type(progress[index]) == "table" and progress[index] or nil
+end
+
+-- Berufsname zur Renderzeit ueber die baseSkillLineID clientlokalisiert
+-- beziehen. Der im Snapshot gespeicherte Name stammt aus der Sprache, in der
+-- zuletzt gescannt wurde, und ist deshalb nur der letzte Fallback.
+local function ProfessionDisplayName(profession, progress)
+    local baseSkillLineID = type(progress) == "table" and progress.baseSkillLineID
+        or (type(profession) == "table" and profession.baseSkillLineID) or nil
+    local lines = WAT.Data and WAT.Data.MIDNIGHT_PROFESSION_SKILL_LINES
+    local midnightSkillLineID = type(lines) == "table" and type(baseSkillLineID) == "number"
+        and lines[baseSkillLineID] or nil
+    local getter = C_TradeSkillUI and C_TradeSkillUI.GetProfessionInfoBySkillLineID
+    if getter and type(midnightSkillLineID) == "number" then
+        local ok, info = pcall(getter, midnightSkillLineID)
+        if ok and not (issecretvalue and issecretvalue(info)) and type(info) == "table" then
+            local name = info.professionName
+            if not (issecretvalue and issecretvalue(name)) and type(name) == "string" and name ~= "" then
+                return name
+            end
+        end
+    end
+    local stored = type(profession) == "table" and profession.name
+        or (type(progress) == "table" and progress.name) or nil
+    return type(stored) == "string" and stored or nil
 end
 
 -- Liest ein Wahrheitsflag, ohne ein sicheres false zu verlieren. Unbekannt bleibt nil.
@@ -409,7 +470,9 @@ local function KnowledgeItemName(itemID)
         local ok, name = pcall(GetItemInfo, itemID)
         if ok and not (issecretvalue and issecretvalue(name)) and type(name) == "string" then return name end
     end
-    return type(itemID) == "number" and ("Gegenstand " .. itemID) or "Unbekannter Gegenstand"
+    -- Der Gegenstandsname kommt clientlokalisiert aus der API. Nur wenn er
+    -- gar nicht lesbar ist, greift der eigene, uebersetzte Ersatztext.
+    return type(itemID) == "number" and L("ITEM_FALLBACK", itemID) or L("ITEM_UNKNOWN")
 end
 
 local function ShowProfessionTooltip(character, weekly)
@@ -417,94 +480,151 @@ local function ShowProfessionTooltip(character, weekly)
     for index = 1, 2 do
         local profession = professions[index]
         local progress = FindProfessionProgress(character, profession, index)
-        local name = type(profession) == "table" and profession.name
-            or (type(progress) == "table" and progress.name) or "nicht erfasst"
+        -- Der Berufsname stammt aus GetProfessionInfo und ist damit bereits
+        -- clientlokalisiert; nur der Ersatztext ist eigener Text.
+        local name = ProfessionDisplayName(profession, progress) or L("STATUS_NOT_TRACKED")
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Beruf " .. index .. ": " .. name,
+        GameTooltip:AddLine(L("PROF_HEADER", index, name),
             COLORS.violet[1], COLORS.violet[2], COLORS.violet[3])
-        AddTooltipLine("Midnight-Skill", type(progress) == "table"
+        AddTooltipLine(L("PROF_MIDNIGHT_SKILL"), type(progress) == "table"
             and type(progress.skillLevel) == "number" and type(progress.maxSkillLevel) == "number"
-            and string.format("%d/%d", progress.skillLevel, progress.maxSkillLevel) or "unbekannt")
-        AddTooltipLine("Freie Wissenspunkte", type(progress) == "table"
-            and type(progress.unspentKnowledge) == "number" and tostring(progress.unspentKnowledge) or "unbekannt")
-        local bagText = "unbekannt"
+            and string.format("%d/%d", progress.skillLevel, progress.maxSkillLevel) or L("STATUS_UNKNOWN"))
+        AddTooltipLine(L("PROF_FREE_KNOWLEDGE"), type(progress) == "table"
+            and type(progress.unspentKnowledge) == "number" and tostring(progress.unspentKnowledge)
+            or L("STATUS_UNKNOWN"))
+        local bagText = L("STATUS_UNKNOWN")
         if type(progress) == "table" and type(progress.bagKnowledgePoints) == "number" then
             local itemCount = type(progress.bagKnowledgeItems) == "number" and progress.bagKnowledgeItems or nil
             bagText = itemCount ~= nil
-                and string.format("%d aus %d Gegenständen", progress.bagKnowledgePoints, itemCount)
-                or string.format("%d / Anzahl unbekannt", progress.bagKnowledgePoints)
+                and L("PROF_BAG_FROM_ITEMS", progress.bagKnowledgePoints, itemCount)
+                or L("PROF_BAG_COUNT_UNKNOWN", progress.bagKnowledgePoints)
         end
-        AddTooltipLine("Wissenspunkte in Taschen", bagText)
+        AddTooltipLine(L("PROF_BAG_KNOWLEDGE"), bagText)
         if type(progress) == "table" and type(progress.bagKnowledgeDetails) == "table" then
             for _, detail in ipairs(progress.bagKnowledgeDetails) do
                 if type(detail) == "table" and type(detail.itemID) == "number"
                         and type(detail.count) == "number" and type(detail.totalPoints) == "number" then
-                    GameTooltip:AddLine(string.format("  %s x%d = %d Wissen",
+                    GameTooltip:AddLine(L("PROF_KNOWLEDGE_DETAIL",
                         KnowledgeItemName(detail.itemID), detail.count, detail.totalPoints),
                         0.75, 0.8, 0.86, true)
                 end
             end
         end
-        AddTooltipLine("Berufs-Wochenquest", type(profession) == "table" and (profession.weeklyDone == true and "fertig" or (profession.weeklyDone == false and "offen" or "unbekannt")) or "unbekannt")
-        AddTooltipLine("Thalassischer Traktat", type(profession) == "table" and (profession.treatiseDone == true and "fertig" or (profession.treatiseDone == false and "offen" or "unbekannt")) or "unbekannt")
-        AddTooltipLine("Fortschritt erfasst", type(progress) == "table" and FormatAge(progress.updated) or "-")
+        local function FlagText(key)
+            if type(profession) ~= "table" then return L("STATUS_UNKNOWN") end
+            if profession[key] == true then return L("STATUS_DONE") end
+            if profession[key] == false then return L("STATUS_OPEN") end
+            return L("STATUS_UNKNOWN")
+        end
+        AddTooltipLine(L("PROF_WEEKLY_QUEST"), FlagText("weeklyDone"))
+        AddTooltipLine(L("PROF_TREATISE"), FlagText("treatiseDone"))
+        AddTooltipLine(L("PROF_PROGRESS_RECORDED"),
+            type(progress) == "table" and FormatAge(progress.updated) or "-")
     end
 end
 
+-- Der Erfolgsname wird niemals selbst uebersetzt, sondern sicher aus
+-- GetAchievementInfo geholt. Ohne lesbaren Namen bleibt der generische Text.
+local function AchievementName(achievementID)
+    if not GetAchievementInfo or type(achievementID) ~= "number" then return nil end
+    local result = { pcall(GetAchievementInfo, achievementID) }
+    if not result[1] then return nil end
+    local name = result[3]
+    if (issecretvalue and issecretvalue(name)) or type(name) ~= "string" or name == "" then return nil end
+    return name
+end
+
+-- Feste Addon-Konstanten aus Data.lua, nicht gescannte Aktivitaetswerte.
+-- Ein fehlender Wert waere ein Paketfehler, kein "unbekannt" des Spielers,
+-- deshalb ist hier ein numerischer Ersatzwert zulaessig.
+local function Constant(value)
+    return WAT.SafeNumber(value, 0)
+end
+
 local function ShowSourcesTooltip(character, weekly)
+    local data = WAT.Data or {}
     local season = type(character.season) == "table" and character.season or {}
     local seasonal = type(season.crestSources) == "table" and season.crestSources or {}
     local sources = type(weekly.crestSources) == "table" and weekly.crestSources or {}
     local gilded = type(weekly.gilded) == "table" and weekly.gilded or {}
     local gildedValue = type(gilded.current) == "number" and type(gilded.maximum) == "number"
-        and string.format("%d/%d / 5 Mythische je Truhe", gilded.current, gilded.maximum) or "unbekannt"
-    AddTooltipLine("Goldene Truhe - wöchentlich", gildedValue)
+        and L("SRC_GILDED_VALUE", gilded.current, gilded.maximum, Constant(data.GILDED_MYTH_PER_STASH))
+        or L("STATUS_UNKNOWN")
+    AddTooltipLine(L("SRC_GILDED_WEEKLY"), gildedValue)
     local cracked = seasonal.crackedKeystone
-    AddTooltipLine("Rissiger Schlüsselstein - einmalig", type(cracked) == "table"
-        and (cracked.completed and "fertig / 20 Mythische + 20 Helden" or (cracked.active and "aktiv" or "offen")) or "unbekannt")
+    local crackedText = L("STATUS_UNKNOWN")
+    if type(cracked) == "table" then
+        if cracked.completed then
+            crackedText = L("SRC_CRACKED_DONE", Constant(data.CRACKED_KEYSTONE_MYTH_REWARD),
+                Constant(data.CRACKED_KEYSTONE_HERO_REWARD))
+        else
+            crackedText = cracked.active and L("STATUS_ACTIVE") or L("STATUS_OPEN")
+        end
+    end
+    AddTooltipLine(L("SRC_CRACKED"), crackedText)
     local nullaeus = seasonal.nullaeusT11
-    AddTooltipLine("Nullaeus T11 - einmalig", type(nullaeus) == "table"
-        and (nullaeus.completed and "fertig / 30 Mythische" or "offen / 30 Mythische") or "unbekannt")
-    AddTooltipLine("Ritualstätten T6 - wiederholbar", "5 Mythische je Abschluss")
+    local nullaeusReward = Constant(data.NULLAEUS_T11_MYTH_REWARD)
+    AddTooltipLine(L("SRC_NULLAEUS"), type(nullaeus) == "table"
+        and (nullaeus.completed and L("SRC_NULLAEUS_DONE", nullaeusReward)
+            or L("SRC_NULLAEUS_OPEN", nullaeusReward)) or L("STATUS_UNKNOWN"))
+    AddTooltipLine(L("SRC_RITUAL_T6"), L("SRC_RITUAL_T6_VALUE", Constant(data.RITUAL_T6_MYTH_PER_RUN)))
     local mythicPlus = sources.mythicPlus
     local highest = type(mythicPlus) == "table" and mythicPlus.highestObservedLevel or nil
-    AddTooltipLine("Mythisch+ - wiederholbar", type(highest) == "number"
-        and "+" .. highest .. " beobachtet / Myth ab +9" or "Mythische Wappen ab +9")
+    AddTooltipLine(L("SRC_MYTHIC"), type(highest) == "number"
+        and L("SRC_MYTHIC_OBSERVED", highest) or L("SRC_MYTHIC_GENERIC"))
     local exchange = sources.heroToMyth
-    local exchangeText = "unbekannt"
+    local exchangeText = L("STATUS_UNKNOWN")
     if type(exchange) == "table" and exchange.unlocked == false then
-        exchangeText = "gesperrt / Erfolg 'Held der Dämmerung' fehlt"
+        local name = AchievementName(data.HERO_TO_MYTH_ACHIEVEMENT_ID)
+        exchangeText = name and L("SRC_EXCHANGE_LOCKED", name) or L("SRC_EXCHANGE_LOCKED_GENERIC")
     elseif type(exchange) == "table" and exchange.unlocked == true then
         exchangeText = type(exchange.mythPotential) == "number"
-            and exchange.mythPotential .. " Mythische aus aktuellem Helden-Bestand tauschbar"
-            or "freigeschaltet / Bestand unbekannt"
+            and L("SRC_EXCHANGE_POTENTIAL", exchange.mythPotential)
+            or L("SRC_EXCHANGE_UNLOCKED_UNKNOWN")
     end
-    AddTooltipLine("Helden zu Mythisch - indirekt", exchangeText)
+    AddTooltipLine(L("SRC_EXCHANGE"), exchangeText)
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Wiederholbare Quellen sind kein rückwirkender Wochenzähler. Angezeigt werden nur sicher beobachtbare Daten.", 0.56, 0.6, 0.66, true)
+    GameTooltip:AddLine(L("SRC_FOOTNOTE"), 0.56, 0.6, 0.66, true)
+end
+
+-- Dungeonname zur Renderzeit aus C_ChallengeMode.GetMapUIInfo. Bewusst OHNE
+-- Rueckgriff auf den gespeicherten Namen: der stammt aus der Sprache des
+-- letzten Scans und waere nach einem Sprachwechsel fremdsprachig. Ohne
+-- lesbaren Namen zeigt die UI stattdessen die sprachneutrale Dungeon-ID.
+local function DungeonDisplayName(keystone)
+    local mapID = type(keystone) == "table" and keystone.mapID or nil
+    if type(mapID) ~= "number" then return nil end
+    local getter = C_ChallengeMode and C_ChallengeMode.GetMapUIInfo
+    if getter then
+        local ok, name = pcall(getter, mapID)
+        if ok and not (issecretvalue and issecretvalue(name))
+                and type(name) == "string" and name ~= "" then
+            return name
+        end
+    end
+    return L("KEY_DUNGEON_ID", mapID)
 end
 
 local function ShowKeystoneTooltip(weekly, stale)
     local keystone = type(weekly.keystone) == "table" and weekly.keystone or nil
-    if stale then AddTooltipLine("Wochenstand", "alte Woche - Charakter einloggen") end
+    if stale then AddTooltipLine(L("TOOLTIP_WEEK_STATE"), L("TOOLTIP_WEEK_STALE")) end
     if not keystone then
-        AddTooltipLine("Schlüsselstein", "nicht erfasst")
+        AddTooltipLine(L("KEY_KEYSTONE"), L("STATUS_NOT_TRACKED"))
         return
     end
     if keystone.hasKey == false then
-        AddTooltipLine("Schlüsselstein", "kein Schlüsselstein")
-        AddTooltipLine("Erfasst", FormatAge(keystone.updated))
+        AddTooltipLine(L("KEY_KEYSTONE"), L("KEY_NONE"))
+        AddTooltipLine(L("KEY_RECORDED"), FormatAge(keystone.updated))
         return
     end
     if keystone.hasKey ~= true then
-        AddTooltipLine("Schlüsselstein", "unbekannt")
+        AddTooltipLine(L("KEY_KEYSTONE"), L("STATUS_UNKNOWN"))
         return
     end
-    AddTooltipLine("Dungeon", type(keystone.dungeonName) == "string"
-        and keystone.dungeonName or "Name noch nicht verfügbar")
-    AddTooltipLine("Stufe", type(keystone.level) == "number" and "+" .. keystone.level or "-")
-    AddTooltipLine("Challenge-Map-ID", type(keystone.mapID) == "number" and tostring(keystone.mapID) or "-")
-    AddTooltipLine("Erfasst", FormatAge(keystone.updated))
+    AddTooltipLine(L("KEY_DUNGEON"), DungeonDisplayName(keystone) or L("STATUS_UNKNOWN"))
+    AddTooltipLine(L("KEY_LEVEL"), type(keystone.level) == "number" and "+" .. keystone.level or "-")
+    AddTooltipLine(L("KEY_MAP_ID"), type(keystone.mapID) == "number" and tostring(keystone.mapID) or "-")
+    AddTooltipLine(L("KEY_RECORDED"), FormatAge(keystone.updated))
 end
 
 function WAT:ShowCharacterTooltip(row)
@@ -514,7 +634,8 @@ function WAT:ShowCharacterTooltip(row)
     local stale = self:IsStale(character)
     GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
     GameTooltip:ClearLines()
-    GameTooltip:AddLine((character.name or "?") .. " - " .. (character.realm or "?"),
+    local unknownName = L("CHARACTER_UNKNOWN")
+    GameTooltip:AddLine((character.name or unknownName) .. " - " .. (character.realm or unknownName),
         COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
     if row.panelKey == "midnight" then
         ShowMidnightTooltip(weekly)
@@ -528,7 +649,7 @@ function WAT:ShowCharacterTooltip(row)
         ShowOverviewTooltip(character, weekly, stale)
     end
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Offline-Daten werden beim nächsten Login dieses Charakters aktualisiert.", 0.56, 0.6, 0.66, true)
+    GameTooltip:AddLine(L("TOOLTIP_OFFLINE_HINT"), 0.56, 0.6, 0.66, true)
     GameTooltip:Show()
 end
 
@@ -668,8 +789,8 @@ function WAT:CreateMinimapButton()
     button:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:AddLine("WeeklyAltTracker", 0.20, 1, 0.75)
-        GameTooltip:AddLine("Linksklick: öffnen oder schließen", 1, 1, 1)
-        GameTooltip:AddLine("Ziehen: Position verändern", 0.72, 0.76, 0.82)
+        GameTooltip:AddLine(L("MINIMAP_LEFTCLICK"), 1, 1, 1)
+        GameTooltip:AddLine(L("MINIMAP_DRAG"), 0.72, 0.76, 0.82)
         GameTooltip:Show()
     end)
     button:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -782,7 +903,7 @@ function WAT:CreateUI()
     local sideHeading = sidebar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     sideHeading:SetPoint("TOPLEFT", 20, -88)
     sideHeading:SetTextColor(1, 1, 1, 0.34)
-    sideHeading:SetText("BEREICHE")
+    sideHeading:SetText(L("CHROME_SIDEBAR_HEADING"))
 
     self.tabButtons = {}
     self.panels = {}
@@ -799,7 +920,7 @@ function WAT:CreateUI()
     local sideHint = sidebar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     sideHint:SetPoint("BOTTOMLEFT", 20, 18)
     sideHint:SetTextColor(1, 1, 1, 0.30)
-    sideHint:SetText("/wat  /  verschiebbares Fenster")
+    sideHint:SetText(L("CHROME_SIDEBAR_HINT"))
 
     local header = CreateFrame("Frame", nil, frame)
     header:SetPoint("TOPLEFT", CONTENT_LEFT, -1)
@@ -816,7 +937,7 @@ function WAT:CreateUI()
     local eyebrow = header:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     eyebrow:SetPoint("TOPLEFT", 0, -20)
     eyebrow:SetTextColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.9)
-    eyebrow:SetText("ACCOUNTWEITER WOCHENFORTSCHRITT")
+    eyebrow:SetText(L("CHROME_EYEBROW"))
 
     local pageTitle = header:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     pageTitle:SetPoint("TOPLEFT", eyebrow, "BOTTOMLEFT", 0, -8)
@@ -858,14 +979,14 @@ function WAT:CreateUI()
     close:SetScript("OnClick", function() frame:Hide() end)
 
     local refresh = CreateFrame("Button", nil, header, "BackdropTemplate")
-    StyleHeaderButton(refresh, "AKTUALISIEREN", 116)
+    StyleHeaderButton(refresh, L("CHROME_REFRESH"), 116)
     refresh:SetPoint("RIGHT", close, "LEFT", -8, 0)
     refresh:SetScript("OnClick", function() WAT:Refresh("button") end)
 
     local toolbar = header:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     toolbar:SetPoint("BOTTOMLEFT", 0, 13)
     toolbar:SetTextColor(1, 1, 1, 0.38)
-    toolbar:SetText("Charaktervergleich / Zeile berühren für Details")
+    toolbar:SetText(L("CHROME_TOOLBAR"))
     self.toolbar = toolbar
 
     local footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -873,7 +994,7 @@ function WAT:CreateUI()
     footer:SetPoint("BOTTOMRIGHT", -(20 + SCROLLBAR_GUTTER), 17)
     footer:SetJustifyH("LEFT")
     footer:SetTextColor(1, 1, 1, 0.38)
-    footer:SetText("Grün: fertig  /  Gelb: läuft  /  Rot: offen  /  Grau: unbekannt oder alte Woche")
+    footer:SetText(L("CHROME_LEGEND"))
 
     self.frame = frame
     self:CreateMinimapButton()
@@ -959,9 +1080,9 @@ local function FillProfessions(row, character, weekly, stale)
         local knowledgeKey = "knowledge" .. index
         local weeklyKey = "weekly" .. index
         local treatiseKey = "treatise" .. index
-        local name = type(profession) == "table" and profession.name
-            or (type(progress) == "table" and progress.name)
-        row.values[nameKey]:SetText(type(name) == "string" and name or COLORS.unknown .. "nicht erfasst|r")
+        local name = ProfessionDisplayName(profession, progress)
+        row.values[nameKey]:SetText(type(name) == "string" and name
+            or COLORS.unknown .. L("STATUS_NOT_TRACKED") .. "|r")
         row.values[skillKey]:SetText(ProfessionSkillText(progress))
         row.values[knowledgeKey]:SetText(ProfessionKnowledgeText(progress))
         row.values[weeklyKey]:SetText(BooleanStatus(ProfessionFlag(profession, "weeklyDone"), stale))
@@ -976,26 +1097,28 @@ local function FillSources(row, character, weekly, stale)
     local seasonal = type(season.crestSources) == "table" and season.crestSources or {}
     row.values.cracked:SetText(SeasonalSourceText(seasonal.crackedKeystone, 20))
     row.values.nullaeus:SetText(SeasonalSourceText(seasonal.nullaeusT11, 30))
-    row.values.ritualFarm:SetText("|cff32e6c45 M je T6|r")
+    local perRun = Constant(WAT.Data and WAT.Data.RITUAL_T6_MYTH_PER_RUN)
+    row.values.ritualFarm:SetText("|cff32e6c4" .. L("CELL_RITUAL_FARM", perRun) .. "|r")
     local sources = type(weekly.crestSources) == "table" and weekly.crestSources or {}
     local mythicPlus = sources.mythicPlus
     local highest = type(mythicPlus) == "table" and mythicPlus.highestObservedLevel or nil
     if type(highest) == "number" and highest >= 9 then
-        row.values.mythicFarm:SetText(COLORS.green .. "+" .. highest .. " / farmbar|r")
+        row.values.mythicFarm:SetText(COLORS.green .. L("CELL_MYTHIC_FARMABLE", highest) .. "|r")
     elseif type(highest) == "number" then
-        row.values.mythicFarm:SetText(COLORS.red .. "+" .. highest .. " / ab +9|r")
+        row.values.mythicFarm:SetText(COLORS.red .. L("CELL_MYTHIC_MIN", highest) .. "|r")
     else
-        row.values.mythicFarm:SetText(COLORS.unknown .. "ab +9|r")
+        row.values.mythicFarm:SetText(COLORS.unknown .. L("CELL_MYTHIC_FROM9") .. "|r")
     end
     local exchange = sources.heroToMyth
     if type(exchange) ~= "table" or exchange.unlocked == nil then
         row.values.exchange:SetText(COLORS.unknown .. "-|r")
     elseif exchange.unlocked == false then
-        row.values.exchange:SetText(COLORS.red .. "gesperrt|r")
+        row.values.exchange:SetText(COLORS.red .. L("STATUS_LOCKED") .. "|r")
     elseif type(exchange.mythPotential) == "number" then
-        row.values.exchange:SetText(COLORS.green .. exchange.mythPotential .. " M tauschbar|r")
+        row.values.exchange:SetText(COLORS.green
+            .. L("CELL_EXCHANGE_POTENTIAL", exchange.mythPotential) .. "|r")
     else
-        row.values.exchange:SetText(COLORS.amber .. "freigeschaltet|r")
+        row.values.exchange:SetText(COLORS.amber .. L("STATUS_UNLOCKED") .. "|r")
     end
 end
 
@@ -1004,29 +1127,22 @@ local function FillKeystones(row, character, weekly, stale)
     local keystone = type(weekly.keystone) == "table" and weekly.keystone or nil
     local valueColor = stale and COLORS.stale or "|cffd8e0e7"
     if not keystone then
-        row.values.dungeon:SetText(COLORS.unknown .. "nicht erfasst|r")
+        row.values.dungeon:SetText(COLORS.unknown .. L("STATUS_NOT_TRACKED") .. "|r")
         row.values.keystoneLevel:SetText(COLORS.unknown .. "-|r")
         row.values.updated:SetText(COLORS.unknown .. "-|r")
         return
     end
     if keystone.hasKey == false then
-        row.values.dungeon:SetText(valueColor .. "kein Schlüsselstein|r")
+        row.values.dungeon:SetText(valueColor .. L("KEY_NONE") .. "|r")
         row.values.keystoneLevel:SetText(COLORS.unknown .. "-|r")
     elseif keystone.hasKey == true then
-        local dungeon
-        if type(keystone.dungeonName) == "string" then
-            dungeon = keystone.dungeonName
-        elseif type(keystone.mapID) == "number" then
-            dungeon = "Dungeon-ID " .. keystone.mapID
-        else
-            dungeon = "Name wird geladen"
-        end
+        local dungeon = DungeonDisplayName(keystone) or L("STATUS_UNKNOWN")
         row.values.dungeon:SetText(valueColor .. dungeon .. "|r")
         local levelColor = stale and COLORS.stale or "|cff0dd19e"
         row.values.keystoneLevel:SetText(type(keystone.level) == "number"
             and levelColor .. "+" .. keystone.level .. "|r" or COLORS.unknown .. "-|r")
     else
-        row.values.dungeon:SetText(COLORS.unknown .. "unbekannt|r")
+        row.values.dungeon:SetText(COLORS.unknown .. L("STATUS_UNKNOWN") .. "|r")
         row.values.keystoneLevel:SetText(COLORS.unknown .. "-|r")
     end
     row.values.updated:SetText((stale and COLORS.stale or "|cffb0bac6")
@@ -1036,7 +1152,7 @@ end
 function WAT:RefreshUI()
     if not self.frame or not self.panels then return end
     local characters = GetCharacters()
-    self.toolbar:SetText(string.format("%d CHARAKTERE  /  Zeile berühren für Details", #characters))
+    self.toolbar:SetText(L("CHROME_TOOLBAR_COUNT", #characters))
 
     for panelKey, panel in pairs(self.panels) do
         for _, row in ipairs(panel.rows) do row:Hide() end

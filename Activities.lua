@@ -116,9 +116,10 @@ function WAT:ScanMidnightWeekly()
             elseif completed == false and objectiveFinished == false then
                 done = false
             end
+            -- Bewusst ohne Label: der Snapshot speichert nur die questID,
+            -- die UI lokalisiert daraus zur Renderzeit.
             local candidate = {
                 questID = questID,
-                label = Data.META_LABELS and Data.META_LABELS[questID],
                 current = current,
                 required = required,
                 percent = percent,

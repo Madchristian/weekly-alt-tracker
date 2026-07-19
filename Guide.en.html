@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#070b10">
-  <meta name="description" content="Deutsche Anleitung für WeeklyAltTracker 0.2.6: Installation, Funktionen, Sprachen, erste Schritte und Fehlerbehebung.">
-  <title>WeeklyAltTracker 0.2.6 – Anleitung</title>
+  <meta name="description" content="English guide for WeeklyAltTracker 0.2.6: installation, features, languages, first steps and troubleshooting.">
+  <title>WeeklyAltTracker 0.2.6 &ndash; Guide</title>
   <style>
     :root {
       --bg: #070b10;
@@ -530,235 +530,235 @@
   </style>
 </head>
 <body>
-  <a class="skip-link" href="#inhalt">Zum Inhalt springen</a>
+  <a class="skip-link" href="#content">Skip to content</a>
 
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="#start" aria-label="Zur Startseite der Anleitung">
+      <a class="brand" href="#start" aria-label="Back to the top of the guide">
         <span class="brand-mark" aria-hidden="true">W</span>
-        <span>WeeklyAltTracker<small>ANLEITUNG · 0.2.6</small></span>
+        <span>WeeklyAltTracker<small>GUIDE &middot; 0.2.6</small></span>
       </a>
-      <nav class="nav" aria-label="Inhaltsnavigation">
+      <nav class="nav" aria-label="Table of contents">
         <a href="#installation">Installation</a>
-        <a href="#erster-start">Erster Start</a>
-        <a href="#funktionen">Funktionen</a>
-        <a href="#befehle">Befehle</a>
-        <a href="#hilfe">Hilfe</a>
+        <a href="#first-run">First run</a>
+        <a href="#features">Features</a>
+        <a href="#commands">Commands</a>
+        <a href="#help">Help</a>
       </nav>
     </div>
   </header>
 
-  <main id="inhalt">
+  <main id="content">
     <section class="hero" id="start">
       <div>
-        <p class="eyebrow">WoW Retail · Midnight</p>
-        <h1>Deine Woche.<br><span class="hero-accent">Alle Charaktere.</span></h1>
-        <p class="lead">WeeklyAltTracker bündelt Schatzkammer, Midnight-Aktivitäten, Berufe, Wissenspunkte, Wappenquellen und Mythic+-Schlüsselsteine in einer kompakten Übersicht.</p>
-        <div class="badges" aria-label="Versionsinformationen">
+        <p class="eyebrow">WoW Retail &middot; Midnight</p>
+        <h1>Your week.<br><span class="hero-accent">All characters.</span></h1>
+        <p class="lead">WeeklyAltTracker brings the Great Vault, Midnight activities, professions, knowledge points, crest sources and Mythic+ keystones together in one compact overview.</p>
+        <div class="badges" aria-label="Version information">
           <span class="badge live">Release 0.2.6</span>
           <span class="badge">Retail 12.0.7</span>
-          <span class="badge">Deutsch &amp; Englisch</span>
-          <span class="badge">Keine Abhängigkeiten</span>
+          <span class="badge">German &amp; English</span>
+          <span class="badge">No dependencies</span>
         </div>
       </div>
 
-      <div class="hero-console" aria-label="Stilisierte Vorschau des Charaktervergleichs">
-        <div class="console-head"><span>Account-Snapshot</span><span class="console-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+      <div class="hero-console" aria-label="Stylised preview of the character comparison">
+        <div class="console-head"><span>Account snapshot</span><span class="console-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
         <div class="console-screen">
-          <div class="screen-row header"><span>CHARAKTER</span><span class="value">VAULT</span><span class="value">KEY</span></div>
-          <div class="screen-row"><span class="char">Arkanistin<small>STUFE 80 · 634.2</small></span><span class="value ok">3 / 3</span><span class="value ok">+12</span></div>
-          <div class="screen-row"><span class="char">Schattenruf<small>STUFE 80 · 621.7</small></span><span class="value warn">2 / 3</span><span class="value ok">+8</span></div>
-          <div class="screen-row"><span class="char">Jungtwink<small>STUFE 76 · 588.1</small></span><span class="value unknown">−</span><span class="value unknown">−</span></div>
+          <div class="screen-row header"><span>CHARACTER</span><span class="value">VAULT</span><span class="value">KEY</span></div>
+          <div class="screen-row"><span class="char">Arcanista<small>LEVEL 80 &middot; 634.2</small></span><span class="value ok">3 / 3</span><span class="value ok">+12</span></div>
+          <div class="screen-row"><span class="char">Shadowcall<small>LEVEL 80 &middot; 621.7</small></span><span class="value warn">2 / 3</span><span class="value ok">+8</span></div>
+          <div class="screen-row"><span class="char">Freshalt<small>LEVEL 76 &middot; 588.1</small></span><span class="value unknown">&minus;</span><span class="value unknown">&minus;</span></div>
         </div>
-        <div class="console-foot"><span>/wat</span> öffnet die echte Übersicht im Spiel.</div>
+        <div class="console-foot"><span>/wat</span> opens the real overview in game.</div>
       </div>
     </section>
 
     <section class="section" id="installation">
       <div class="section-head">
-        <div><p class="kicker">Manuelle Installation</p><h2>In drei Schritten bereit.</h2></div>
-        <p class="section-intro">Du brauchst keinen Addon-Manager. Wichtig ist nur, dass der Ordner genau einmal verschachtelt ist und die TOC-Datei direkt darin liegt.</p>
+        <div><p class="kicker">Manual installation</p><h2>Ready in three steps.</h2></div>
+        <p class="section-intro">You do not need an addon manager. All that matters is that the folder is nested exactly once and that the TOC file sits directly inside it.</p>
       </div>
 
       <div class="install-grid">
         <article class="step">
-          <h3>ZIP herunterladen</h3>
-          <p>Lade <strong>WeeklyAltTracker-0.2.6.zip</strong> von der offiziellen Projektseite oder direkt vom Autor herunter.</p>
+          <h3>Download the ZIP</h3>
+          <p>Download <strong>WeeklyAltTracker-0.2.6.zip</strong> from the official project page or directly from the author.</p>
         </article>
         <article class="step">
-          <h3>Archiv entpacken</h3>
-          <p>Öffne das ZIP. Darin befindet sich der Ordner <strong>WeeklyAltTracker</strong>. Kopiere genau diesen Ordner.</p>
+          <h3>Extract the archive</h3>
+          <p>Open the ZIP. Inside is the folder <strong>WeeklyAltTracker</strong>. Copy exactly that folder.</p>
         </article>
         <article class="step">
-          <h3>In WoW einfügen</h3>
-          <p>Füge den Ordner in <strong>_retail_\Interface\AddOns</strong> ein und starte WoW neu. Läuft WoW bereits, nutze anschließend <code>/reload</code>.</p>
+          <h3>Paste it into WoW</h3>
+          <p>Paste the folder into <strong>_retail_\Interface\AddOns</strong> and restart WoW. If WoW is already running, use <code>/reload</code> afterwards.</p>
         </article>
 
         <div class="path-box">
-          <span class="path-label">Typischer Zielpfad</span>
+          <span class="path-label">Typical target path</span>
           <code>World of Warcraft\_retail_\Interface\AddOns\WeeklyAltTracker</code>
         </div>
 
         <div class="folder-check">
-          <h3>So muss der Ordner aussehen</h3>
+          <h3>This is how the folder must look</h3>
           <pre class="folder-tree">AddOns
-└── <b>WeeklyAltTracker</b>
-    ├── WeeklyAltTracker.toc
-    ├── Localization.lua
-    ├── Core.lua
-    ├── Data.lua
-    ├── Scanner.lua
-    ├── Activities.lua
-    ├── UI.lua
-    ├── Media
-    │   └── WeeklyAltTrackerIcon.tga
-    ├── Anleitung.html
-    ├── Guide.en.html
-    ├── README.md
-    ├── README.en.md
-    ├── THIRD_PARTY_NOTICES.md
-    └── LICENSE.txt</pre>
+&#9492;&#9472;&#9472; <b>WeeklyAltTracker</b>
+    &#9500;&#9472;&#9472; WeeklyAltTracker.toc
+    &#9500;&#9472;&#9472; Localization.lua
+    &#9500;&#9472;&#9472; Core.lua
+    &#9500;&#9472;&#9472; Data.lua
+    &#9500;&#9472;&#9472; Scanner.lua
+    &#9500;&#9472;&#9472; Activities.lua
+    &#9500;&#9472;&#9472; UI.lua
+    &#9500;&#9472;&#9472; Media
+    &#9474;   &#9492;&#9472;&#9472; WeeklyAltTrackerIcon.tga
+    &#9500;&#9472;&#9472; Anleitung.html
+    &#9500;&#9472;&#9472; Guide.en.html
+    &#9500;&#9472;&#9472; README.md
+    &#9500;&#9472;&#9472; README.en.md
+    &#9500;&#9472;&#9472; THIRD_PARTY_NOTICES.md
+    &#9492;&#9472;&#9472; LICENSE.txt</pre>
         </div>
       </div>
     </section>
 
-    <section class="section" id="erster-start">
+    <section class="section" id="first-run">
       <div class="section-head">
-        <div><p class="kicker">Erster Start</p><h2>Einloggen. Erfassen. Vergleichen.</h2></div>
-        <p class="section-intro">WoW erlaubt keinen Livezugriff auf ausgeloggte Charaktere. Jeder Charakter baut deshalb beim Einloggen seinen eigenen sicheren Offline-Snapshot auf.</p>
+        <div><p class="kicker">First run</p><h2>Log in. Record. Compare.</h2></div>
+        <p class="section-intro">WoW allows no live access to logged-out characters. Every character therefore builds its own safe offline snapshot when it logs in.</p>
       </div>
 
       <div class="first-run">
         <div class="checklist">
-          <h3>Empfohlene Reihenfolge</h3>
+          <h3>Recommended order</h3>
           <ol>
-            <li><div><strong>Addon aktivieren</strong>Prüfe in der Charakterauswahl unter „AddOns“, ob WeeklyAltTracker aktiviert ist.</div></li>
-            <li><div><strong>Fenster öffnen</strong>Klicke das Minimap-Symbol oder gib <code>/wat</code> im Chat ein.</div></li>
-            <li><div><strong>Snapshot aktualisieren</strong>Nutze <code>/wat refresh</code>, nachdem Schatzkammer, Questlog und Berufsdaten geladen sind.</div></li>
-            <li><div><strong>Twinks einmal einloggen</strong>Wiederhole das für jeden Charakter, der in der accountweiten Übersicht erscheinen soll.</div></li>
-            <li><div><strong>Eine Tiefe betreten</strong>Nur so kann Blizzard den Fortschritt der Goldenen Truhe erstmals bereitstellen.</div></li>
+            <li><div><strong>Enable the addon</strong>On the character selection screen, check under &ldquo;AddOns&rdquo; that WeeklyAltTracker is enabled.</div></li>
+            <li><div><strong>Open the window</strong>Click the minimap button or type <code>/wat</code> in chat.</div></li>
+            <li><div><strong>Refresh the snapshot</strong>Use <code>/wat refresh</code> once the Great Vault, quest log and profession data have loaded.</div></li>
+            <li><div><strong>Log in each alt once</strong>Repeat this for every character that should appear in the account-wide overview.</div></li>
+            <li><div><strong>Enter a delve</strong>Only there can Blizzard provide the Gilded Stash progress for the first time.</div></li>
           </ol>
         </div>
         <aside class="note-panel">
-          <h3>Sprache</h3>
-          <p>Die Oberfläche folgt automatisch der Sprache deines WoW-Clients: <strong>deDE</strong> ist vollständig deutsch, <strong>enUS</strong> und <strong>enGB</strong> sind vollständig englisch.</p>
-          <p>Jede andere Clientsprache verwendet sicher die englische Fassung. Eine eigene Einstellung gibt es bewusst nicht.</p>
-          <p>Namen aus dem Spiel – Klasse, Dungeon, Gegenstand, Beruf und Erfolg – kommen immer aus WoW selbst und werden nie vom Addon übersetzt.</p>
+          <h3>Language</h3>
+          <p>The interface follows your WoW client language automatically: <strong>deDE</strong> is fully German, <strong>enUS</strong> and <strong>enGB</strong> are fully English.</p>
+          <p>Every other client language safely uses the English version. There is deliberately no separate setting.</p>
+          <p>Names that come from the game &ndash; class, dungeon, item, profession and achievement &ndash; always come from WoW itself and are never translated by the addon.</p>
         </aside>
         <aside class="note-panel">
-          <h3>Minimap-Symbol</h3>
-          <p><strong>Linksklick</strong> öffnet oder schließt WeeklyAltTracker.</p>
-          <p><strong>Ziehen mit gedrückter linker Maustaste</strong> verschiebt das Symbol am Minimap-Rand. Die Position wird automatisch gespeichert.</p>
-          <p>Das Symbol verwendet keine externe Bibliothek und funktioniert unabhängig von anderen Addons.</p>
+          <h3>Minimap button</h3>
+          <p><strong>Left click</strong> opens or closes WeeklyAltTracker.</p>
+          <p><strong>Dragging with the left mouse button</strong> moves the button along the minimap edge. The position is saved automatically.</p>
+          <p>The button uses no external library and works independently of other addons.</p>
         </aside>
       </div>
     </section>
 
-    <section class="section" id="funktionen">
+    <section class="section" id="features">
       <div class="section-head">
-        <div><p class="kicker">Funktionsumfang</p><h2>Fünf Ansichten. Ein Wochenbild.</h2></div>
-        <p class="section-intro">Die Oberfläche bleibt bewusst kompakt. Jede Ansicht beantwortet eine konkrete Frage, statt alle Daten in eine überbreite Tabelle zu pressen.</p>
+        <div><p class="kicker">Feature set</p><h2>Five views. One weekly picture.</h2></div>
+        <p class="section-intro">The interface stays deliberately compact. Each view answers one concrete question instead of squeezing all data into one overly wide table.</p>
       </div>
 
       <div class="feature-list">
         <article class="feature">
           <span class="feature-index">01</span>
-          <h3>Übersicht</h3>
-          <div><p>Vergleicht Charakterlevel, angelegte Gegenstandsstufe, Goldene Truhe, Champion-, Helden- und Mythische Wappen sowie die freigeschalteten Schatzkammer-Slots für Mythic+ und Tiefen/Welt. Die eigene Spalte <strong>M+10 / 272</strong> zeigt sofort, ob mindestens ein Dungeon auf +10 oder höher für die 272er Vault-Belohnung abgeschlossen wurde.</p><div class="feature-tags"><span>M+10 / 272</span><span>Vault-Itemlevel</span><span>Offline-Snapshot</span><span>ohne Raid</span></div></div>
+          <h3>Overview</h3>
+          <div><p>Compares character level, equipped item level, Gilded Stash, Champion, Hero and Myth crests as well as the unlocked Great Vault slots for Mythic+ and Delves/World. The dedicated column <strong>M+10 / 272</strong> shows immediately whether at least one dungeon has been completed at +10 or higher for the 272 vault reward.</p><div class="feature-tags"><span>M+10 / 272</span><span>Vault item level</span><span>Offline snapshot</span><span>no raid</span></div></div>
         </article>
         <article class="feature">
           <span class="feature-index">02</span>
-          <h3>Midnight-Woche</h3>
-          <div><p>Zeigt die aktive Midnight-Wochenquest, Jagden auf Normal, Schwer und Albtraum sowie den Fortschritt der Ritualstätten.</p><div class="feature-tags"><span>Wochenquest</span><span>Jagden 0/4</span><span>Ritualstätten</span></div></div>
+          <h3>Midnight Week</h3>
+          <div><p>Shows the active Midnight weekly quest, hunts on Normal, Hard and Nightmare, and the progress of the Ritual Sites.</p><div class="feature-tags"><span>Weekly quest</span><span>Hunts 0/4</span><span>Ritual Sites</span></div></div>
         </article>
         <article class="feature">
           <span class="feature-index">03</span>
-          <h3>Berufe</h3>
-          <div><p>Erfasst den Midnight-Skill beider Hauptberufe, freie Wissenspunkte, Wissenspunkte aus Gegenständen in deinen Taschen, die Berufs-Wochenquest und den Thalassischen Traktat.</p><div class="feature-tags"><span>Skill</span><span>Frei / Tasche</span><span>Traktate</span></div></div>
+          <h3>Professions</h3>
+          <div><p>Records the Midnight skill of both primary professions, free knowledge points, knowledge points from items in your bags, the profession weekly quest and the Thalassian Treatise.</p><div class="feature-tags"><span>Skill</span><span>Free / Bags</span><span>Treatises</span></div></div>
         </article>
         <article class="feature">
           <span class="feature-index">04</span>
-          <h3>Wappenquellen</h3>
-          <div><p>Ordnet zusätzliche Quellen als wöchentlich, einmalig beziehungsweise saisonal oder wiederholbar ein – darunter die Goldene Truhe, Rissiger Schlüsselstein, Nullaeus T11, Ritualstätten T6 und Mythic+ ab +9.</p><div class="feature-tags"><span>Quellenstatus</span><span>Tauschpotential</span><span>keine erfundenen Zähler</span></div></div>
+          <h3>Crest Sources</h3>
+          <div><p>Classifies additional sources as weekly, one-off or seasonal, or repeatable &ndash; among them the Gilded Stash, Cracked Keystone, Nullaeus T11, Ritual Sites T6 and Mythic+ from +9.</p><div class="feature-tags"><span>Source state</span><span>Exchange potential</span><span>no invented counters</span></div></div>
         </article>
         <article class="feature">
           <span class="feature-index">05</span>
-          <h3>Schlüsselsteine</h3>
-          <div><p>Speichert Dungeonname und Stufe des aktuell besessenen Mythic+-Schlüsselsteins pro Charakter. Sichere Daten bleiben bei frühen oder geschützten API-Antworten erhalten.</p><div class="feature-tags"><span>Dungeon</span><span>Stufe</span><span>Datenstand</span></div></div>
+          <h3>Keystones</h3>
+          <div><p>Stores dungeon name and level of the currently owned Mythic+ keystone per character. Safe data is preserved when API responses arrive early or protected.</p><div class="feature-tags"><span>Dungeon</span><span>Level</span><span>Data age</span></div></div>
         </article>
       </div>
     </section>
 
     <section class="section" aria-labelledby="status-title">
       <div class="section-head">
-        <div><p class="kicker">Status verstehen</p><h2 id="status-title">Farben mit klarer Bedeutung.</h2></div>
-        <p class="section-intro">WeeklyAltTracker unterscheidet bewusst zwischen offen, teilweise erledigt und unbekannt. Fehlende Daten werden niemals als echte Null erfunden.</p>
+        <div><p class="kicker">Understanding status</p><h2 id="status-title">Colours with a clear meaning.</h2></div>
+        <p class="section-intro">WeeklyAltTracker deliberately distinguishes between open, partially done and unknown. Missing data is never invented as a real zero.</p>
       </div>
       <div class="legend">
-        <article class="legend-item"><div class="legend-dot" style="color: var(--green)"></div><h3>Grün</h3><p>Fertig, freigeschaltet oder sicher abgeschlossen.</p></article>
-        <article class="legend-item"><div class="legend-dot" style="color: var(--amber)"></div><h3>Gelb</h3><p>Teilweise erledigt oder noch in Arbeit.</p></article>
-        <article class="legend-item"><div class="legend-dot" style="color: var(--red)"></div><h3>Rot</h3><p>Sicher offen oder noch nicht abgeschlossen.</p></article>
-        <article class="legend-item"><div class="legend-dot" style="color: var(--faint)"></div><h3>Grau / −</h3><p>Unbekannt, nicht erfasst oder aus einer alten Woche.</p></article>
+        <article class="legend-item"><div class="legend-dot" style="color: var(--green)"></div><h3>Green</h3><p>Done, unlocked or safely completed.</p></article>
+        <article class="legend-item"><div class="legend-dot" style="color: var(--amber)"></div><h3>Yellow</h3><p>Partially done or still in progress.</p></article>
+        <article class="legend-item"><div class="legend-dot" style="color: var(--red)"></div><h3>Red</h3><p>Safely open or not yet completed.</p></article>
+        <article class="legend-item"><div class="legend-dot" style="color: var(--faint)"></div><h3>Grey / &minus;</h3><p>Unknown, not recorded or from an old week.</p></article>
       </div>
     </section>
 
-    <section class="section" id="befehle">
+    <section class="section" id="commands">
       <div class="section-head">
-        <div><p class="kicker">Chatbefehle</p><h2>Direkter Zugriff mit /wat.</h2></div>
-        <p class="section-intro">Alle Befehle funktionieren im normalen WoW-Chat. Groß- und Kleinschreibung spielt keine Rolle.</p>
+        <div><p class="kicker">Chat commands</p><h2>Direct access with /wat.</h2></div>
+        <p class="section-intro">All commands work in the normal WoW chat. Capitalisation does not matter. The commands themselves are identical in German and English; only their output is translated.</p>
       </div>
-      <div class="command-table" role="table" aria-label="WeeklyAltTracker Chatbefehle">
-        <div class="command-row" role="row"><code>/wat</code><span>Fenster öffnen oder schließen.</span></div>
-        <div class="command-row" role="row"><code>/wat show</code><span>Fenster gezielt anzeigen.</span></div>
-        <div class="command-row" role="row"><code>/wat hide</code><span>Fenster gezielt ausblenden.</span></div>
-        <div class="command-row" role="row"><code>/wat refresh</code><span>Daten des aktuell eingeloggten Charakters neu einlesen.</span></div>
-        <div class="command-row" role="row"><code>/wat resetpos</code><span>Hauptfenster wieder mittig positionieren.</span></div>
-        <div class="command-row" role="row"><code>/wat scale 0.7–1.5</code><span>Größe der Oberfläche anpassen, zum Beispiel <code>/wat scale 0.9</code>.</span></div>
-        <div class="command-row" role="row"><code>/wat debug</code><span>Wichtigste Rohdaten zur Fehleranalyse im Chat ausgeben.</span></div>
+      <div class="command-table" role="table" aria-label="WeeklyAltTracker chat commands">
+        <div class="command-row" role="row"><code>/wat</code><span>Open or close the window.</span></div>
+        <div class="command-row" role="row"><code>/wat show</code><span>Show the window explicitly.</span></div>
+        <div class="command-row" role="row"><code>/wat hide</code><span>Hide the window explicitly.</span></div>
+        <div class="command-row" role="row"><code>/wat refresh</code><span>Re-read the data of the currently logged-in character.</span></div>
+        <div class="command-row" role="row"><code>/wat resetpos</code><span>Move the main window back to the centre.</span></div>
+        <div class="command-row" role="row"><code>/wat scale 0.7&ndash;1.5</code><span>Adjust the interface size, for example <code>/wat scale 0.9</code>.</span></div>
+        <div class="command-row" role="row"><code>/wat debug</code><span>Print the most important raw data for troubleshooting to chat.</span></div>
       </div>
     </section>
 
-    <section class="section" id="hilfe">
+    <section class="section" id="help">
       <div class="section-head">
-        <div><p class="kicker">Hilfe & Grenzen</p><h2>Wenn etwas noch nicht erscheint.</h2></div>
-        <p class="section-intro">Die meisten vermeintlichen Fehler entstehen durch einen doppelt verschachtelten Ordner, einen noch nicht eingeloggten Charakter oder Daten, die Blizzard erst nach Öffnen einer Oberfläche bereitstellt.</p>
+        <div><p class="kicker">Help &amp; limits</p><h2>When something does not show up yet.</h2></div>
+        <p class="section-intro">Most apparent errors come from a doubly nested folder, a character that has not logged in yet, or data that Blizzard only provides after a certain interface has been opened.</p>
       </div>
       <div class="limits">
         <details>
-          <summary>Das Addon erscheint nicht in der Charakterauswahl</summary>
-          <p>Prüfe, ob <code>WeeklyAltTracker.toc</code> direkt im Ordner <code>AddOns\WeeklyAltTracker</code> liegt. Ein zusätzlicher Ordner wie <code>WeeklyAltTracker\WeeklyAltTracker</code> ist falsch. Prüfe außerdem, ob du das Archiv wirklich entpackt hast.</p>
+          <summary>The addon does not appear on the character selection screen</summary>
+          <p>Check that <code>WeeklyAltTracker.toc</code> sits directly in the folder <code>AddOns\WeeklyAltTracker</code>. An extra folder such as <code>WeeklyAltTracker\WeeklyAltTracker</code> is wrong. Also check that you really extracted the archive.</p>
         </details>
         <details>
-          <summary>Ein Charakter oder neue Felder fehlen</summary>
-          <p>Logge den betreffenden Charakter einmal mit aktiviertem Addon ein und nutze <code>/wat refresh</code>. Ausgeloggte Charaktere können von WoW nicht live abgefragt werden.</p>
+          <summary>A character or new fields are missing</summary>
+          <p>Log in the character in question once with the addon enabled and use <code>/wat refresh</code>. Logged-out characters cannot be queried live by WoW.</p>
         </details>
         <details>
-          <summary>Die Goldene Truhe zeigt „nicht erfasst“</summary>
-          <p>Betritt mit diesem Charakter mindestens einmal eine Tiefe. Blizzard stellt das zugehörige UI-Widget erst dort beziehungsweise in dessen Nähe bereit. Ein später fehlender Wert überschreibt keinen bereits sicheren Snapshot.</p>
+          <summary>The Gilded Stash shows &ldquo;not tracked&rdquo;</summary>
+          <p>Enter a delve at least once with this character. Blizzard provides the corresponding UI widget only there or nearby. A value missing later does not overwrite an already safe snapshot.</p>
         </details>
         <details>
-          <summary>Vault-Itemlevel oder andere Werte zeigen „−“</summary>
-          <p>„−“ bedeutet unbekannt, nicht geladen oder geschützt – nicht Null. Öffne die Große Schatzkammer, warte kurz auf die Gegenstandsdaten und nutze anschließend <code>/wat refresh</code>.</p>
+          <summary>Vault item level or other values show &ldquo;&minus;&rdquo;</summary>
+          <p>&ldquo;&minus;&rdquo; means unknown, not loaded or protected &ndash; not zero. Open the Great Vault, wait briefly for the item data and then use <code>/wat refresh</code>.</p>
         </details>
         <details>
-          <summary>Welche Taschen werden für Berufswissen gescannt?</summary>
-          <p>Rucksack, vier normale Taschen und Reagenzientasche. Bank und Kriegsmeutenbank werden bewusst nicht gescannt. Stapelbare Wissensgegenstände werden mit ihrer Menge berücksichtigt.</p>
+          <summary>Which bags are scanned for profession knowledge?</summary>
+          <p>Backpack, four normal bags and the reagent bag. Bank and warband bank are deliberately not scanned. Stackable knowledge items are counted with their quantity.</p>
         </details>
         <details>
-          <summary>Kann ich die Sprache umstellen?</summary>
-          <p>Nicht im Addon selbst – sie folgt der Sprache deines WoW-Clients. Stellst du den Client auf Englisch um, erscheint die Oberfläche beim nächsten <code>/reload</code> vollständig englisch, inklusive bereits erfasster Charaktere. Eigene Übersetzungslabels speichert das Addon nämlich nicht mehr als Anzeigequelle: Es legt stabile IDs ab und lokalisiert sie erst beim Anzeigen, und diese Laufzeitauflösung hat Vorrang. Von WoW gelieferte, bereits lokalisierte Namen können weiterhin im Snapshot stehen, dienen dort aber nur der Rückwärtskompatibilität und als Fallback; ist keine Lokalisierung verfügbar, siehst du eine neutrale <code>Dungeon-ID</code> statt eines fremdsprachig gespeicherten Namens.</p>
+          <summary>Can I switch the language?</summary>
+          <p>Not in the addon itself &ndash; it follows your WoW client language. If you switch the client to German, the interface appears fully German after the next <code>/reload</code>, including characters already recorded. That works because the addon no longer stores its own translation labels as the display source: it stores stable IDs and localizes them only when displaying, and that runtime resolution takes precedence. Already-localized names supplied by WoW may still sit in the snapshot, but only for backwards compatibility and as a fallback; if no localization is available you see a neutral <code>Dungeon ID</code> instead of a name stored in another language.</p>
         </details>
         <details>
-          <summary>Warum gibt es kein Raid-Tracking?</summary>
-          <p>Das Addon ist bewusst für Mythic+, Tiefen/Welt, Midnight-Wochenaktivitäten und Twink-Verwaltung zugeschnitten. Raid-Fortschritt und Raid-Vault bleiben vollständig ausgeschlossen.</p>
+          <summary>Why is there no raid tracking?</summary>
+          <p>The addon is deliberately tailored to Mythic+, Delves/World, Midnight weekly activities and alt management. Raid progress and the raid vault stay fully excluded.</p>
         </details>
         <details>
-          <summary>Wie aktualisiere ich das Addon manuell?</summary>
-          <p>Beende WoW möglichst vollständig, ersetze den Ordner <code>AddOns\WeeklyAltTracker</code> durch die neue Version und starte das Spiel erneut. Deine Daten liegen separat in WoWs SavedVariables und bleiben bei einem normalen Update erhalten.</p>
+          <summary>How do I update the addon manually?</summary>
+          <p>Close WoW as completely as possible, replace the folder <code>AddOns\WeeklyAltTracker</code> with the new version and start the game again. Your data lives separately in WoW&rsquo;s SavedVariables and is preserved during a normal update.</p>
         </details>
         <details>
-          <summary>Es tritt ein Lua-Fehler auf</summary>
-          <p>Notiere den genauen Fehler oder kopiere ihn aus BugSack/!BugGrabber. Führe <code>/wat debug</code> aus und melde Version, betroffene Ansicht und den letzten ausgeführten Schritt über die offizielle Projektseite.</p>
+          <summary>A Lua error occurs</summary>
+          <p>Note the exact error or copy it from BugSack/!BugGrabber. Run <code>/wat debug</code> and report the version, the affected view and the last step you performed via the official project page.</p>
         </details>
       </div>
     </section>
@@ -766,23 +766,23 @@
     <section class="section">
       <div class="privacy">
         <div>
-          <p class="kicker">Privatsphäre</p>
-          <h2>Deine Daten bleiben in deinem WoW-Ordner.</h2>
-          <p>WeeklyAltTracker arbeitet vollständig lokal. Das Addon besitzt keine Telemetrie, keine Werbung, keine Netzwerkkommunikation und überträgt keine Charakterdaten an den Autor oder andere Dienste.</p>
+          <p class="kicker">Privacy</p>
+          <h2>Your data stays in your WoW folder.</h2>
+          <p>WeeklyAltTracker works entirely locally. The addon has no telemetry, no advertising, no network communication and transmits no character data to the author or any other service.</p>
         </div>
-        <div class="privacy-facts" aria-label="Datenschutzmerkmale">
-          <div><b>KEINE</b> Telemetrie</div>
-          <div><b>KEINE</b> Netzwerkaufrufe</div>
-          <div><b>KEINE</b> externen Bibliotheken</div>
-          <div><b>LOKAL</b> in WeeklyAltTrackerDB</div>
+        <div class="privacy-facts" aria-label="Privacy characteristics">
+          <div><b>NO</b> telemetry</div>
+          <div><b>NO</b> network calls</div>
+          <div><b>NO</b> external libraries</div>
+          <div><b>LOCAL</b> in WeeklyAltTrackerDB</div>
         </div>
       </div>
     </section>
   </main>
 
   <footer>
-    <div><strong>WeeklyAltTracker 0.2.6</strong><br>Für WoW Retail 12.0.7 · Midnight</div>
-    <div>Copyright © 2026 Christian. All Rights Reserved.<br>Unabhängiges Fanprojekt, nicht mit Blizzard Entertainment verbunden.<br>Angezeigte Spielsymbole sind Client-Assets von Blizzard und werden nur zur Laufzeit referenziert, nicht mitgeliefert. Datenherkunft und Referenzen sind in <code>THIRD_PARTY_NOTICES.md</code> im Addon-Ordner offengelegt.</div>
+    <div><strong>WeeklyAltTracker 0.2.6</strong><br>For WoW Retail 12.0.7 &middot; Midnight</div>
+    <div>Copyright &copy; 2026 Christian. All Rights Reserved.<br>Independent fan project, not affiliated with Blizzard Entertainment.<br>Game icons shown are Blizzard client assets and are only referenced at runtime, not shipped. Data provenance and references are disclosed in <code>THIRD_PARTY_NOTICES.md</code> inside the addon folder.</div>
   </footer>
 
   <script>
