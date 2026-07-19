@@ -746,7 +746,7 @@
         </details>
         <details>
           <summary>Can I switch the language?</summary>
-          <p>Not in the addon itself &ndash; it follows your WoW client language. If you switch the client to German, the interface appears fully German after the next <code>/reload</code>, including characters already recorded. That works because the addon no longer stores its own translation labels as the display source: it stores stable IDs and localizes them only when displaying, and that runtime resolution takes precedence. Already-localized names supplied by WoW may still sit in the snapshot, but only for backwards compatibility and as a fallback; if no localization is available you see a neutral <code>Dungeon ID</code> instead of a name stored in another language.</p>
+          <p>Not in the addon itself &ndash; it follows your WoW client language. If you switch the client to German, the interface appears fully German after restarting the WoW client, including characters already recorded. That works because the addon no longer stores its own translation labels as the display source: it stores stable IDs and localizes them only when displaying, and that runtime resolution takes precedence. Already-localized names supplied by WoW may still sit in the snapshot, but only for backwards compatibility and as a fallback; if no localization is available you see a neutral <code>Dungeon ID</code> instead of a name stored in another language.</p>
         </details>
         <details>
           <summary>Why is there no raid tracking?</summary>
