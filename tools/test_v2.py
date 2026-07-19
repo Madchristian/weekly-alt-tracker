@@ -26,6 +26,30 @@ def table_body(source: str, name: str) -> str:
     return match.group(1) if match else ""
 
 
+def nested_table_body(source: str, name: str) -> str:
+    """Wie table_body, aber fuer Tabellen mit verschachtelten Eintraegen.
+
+    table_body endet an der ersten Zeile, die nur eine Klammer enthaelt - bei
+    einer Liste aus Untertabellen waere das schon der erste Eintrag. Hier wird
+    stattdessen die zugehoerige schliessende Klammer gezaehlt.
+    """
+    start = re.search(rf"{re.escape(name)}\s*=\s*\{{", source)
+    require(start is not None, f"Datentabelle fehlt: {name}")
+    if start is None:
+        return ""
+    depth, index = 0, start.end() - 1
+    for position in range(start.end() - 1, len(source)):
+        character = source[position]
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                index = position
+                break
+    return source[start.end():index]
+
+
 def ids(body: str) -> list[int]:
     return [int(value) for value in re.findall(r"\b(\d{5})\b", body)]
 
@@ -148,13 +172,41 @@ def main() -> int:
     statistics_body = table_body(data, "STATISTICS")
     statistic_ids = [int(value) for value in
                      re.findall(r"statisticID\s*=\s*(\d+)", statistics_body)]
-    require(statistic_ids == [40734, 61790, 60, 14787, 14784, 114, 98, 97, 94],
-            f"Data.STATISTICS muss exakt die neun verifizierten IDs in fester Reihenfolge "
-            f"fuehren, gefunden: {statistic_ids}")
+    require(statistic_ids == [40734, 61790, 60, 14787, 14784, 114, 98, 97, 94, 812, 932],
+            f"Data.STATISTICS muss exakt die elf verifizierten IDs in fester Reihenfolge "
+            f"fuehren - die urspruenglichen neun zuerst, 812/932 angehaengt, "
+            f"gefunden: {statistic_ids}")
+
+    # Die 24 Endboss-Statistiken der Midnight-Dungeons. Sie werden nie einzeln
+    # gespeichert, sondern nur zur sprachneutralen Summe verrechnet; eine
+    # falsche ID liefert still eine fremde Statistik.
+    dungeon_body = table_body(data, "MIDNIGHT_DUNGEON_STATISTICS")
+    dungeon_ids = [int(value) for value in re.findall(r"\b(\d{4,6})\b", dungeon_body)]
+    require(dungeon_ids == [41293, 41294, 41295, 61215, 61216, 61217,
+                            61273, 61274, 61275, 61511, 61512, 61513,
+                            61650, 61651, 61652, 61653, 61654, 61655,
+                            61656, 61657, 61658, 61659, 61660, 61661],
+            f"Data.MIDNIGHT_DUNGEON_STATISTICS muss exakt die 24 Endboss-IDs in fester "
+            f"Reihenfolge fuehren, gefunden: {dungeon_ids}")
+    require(len(set(dungeon_ids)) == 24,
+            "Data.MIDNIGHT_DUNGEON_STATISTICS enthaelt doppelte IDs")
+
+    # Abgeleitete Werte tragen KEINE Statistik-ID, sondern einen stabilen,
+    # sprachneutralen Speicherschluessel.
+    derived_body = nested_table_body(data, "DERIVED_STATISTICS")
+    derived_keys = re.findall(r'key\s*=\s*"([A-Za-z][A-Za-z0-9]*)"', derived_body)
+    require(derived_keys == ["midnightDungeons", "playtimeTotal"],
+            f"Data.DERIVED_STATISTICS muss genau die beiden abgeleiteten Werte fuehren, "
+            f"gefunden: {derived_keys}")
+    require("statisticID" not in derived_body,
+            "ein abgeleiteter Wert darf keine direkte GetStatistic-ID tragen")
+    require('Data.PLAYTIME_KEY = "playtimeTotal"' in data
+            and 'Data.MIDNIGHT_DUNGEONS_KEY = "midnightDungeons"' in data,
+            "die sprachneutralen Speicherschluessel fehlen in Data.lua")
     statistic_keys = re.findall(r'key\s*=\s*"([A-Za-z][A-Za-z0-9]*)"', statistics_body)
     require(statistic_keys == ["delvesTotal", "delvesMidnight", "deathsTotal", "deathsDungeon",
                                "deathsRaid", "deathsFalling", "questsCompleted", "questsDaily",
-                               "questsAbandoned"],
+                               "questsAbandoned", "healthstones", "dungeonsEntered"],
             f"Stabile, sprachneutrale Statistik-Schluessel fehlen oder sind vertauscht: "
             f"{statistic_keys}")
     require("ScanStatistics" in activities, "Statistik-Scanner fehlt in Activities.lua")
@@ -172,6 +224,22 @@ def main() -> int:
             "Das Datenbankschema bleibt bei Version 2 - die Migration ist additiv")
     for event in ("RECEIVED_ACHIEVEMENT_LIST", "PLAYER_DEAD"):
         require(event in core, f"Statistik-Event fehlt: {event}")
+    # Die Gesamtspielzeit ist ueber keine synchrone API lesbar: ohne das
+    # registrierte Event bliebe sie fuer immer unbekannt.
+    require('RegisterEventSafely("TIME_PLAYED_MSG")' in core,
+            "TIME_PLAYED_MSG muss registriert werden, sonst kommt nie eine Spielzeit an")
+    require('event == "TIME_PLAYED_MSG"' in core and "RecordTimePlayed" in core,
+            "TIME_PLAYED_MSG muss an RecordTimePlayed geroutet werden")
+    # Der Todespfad scannt ausschliesslich Statistiken. Eine Spielzeitanfrage
+    # dort waere sichtbarer Chatspam bei jedem Tod.
+    death_branch = core[core.find('event == "PLAYER_DEAD"'):core.find('event == "TIME_PLAYED_MSG"')]
+    require("RequestTimePlayed" not in death_branch,
+            "PLAYER_DEAD darf die Spielzeit nicht anfordern")
+    require("TIME_PLAYED_REASONS" in activities and "PLAYER_DEAD" not in
+            activities[activities.find("TIME_PLAYED_REASONS"):activities.find("TIME_PLAYED_THROTTLE")],
+            "die erlaubten Spielzeit-Gruende duerfen PLAYER_DEAD nicht enthalten")
+    require("weekly.playtime" not in activities and "weekly.statistics" not in activities,
+            "die Spielzeit ist kein Wochenwert und darf nicht unter weekly liegen")
     # Geprueft wird die Registrierung, nicht die blosse Erwaehnung: der
     # Kommentar in Core.lua begruendet ausdruecklich, warum dieses Event
     # NICHT registriert wird, und muss stehen bleiben duerfen.
@@ -278,6 +346,10 @@ def main() -> int:
         # Statistik-Tooltip: Data.STATISTICS[...].nameKey. Die Literale werden
         # unmittelbar darunter gegen beide Wörterbücher geprüft.
         ("UI.lua", "definition.nameKey"),
+        # Erklärzeilen im Statistik-Tooltip: Data-Definition[...].tooltipKey.
+        # GetAchievementInfo kann für eine synthetische Statistik nichts
+        # liefern; die Literale werden unten gegen beide Wörterbücher geprüft.
+        ("UI.lua", "definition.tooltipKey"),
     }
 
     seen_dynamic: set[tuple[str, str]] = set()
@@ -311,12 +383,51 @@ def main() -> int:
 
     # Statische Absicherung der dynamischen Quelle Data.STATISTICS[...].nameKey.
     statistic_name_keys = re.findall(r'nameKey\s*=\s*"([A-Za-z_][A-Za-z0-9_]*)"', strip_comments(data))
-    require(len(statistic_name_keys) == 9,
-            f"Data.lua muss fuer jede der neun Statistiken einen nameKey fuehren, "
-            f"gefunden: {len(statistic_name_keys)}")
+    require(len(statistic_name_keys) == 13,
+            f"Data.lua muss fuer jeden der 13 angezeigten Werte einen nameKey fuehren "
+            f"(11 direkte plus 2 abgeleitete), gefunden: {len(statistic_name_keys)}")
     for key in statistic_name_keys:
         require(key in en_keys, f"Data.lua: nameKey {key!r} fehlt im enUS-Wörterbuch")
         require(key in de_keys, f"Data.lua: nameKey {key!r} fehlt im deDE-Wörterbuch")
+
+    # Statische Absicherung der dynamischen Quelle [...].tooltipKey.
+    tooltip_keys = re.findall(r'tooltipKey\s*=\s*"([A-Za-z_][A-Za-z0-9_]*)"', strip_comments(data))
+    require(len(tooltip_keys) == 3,
+            f"Data.lua muss drei Erklärtexte fuehren (betretene Dungeons, Endboss-Summe, "
+            f"Spielzeit), gefunden: {len(tooltip_keys)}")
+    for key in tooltip_keys:
+        require(key in en_keys, f"Data.lua: tooltipKey {key!r} fehlt im enUS-Wörterbuch")
+        require(key in de_keys, f"Data.lua: tooltipKey {key!r} fehlt im deDE-Wörterbuch")
+
+    # Die Erklärung zu 932 muss in beiden Sprachen wirklich "betreten" statt
+    # "abgeschlossen" sagen - sonst behauptet die UI etwas Falsches.
+    require("betreten" in de_dict and "nicht abgeschlossene" in de_dict,
+            "der deutsche Erklärtext muss betretene von abgeschlossenen Dungeons unterscheiden")
+    require("entered" in en_dict and "not completed" in en_dict,
+            "der englische Erklärtext muss entered von completed unterscheiden")
+
+    # Der deutsche Spaltenkopf zu 932 muss dasselbe sagen wie der Tooltip.
+    # "GESAMT" wäre eine stille Falschaussage: die Statistik zählt betretene,
+    # nicht insgesamt absolvierte Dungeons.
+    require('STAT_COL_DUNGEONS = "DUNGEONS\\nBETRETEN"' in de_dict,
+            "der deutsche Spaltenkopf zu 932 muss BETRETEN heißen, nicht GESAMT")
+    require('STAT_COL_DUNGEONS = "DUNGEONS\\nENTERED"' in en_dict,
+            "der englische Spaltenkopf zu 932 muss ENTERED heißen")
+
+    # Der Spieler sieht deutsche Übersetzungswerte unverändert im Client:
+    # ASCII-Ersatzschreibungen wie "Zaehlt" oder "ueber" sind dort ein Fehler.
+    # Geprüft werden nur die WERTE - Quelltextkommentare bleiben bewusst ASCII.
+    de_dict_values = strip_comments(de_dict)
+    for transliteration in ("Zaehlt", "zaehlt", "Ueber", "ueber", "Fuer", "fuer",
+                            "koenn", "muess", "waehl", "naechst", "groess", "haelt",
+                            "moegl", "hoeh", "aendert", "Aender"):
+        require(transliteration not in de_dict_values,
+                f"deDE-Übersetzungswert enthält die ASCII-Ersatzschreibung {transliteration!r} "
+                f"statt eines echten Umlauts")
+    for name, body in (("deDE", de_dict), ("enUS", en_dict)):
+        require("DURATION_UNIT_DAYS" in body and "DURATION_UNIT_HOURS" in body
+                and "DURATION_UNIT_MINUTES" in body,
+                f"kompakte Dauereinheiten fehlen in {name}")
 
     # Statische Absicherung der dynamischen Quelle Data.MetaQuestLabelKey.
     require('"META_QUEST_"' in data or "'META_QUEST_'" in data,
@@ -504,8 +615,29 @@ def main() -> int:
         end = ui.find(f"    {panel_order[index + 1]} = {{", start) if index + 1 < len(panel_order) else ui.find("\n}", start)
         require(start >= 0 and end > start, f"Paneldefinition nicht lesbar: {panel}")
         if start >= 0 and end > start:
-            width = sum(int(value) for value in re.findall(r"width\s*=\s*(\d+)", ui[start:end]))
-            require(width <= 920, f"Panel {panel} ist mit {width}px breiter als CONTENT_WIDTH=920")
+            # Bandbewusst: eine Seite darf ihre Werte in mehrere
+            # uebereinanderliegende Baender legen. Entscheidend ist dann nicht
+            # die Gesamtsumme, sondern das BREITESTE Band - eine ueberspannende
+            # Spalte (band = "all") zaehlt in jedem Band mit.
+            spanning = 0
+            bands: dict[int, int] = {}
+            for line in ui[start:end].splitlines():
+                measured = re.search(r"width\s*=\s*(\d+)", line)
+                if not measured:
+                    continue
+                value = int(measured.group(1))
+                assigned = re.search(r'band\s*=\s*(?:"(all)"|(\d+))', line)
+                if assigned and assigned.group(1):
+                    spanning += value
+                else:
+                    # NICHT "index": das wuerde den Panelzaehler der
+                    # aeusseren enumerate-Schleife ueberschreiben.
+                    band_index = int(assigned.group(2)) if assigned else 1
+                    bands[band_index] = bands.get(band_index, 0) + value
+            widest = spanning + max(bands.values(), default=0)
+            require(widest <= 920,
+                    f"Panel {panel} ist mit {widest}px im breitesten Band breiter als "
+                    f"CONTENT_WIDTH=920")
 
     if FAILURES:
         print("V2 TESTS FAILED")

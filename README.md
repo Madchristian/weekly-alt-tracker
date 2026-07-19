@@ -77,15 +77,27 @@ Die wiederholbaren Quellen besitzen keinen rückwirkenden quellenspezifischen Wo
 
 ### Statistiken
 
-Neu in 0.3.0. Der Bereich zeigt neun lebenslange WoW-Erfolgsstatistiken je Charakter und darüber eine optisch abgesetzte Accountsumme:
+Neu in 0.3.0, in 0.4.0 von neun auf dreizehn Werte erweitert. Der Bereich zeigt dreizehn lebenslange Werte je Charakter und darüber eine optisch abgesetzte Accountsumme:
 
 - Abgeschlossene Tiefen insgesamt und Abgeschlossene Midnight-Tiefen
+- Betretene 5-Spieler-Dungeons und Midnight-Dungeons (Endboss-Siege)
+- Gesamte Spielzeit
 - Tode insgesamt, in Dungeons, in Schlachtzügen und durch Sturz
+- Benutzte Heilsteine
 - Abgeschlossene Quests, abgeschlossene Tagesquests und abgebrochene Quests
 
-Gelesen werden die Werte ausschließlich für den gerade eingeloggten Charakter über `GetStatistic`. Offline-Charaktere behalten ihren letzten Snapshot; die Werte sind lebenslang und werden deshalb nie als `alte Woche` ausgegraut. Sie liegen neben dem Wochenblock und überstehen den Wochenreset.
+Dreizehn Werte passen nicht nebeneinander in die Tabellenbreite. Sie liegen deshalb in zwei übereinanderliegenden Bändern innerhalb derselben Charakterzeile: oben Inhalte (Tiefen, Dungeons, Spielzeit), unten Heilsteine, Tode und Quests. Es bleibt bei einer Zeile pro Charakter, nichts wird abgeschnitten.
 
-Die Accountsumme addiert ausschließlich sicher bekannte Charakterwerte. Kennt kein Charakter einen Wert, zeigt die Summe `-` und niemals `0` – sonst wäre ein noch nie eingeloggter Charakter nicht von einem Charakter mit echten null Toden zu unterscheiden. Charaktere ohne erfassten Wert zählen nicht mit. Die vollständigen, clientlokalisierten Statistiknamen stehen im Tooltip; in den SavedVariables landet ausschließlich die numerische Statistik-ID.
+Zwei Werte verdienen eine ausdrückliche Erklärung, weil ein kurzer Spaltenkopf sie nicht tragen kann und der Tooltip sie deshalb ausschreibt:
+
+- **Betretene 5-Spieler-Dungeons** zählt das *Betreten*, nicht das Abschließen. Blizzard führt die Statistik so; die Spalte heißt deshalb `DUNGEONS BETRETEN`, und der Tooltip erklärt den Unterschied ausdrücklich.
+- **Midnight-Dungeons** ist keine einzelne Blizzard-Statistik, sondern die Summe der 24 Endboss-Statistiken der acht Midnight-Dungeons über Normal, Heroisch und Mythisch. Sie wird nur gebildet, wenn *alle* 24 Bestandteile sicher lesbar sind. Ist auch nur einer unlesbar, bleibt die ganze Summe unbekannt und ein früherer sicherer Wert bleibt stehen – eine Teilsumme sähe aus wie ein echter, nur kleinerer Wert und wäre damit eine stille Falschaussage.
+
+Gelesen werden die Statistiken ausschließlich für den gerade eingeloggten Charakter über `GetStatistic`. Die Gesamtspielzeit ist über keine synchrone Abfrage lesbar: sie wird mit `RequestTimePlayed()` angefordert und trifft asynchron als `TIME_PLAYED_MSG` ein. Angefordert wird sie nur auf vollen Wegen wie Login, Weltwechsel und manuellem Aktualisieren und dort zusätzlich gedrosselt – nicht bei jedem Hintergrundereignis und ausdrücklich nicht beim Tod, denn der Client beantwortet jede Anfrage mit einer sichtbaren Chatzeile. Sie wird kompakt dargestellt (`1T 1Std`).
+
+Offline-Charaktere behalten ihren letzten Snapshot; die Werte sind lebenslang und werden deshalb nie als `alte Woche` ausgegraut. Sie liegen neben dem Wochenblock und überstehen den Wochenreset.
+
+Die Accountsumme addiert ausschließlich sicher bekannte Charakterwerte, auch bei Spielzeit und Endboss-Summe. Kennt kein Charakter einen Wert, zeigt die Summe `-` und niemals `0` – sonst wäre ein noch nie eingeloggter Charakter nicht von einem Charakter mit echten null Toden zu unterscheiden. Eine echte Null zählt dagegen als Null mit. Charaktere ohne erfassten Wert zählen nicht mit. Die vollständigen, clientlokalisierten Statistiknamen stehen im Tooltip; in den SavedVariables landen ausschließlich die numerische Statistik-ID und für die beiden abgeleiteten Werte ein sprachneutraler Schlüssel, nie ein übersetzter Text.
 
 ### Einstellungen
 
@@ -210,7 +222,7 @@ Das GitHub-Release wird mit dem automatisch bereitgestellten `GITHUB_TOKEN` erst
 
 Das Addon ist auf Wago Addons veröffentlicht: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). Die Projekt-ID `ZKxZJkNk` steht als `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` und ist auch auf der Projektseite sichtbar.
 
-Version 0.3.0 wurde über den tagbasierten BigWigs-Packager als Stable für Retail-Patch 12.0.7 veröffentlicht und öffentlich bytegenau verifiziert. Version 0.3.1 korrigiert die Position des Minimap-Symbols, sodass es tangential außerhalb statt innerhalb des Minimap-Randes sitzt.
+Version 0.3.0 wurde über den tagbasierten BigWigs-Packager als Stable für Retail-Patch 12.0.7 veröffentlicht und öffentlich bytegenau verifiziert. Version 0.3.1 korrigiert die Position des Minimap-Symbols, sodass es tangential außerhalb statt innerhalb des Minimap-Randes sitzt. Version 0.4.0 erweitert die Statistikseite von neun auf dreizehn lebenslange Werte und legt sie in zwei Bänder.
 
 Das Secret `WAGO_API_TOKEN` ist im Repository unter *Settings → Secrets and variables → Actions* hinterlegt. Der Tokenwert gehört ausschließlich in dieses Secret und niemals in das Repository. Damit lädt jeder künftige `v*`-Tag über den BigWigs-Packager automatisch sowohl zum GitHub-Release als auch zu Wago hoch.
 
@@ -220,7 +232,7 @@ Die projektseitigen CurseForge-Texte liegen versioniert unter `curseforge/`:
 
 - `PROJECT-en.md` – englischer Titel, Kurzbeschreibung und Beschreibung. CurseForge verlangt Englisch als Projektsprache.
 - `PROJECT-de.md` – deutsche Zusatzfassung derselben Beschreibung.
-- `CHANGELOG-0.3.1-en.md` und `CHANGELOG-0.3.1-de.md` – Änderungsprotokoll zum aktuellen Patchrelease.
+- `CHANGELOG-0.4.0-en.md` und `CHANGELOG-0.4.0-de.md` – Änderungsprotokoll zum aktuellen Release. Die Protokolle der Vorversionen (`CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) bleiben als Historie erhalten.
 
 Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mit ausgeliefert.
 
@@ -235,7 +247,7 @@ Der separate Workflow `.github/workflows/curseforge-package.yml` (**Build CurseF
 
 Der Workflow führt vorher das vollständige `tools/check.py` aus und prüft das gebaute ZIP anschließend mit `tools/verify_package.py` (14 erwartete Dateien unter `WeeklyAltTracker/`, bytegleich zum Repository, TOC-Kennwerte, keine Secret-Zuweisungen). Die mitgelieferte `SHA256SUMS.txt` dient zur Kontrolle der heruntergeladenen Datei.
 
-Das Addon ist auf CurseForge unter [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker) angelegt. Das Projekt verwendet die Project ID `1616769` und die Lizenz **All Rights Reserved**; die ID steht als `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.3.1 wird wie 0.2.6 manuell über die CurseForge-Projektseite hochgeladen; dafür ist kein API-Key erforderlich. Ein automatischer CurseForge-Upload ist ohne `CF_API_KEY` bewusst nicht eingerichtet.
+Das Addon ist auf CurseForge unter [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker) angelegt. Das Projekt verwendet die Project ID `1616769` und die Lizenz **All Rights Reserved**; die ID steht als `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.4.0 wird wie 0.2.6 und 0.3.1 manuell über die CurseForge-Projektseite hochgeladen; dafür ist kein API-Key erforderlich. Ein automatischer CurseForge-Upload ist ohne `CF_API_KEY` bewusst nicht eingerichtet.
 
 ## Datenherkunft und Dritte
 

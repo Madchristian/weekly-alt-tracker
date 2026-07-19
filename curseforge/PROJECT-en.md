@@ -68,8 +68,11 @@ Hero-to-Myth exchange potential.
 **Keystones** - the currently owned Mythic+ keystone per character with dungeon
 name and level as an offline snapshot.
 
-**Statistics** - nine lifetime WoW achievement statistics per character,
-including completed delves and deaths. Logged-out characters keep their last
+**Statistics** - thirteen lifetime values per character in two stacked bands of
+the same row: completed delves, deaths, quests, healthstones used, 5-player
+dungeons entered (entered, not completed), the Midnight dungeons as a sum of
+final boss kills across eight dungeons and three difficulties, and total
+playtime. Logged-out characters keep their last
 snapshot; the account total adds only safely known values and shows `-` rather
 than an invented zero when every value is unknown.
 

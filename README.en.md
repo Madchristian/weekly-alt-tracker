@@ -79,15 +79,27 @@ The dungeon name is resolved at display time from the map ID via the WoW API. If
 
 ### Statistics
 
-New in 0.3.0. This section shows nine lifetime WoW achievement statistics per character plus a visually distinct account total above them:
+New in 0.3.0, extended from nine to thirteen values in 0.4.0. This section shows thirteen lifetime values per character plus a visually distinct account total above them:
 
 - Delves completed in total and Midnight delves completed
+- 5-player dungeons entered and Midnight dungeons (final boss kills)
+- Total playtime
 - Total deaths, deaths in dungeons, deaths in raids and deaths from falling
+- Healthstones used
 - Quests completed, daily quests completed and quests abandoned
 
-The values are read through `GetStatistic` for the logged-in character only. Offline characters keep their last snapshot; the values are lifetime figures and are therefore never greyed out as `old week`. They live next to the weekly block and survive the weekly reset.
+Thirteen values do not fit side by side across the table width. They are therefore laid out in two stacked bands inside the same character row: content on top (delves, dungeons, playtime), healthstones, deaths and quests below. It remains one row per character and nothing is clipped.
 
-The account total sums only safely known character values. If no character knows a value, the total shows `-` and never `0` - otherwise a character that has never logged in would be indistinguishable from a character with a genuine zero deaths. Characters without a recorded value are not counted. The full, client-localized statistic names are in the tooltip; only the numeric statistic ID is ever written to the SavedVariables.
+Two values deserve an explicit explanation, because a short column head cannot carry it and the tooltip therefore spells it out:
+
+- **5-player dungeons entered** counts *entering*, not completing. Blizzard keeps the statistic that way; the column is headed `DUNGEONS ENTERED` and the tooltip says `entered` explicitly.
+- **Midnight dungeons** is not a single Blizzard statistic but the sum of the 24 final boss statistics of the eight Midnight dungeons across Normal, Heroic and Mythic. It is only formed when *all* 24 components are safely readable. If even one is unreadable the whole sum stays unknown and any earlier safe value is preserved - a partial sum would look like a genuine but merely smaller value and would therefore be a silent falsehood.
+
+The statistics are read through `GetStatistic` for the logged-in character only. Total playtime cannot be read through any synchronous call: it is requested with `RequestTimePlayed()` and arrives asynchronously as `TIME_PLAYED_MSG`. It is requested only on full paths such as login, world change and manual refresh, and throttled even there - not on every background event, and explicitly not on death, because the client answers every request with a visible chat line. It is displayed compactly (`1d 1h`).
+
+Offline characters keep their last snapshot; the values are lifetime figures and are therefore never greyed out as `old week`. They live next to the weekly block and survive the weekly reset.
+
+The account total sums only safely known character values, including playtime and the final boss sum. If no character knows a value, the total shows `-` and never `0` - otherwise a character that has never logged in would be indistinguishable from a character with a genuine zero deaths. A genuine zero, by contrast, counts as zero. Characters without a recorded value are not counted. The full, client-localized statistic names are in the tooltip; only the numeric statistic ID - and for the two derived values a language-neutral key - is ever written to the SavedVariables, never a translated text.
 
 ### Settings
 
@@ -214,7 +226,7 @@ The GitHub release is created with the automatically provided `GITHUB_TOKEN`; no
 
 The addon is published on Wago Addons: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). The project ID `ZKxZJkNk` is declared as `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` and is also visible on the project page.
 
-Version 0.3.0 was published through the tag-based BigWigs Packager as a stable release for Retail patch 12.0.7 and its public artifact was verified byte-for-byte. Version 0.3.1 fixes the minimap button position so it sits tangentially outside rather than inside the minimap edge.
+Version 0.3.0 was published through the tag-based BigWigs Packager as a stable release for Retail patch 12.0.7 and its public artifact was verified byte-for-byte. Version 0.3.1 fixes the minimap button position so it sits tangentially outside rather than inside the minimap edge. Version 0.4.0 extends the statistics page from nine to thirteen lifetime values and lays them out in two bands.
 
 The secret `WAGO_API_TOKEN` is stored in the repository under *Settings → Secrets and variables → Actions*. The token value belongs exclusively in that secret and never in the repository.
 
@@ -224,7 +236,7 @@ The project-side CurseForge texts are versioned under `curseforge/`:
 
 - `PROJECT-en.md` – English title, summary and description. CurseForge requires English as the project language.
 - `PROJECT-de.md` – German additional version of the same description.
-- `CHANGELOG-0.3.1-en.md` and `CHANGELOG-0.3.1-de.md` – change log for the current patch release.
+- `CHANGELOG-0.4.0-en.md` and `CHANGELOG-0.4.0-de.md` – change log for the current release. The logs of the previous versions (`CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
 
 The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 
@@ -239,7 +251,7 @@ The separate workflow `.github/workflows/curseforge-package.yml` (**Build CurseF
 
 The workflow runs the full `tools/check.py` first and then verifies the built ZIP with `tools/verify_package.py` (14 expected files under `WeeklyAltTracker/`, byte-identical to the repository, TOC fields, no secret assignments). The bundled `SHA256SUMS.txt` is there to check the downloaded file.
 
-The addon is listed on CurseForge at [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker). The project uses Project ID `1616769` under the **All Rights Reserved** licence; the ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.3.1 is uploaded manually through the CurseForge project page just like 0.2.6, which does not require an API key. Automated CurseForge uploads are deliberately not configured without `CF_API_KEY`.
+The addon is listed on CurseForge at [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker). The project uses Project ID `1616769` under the **All Rights Reserved** licence; the ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.4.0 is uploaded manually through the CurseForge project page just like 0.2.6 and 0.3.1, which does not require an API key. Automated CurseForge uploads are deliberately not configured without `CF_API_KEY`.
 
 ## Data provenance and third parties
 

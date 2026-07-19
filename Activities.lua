@@ -516,6 +516,197 @@ local function ReadStatistic(statisticID)
     return ParseStatisticValue(raw)
 end
 
+-- Summe der 24 Midnight-Endbossstatistiken.
+--
+-- Ganz oder gar nicht: fehlt auch nur ein Bestandteil, ist die Summe unbekannt
+-- und wird nicht geschrieben. Eine Teilsumme waere keine Luecke, sondern eine
+-- stille Falschaussage - sie saehe aus wie ein echter, nur kleinerer Wert.
+-- Deshalb bricht die Schleife beim ersten unlesbaren Wert ab und liefert nil;
+-- der Aufrufer laesst dann den bekannten Vorwert stehen.
+local function ReadMidnightDungeonTotal()
+    local ids = Data.MIDNIGHT_DUNGEON_STATISTICS
+    if not IsSafe(ids) or type(ids) ~= "table" then return nil end
+    if #ids == 0 then return nil end
+    local total = 0
+    for _, id in ipairs(ids) do
+        local statisticID = SafeNumber(id)
+        if not statisticID then return nil end
+        local value = ReadStatistic(statisticID)
+        if value == nil then return nil end
+        total = total + value
+    end
+    -- Die Summe unterliegt derselben Obergrenze wie ein Einzelwert.
+    if total < 0 or total % 1 ~= 0 or total > MAX_STATISTIC_VALUE then return nil end
+    return total
+end
+
+-- Schreibt einen abgeleiteten Wert unter seinem sprachneutralen Stringschluessel
+-- in denselben Container wie die direkten Statistiken.
+local function StoreDerivedValue(store, key, value, now)
+    if type(key) ~= "string" or key == "" then return false end
+    if type(value) ~= "number" then return false end
+    local entry = store[key]
+    if not IsSafe(entry) or type(entry) ~= "table" then
+        entry = {}
+        store[key] = entry
+    end
+    entry.value = value
+    entry.updated = now
+    return true
+end
+
+-- Ersetzt einen unbrauchbaren Statistikcontainer und liefert ihn zurueck.
+local function EnsureStatisticStore(character)
+    local store = character.statistics
+    if not IsSafe(store) or type(store) ~= "table" then
+        store = {}
+        character.statistics = store
+    end
+    return store
+end
+
+-- Gesamtspielzeit aus TIME_PLAYED_MSG.
+--
+-- Der Wert kommt nicht aus GetStatistic, sondern asynchron als Event, und wird
+-- gegen dieselbe Obergrenze geprueft wie jede Statistik. Gespeichert wird
+-- ausschliesslich die Gesamtzeit des Charakters unter einem sprachneutralen
+-- Schluessel neben den lebenslangen Statistiken - nie unter weekly, denn die
+-- Spielzeit ist kein Wochenwert und darf den Reset ueberleben.
+function WAT:RecordTimePlayed(character, totalSeconds)
+    if not IsSafe(character) or type(character) ~= "table" then return false end
+    if not IsSafe(totalSeconds) or type(totalSeconds) ~= "number" then return false end
+    -- NaN, Unendlich, negative und gebrochene Werte fallen ueber denselben
+    -- Test heraus: x % 1 ist dort nie exakt 0.
+    if totalSeconds ~= totalSeconds or totalSeconds < 0 or totalSeconds % 1 ~= 0 then return false end
+    if totalSeconds > MAX_STATISTIC_VALUE then return false end
+    local key = type(Data.PLAYTIME_KEY) == "string" and Data.PLAYTIME_KEY or nil
+    if not key then return false end
+    return StoreDerivedValue(EnsureStatisticStore(character), key, totalSeconds, time())
+end
+
+-- Nur diese Wege duerfen die Spielzeit anfordern. Blizzard beantwortet
+-- RequestTimePlayed nicht still, sondern laesst den Standardchat eine Zeile
+-- drucken - eine Anforderung bei jedem Taschen- oder Waehrungsereignis waere
+-- deshalb Chatspam. Der Todespfad ist bewusst nicht dabei: er scannt nur
+-- Statistiken.
+--
+-- "button" und "settings" sind die beiden manuellen Wege: exakt die Gruende,
+-- die die sichtbaren Aktualisierungsknoepfe in UI.lua senden (Fusszeile bzw.
+-- Einstellungsseite). Wer hier einen Grund eintraegt, den kein Aufrufer
+-- sendet, schaltet den Weg nicht frei, sondern legt ihn still.
+local TIME_PLAYED_REASONS = {
+    ["PLAYER_LOGIN"] = true,
+    ["delayed-login"] = true,
+    ["PLAYER_ENTERING_WORLD"] = true,
+    ["button"] = true,
+    ["settings"] = true,
+}
+local TIME_PLAYED_THROTTLE = 600
+local TIME_PLAYED_EVENT = "TIME_PLAYED_MSG"
+-- Obergrenze fuer den Chatrahmen-Durchlauf, falls NUM_CHAT_WINDOWS fehlt oder
+-- unbrauchbar ist. WoW erlaubt maximal 10 Fenster; 20 ist bewusst grosszuegig
+-- und begrenzt trotzdem hart.
+local CHAT_WINDOW_FALLBACK = 10
+local CHAT_WINDOW_LIMIT = 20
+-- Kommt wider Erwarten nie ein TIME_PLAYED_MSG (Ladebildschirm, Fehler im
+-- Client), duerfen die Rahmen nicht dauerhaft abgeschaltet bleiben.
+local TIME_PLAYED_RESTORE_DELAY = 10
+
+-- Liest ChatFrame<index> aus dem globalen Namensraum. Alles, was kein
+-- benutzbarer Rahmen ist, ergibt nil - inklusive Secret-Werten.
+local function GetChatWindow(index)
+    local ok, frame = pcall(function() return _G["ChatFrame" .. index] end)
+    if not ok then return nil end
+    if not IsSafe(frame) or type(frame) ~= "table" then return nil end
+    return frame
+end
+
+-- Hatte dieser Rahmen TIME_PLAYED_MSG bereits registriert? Nur ein sicher
+-- gelesenes true zaehlt: bei fehlender Methode, Fehler oder unlesbarer Antwort
+-- bleibt der Rahmen unangetastet.
+local function ChatWindowWantsTimePlayed(frame)
+    if type(frame.IsEventRegistered) ~= "function" then return false end
+    local ok, registered = pcall(frame.IsEventRegistered, frame, TIME_PLAYED_EVENT)
+    if not ok then return false end
+    return SafeBoolean(registered) == true
+end
+
+-- Schaltet ausschliesslich die TIME_PLAYED_MSG-Registrierung ab und liefert
+-- genau die Rahmen zurueck, bei denen das nachweislich geklappt hat. Ein
+-- Rahmen, dessen UnregisterEvent wirft, gilt bewusst als nicht unterdrueckt -
+-- sonst bekaeme er beim Wiederherstellen eine Registrierung geschenkt.
+local function SuppressTimePlayedChat()
+    local suppressed = {}
+    local limit = SafeNumber(NUM_CHAT_WINDOWS) or CHAT_WINDOW_FALLBACK
+    if limit ~= limit or limit < 1 then return suppressed end
+    if limit > CHAT_WINDOW_LIMIT then limit = CHAT_WINDOW_LIMIT end
+    for index = 1, limit do
+        local frame = GetChatWindow(index)
+        if frame and ChatWindowWantsTimePlayed(frame)
+                and type(frame.UnregisterEvent) == "function" then
+            local ok = pcall(frame.UnregisterEvent, frame, TIME_PLAYED_EVENT)
+            if ok then suppressed[#suppressed + 1] = frame end
+        end
+    end
+    return suppressed
+end
+
+-- Nimmt die Unterdrueckung zurueck. Das Token ist die Generation der Anfrage,
+-- zu der die Merkliste gehoert: ein veralteter Fallback-Rueckruf traegt ein
+-- altes Token und tut nichts. Der zweite Aufruf mit demselben Token faellt
+-- ebenfalls heraus, weil die Generation vorher geloescht wird.
+function WAT:RestoreTimePlayedChat(token)
+    local current = SafeNumber(self.timePlayedToken)
+    if current == nil or SafeNumber(token) ~= current then return false end
+    local frames = self.timePlayedSuppressed
+    self.timePlayedSuppressed = nil
+    self.timePlayedToken = nil
+    if type(frames) ~= "table" then return false end
+    for _, frame in ipairs(frames) do
+        if IsSafe(frame) and type(frame) == "table"
+                and type(frame.RegisterEvent) == "function" then
+            pcall(frame.RegisterEvent, frame, TIME_PLAYED_EVENT)
+        end
+    end
+    return true
+end
+
+function WAT:RequestTimePlayed(reason)
+    if type(reason) ~= "string" or not TIME_PLAYED_REASONS[reason] then return false end
+    local now = time()
+    local last = SafeNumber(self.lastTimePlayedRequest)
+    if last and now - last < TIME_PLAYED_THROTTLE then return false end
+    if type(RequestTimePlayed) ~= "function" then return false end
+
+    -- Eine noch offene Unterdrueckung zuerst aufloesen, sonst ginge ihre
+    -- Merkliste beim Ueberschreiben verloren und die Rahmen blieben stumm.
+    self:RestoreTimePlayedChat(self.timePlayedToken)
+
+    -- Der Zaehler laeuft monoton weiter und wird beim Wiederherstellen NICHT
+    -- zurueckgesetzt - sonst truege die naechste Anfrage wieder Token 1 und
+    -- ein veralteter Fallback-Rueckruf wuerde ihre Unterdrueckung aufheben.
+    local token = (SafeNumber(self.timePlayedRequestCount) or 0) + 1
+    self.timePlayedRequestCount = token
+    self.timePlayedToken = token
+    self.timePlayedSuppressed = SuppressTimePlayedChat()
+
+    -- Ein Fehlschlag der API darf den Refresh nicht abbrechen - und die
+    -- Rahmen nicht abgeschaltet zuruecklassen.
+    local ok = pcall(RequestTimePlayed)
+    if not ok then
+        self:RestoreTimePlayedChat(token)
+        return false
+    end
+    self.lastTimePlayedRequest = now
+
+    if type(C_Timer) == "table" and type(C_Timer.After) == "function" then
+        pcall(C_Timer.After, TIME_PLAYED_RESTORE_DELAY, function()
+            self:RestoreTimePlayedChat(token)
+        end)
+    end
+    return true
+end
+
 -- Liest ausschliesslich fuer den gerade eingeloggten Charakter. Offline-
 -- Charaktere behalten ihren letzten Snapshot; ein unlesbarer Wert laesst den
 -- bekannten Vorwert unangetastet und wird nie zu 0.
@@ -523,11 +714,7 @@ function WAT:ScanStatistics(character)
     if not IsSafe(character) or type(character) ~= "table" then return end
     if type(Data.STATISTICS) ~= "table" then return end
 
-    local store = character.statistics
-    if not IsSafe(store) or type(store) ~= "table" then
-        store = {}
-        character.statistics = store
-    end
+    local store = EnsureStatisticStore(character)
 
     local now = time()
     local scanned
@@ -548,6 +735,15 @@ function WAT:ScanStatistics(character)
             end
         end
     end
+
+    -- Die Summenstatistik der Midnight-Dungeons. Bleibt sie unbekannt, wird
+    -- nichts geschrieben und ein vorhandener Vorwert bleibt unangetastet.
+    local midnightTotal = ReadMidnightDungeonTotal()
+    if midnightTotal ~= nil then
+        local key = type(Data.MIDNIGHT_DUNGEONS_KEY) == "string" and Data.MIDNIGHT_DUNGEONS_KEY or nil
+        if key and StoreDerivedValue(store, key, midnightTotal, now) then scanned = true end
+    end
+
     if scanned then store.scanned = now end
 end
 

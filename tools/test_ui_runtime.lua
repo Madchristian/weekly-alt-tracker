@@ -112,17 +112,31 @@ local KEYSTONE_MAP_ID = 503
 --   60    (Tode)           45 +  5 =  50   beide bekannt
 --   98    (Quests)       1000 +  - = 1000  nur Testheld
 --   14787/14784/114/97/94                  bei keinem bekannt -> Strich, nie 0
+--   812   (Heilsteine)      30 + 12 =  42   beide bekannt
+--   932   (Dungeons)       400 +  - = 400   nur Testheld
+--   midnightDungeons        60 +  - =  60   nur Testheld (synthetische Summe)
+--   playtimeTotal        90000 +  0 = 90000 Zweitheld hat ECHTE Null
 local STATISTICS_MAIN = {
     scanned = 995,
     [40734] = { value = 120, updated = 995 },
     [60] = { value = 45, updated = 995 },
     [98] = { value = 1000, updated = 995 },
+    [812] = { value = 30, updated = 995 },
+    [932] = { value = 400, updated = 995 },
+    -- Sprachneutrale Stringschluessel neben den numerischen IDs im selben
+    -- Container: genau so schreibt sie der Scanner.
+    midnightDungeons = { value = 60, updated = 995 },
+    playtimeTotal = { value = 90000, updated = 995 },
 }
 local STATISTICS_ALT = {
     scanned = 990,
     [40734] = { value = 80, updated = 990 },
     [61790] = { value = 7, updated = 990 },
     [60] = { value = 5, updated = 990 },
+    [812] = { value = 12, updated = 990 },
+    -- Echte Null: sie muss als 0 erscheinen und darf nicht mit "unbekannt"
+    -- verwechselt werden.
+    playtimeTotal = { value = 0, updated = 990 },
 }
 
 -- Frischer Addon-Namespace je Sprachdurchlauf. Die Daten entsprechen dem
@@ -131,7 +145,7 @@ local function MakeWAT()
     -- Data.lua wird echt geladen (siehe RunSuite); hier steht bewusst kein
     -- Stub, damit die Ableitung questID -> Labelschluessel wirklich laeuft.
     local WAT = {
-        version = "0.3.1",
+        version = "0.4.0",
         db = {
             settings = {
                 scale = 1,
@@ -468,29 +482,57 @@ local function RunSuite(locale, expect)
     assert(WAT.pageTitle.text == expect.statisticsPanel,
         context("Statistik-Seitentitel nicht lokalisiert: " .. tostring(WAT.pageTitle.text)))
 
-    -- Die Spalten folgen exakt Data.STATISTICS - eine zweite Wahrheit ueber
-    -- Reihenfolge oder Menge der Statistiken darf es nicht geben.
+    -- Dreizehn Werte passen nicht nebeneinander in 920px. Die Statistikseite
+    -- legt sie deshalb in zwei uebereinanderliegende Baender innerhalb
+    -- derselben Zeile. Es darf trotzdem keine zweite Wahrheit ueber Menge oder
+    -- Schluessel geben: jede direkte und jede abgeleitete Statistik erscheint
+    -- genau einmal, und nichts wird weggeschnitten.
     local statisticColumns = statisticsPanel.columns
-    assert(#statisticColumns == #WAT.Data.STATISTICS + 1,
-        context("Statistik-Panel muss Charakterspalte plus alle neun Statistiken zeigen, hat aber "
+    local directCount = #WAT.Data.STATISTICS
+    local derivedCount = #WAT.Data.DERIVED_STATISTICS
+    assert(directCount + derivedCount == 13,
+        context("die Statistikseite muss 13 Werte fuehren, hat aber "
+            .. (directCount + derivedCount)))
+    assert(#statisticColumns == directCount + derivedCount + 1,
+        context("Statistik-Panel muss Charakterspalte plus alle 13 Werte zeigen, hat aber "
             .. #statisticColumns .. " Spalten"))
-    assert(statisticColumns[1].key == "character", context("erste Statistik-Spalte ist nicht der Charakter"))
-    local statisticsWidth = 0
-    for index, column in ipairs(statisticColumns) do
-        statisticsWidth = statisticsWidth + column.width
-        if index > 1 then
-            local definition = WAT.Data.STATISTICS[index - 1]
-            assert(column.key == definition.key,
-                context("Statistik-Spalte " .. index .. " weicht von Data.STATISTICS ab: "
-                    .. tostring(column.key) .. " statt " .. tostring(definition.key)))
+    assert(statisticColumns[1].key == "character",
+        context("erste Statistik-Spalte ist nicht der Charakter"))
+    assert(statisticColumns[1].band == "all",
+        context("die Charakterspalte muss ueber beide Baender laufen"))
+
+    local columnByKey = {}
+    for _, column in ipairs(statisticColumns) do
+        assert(not columnByKey[column.key],
+            context("Statistik-Spalte doppelt vergeben: " .. tostring(column.key)))
+        columnByKey[column.key] = column
+        assert(not string.find(column.label, "[", 1, true),
+            context("unaufgeloester Roh-Schluessel im Spaltenkopf: " .. tostring(column.label)))
+    end
+    for _, source in ipairs({ WAT.Data.STATISTICS, WAT.Data.DERIVED_STATISTICS }) do
+        for _, definition in ipairs(source) do
+            local column = columnByKey[definition.key]
+            assert(column, context("Statistik ohne Spalte: " .. tostring(definition.key)))
             assert(column.label == WAT.L(definition.labelKey),
                 context("Statistik-Spaltenkopf nicht lokalisiert: " .. tostring(column.label)))
-            assert(not string.find(column.label, "[", 1, true),
-                context("unaufgeloester Roh-Schluessel im Spaltenkopf: " .. tostring(column.label)))
+            assert(type(column.band) == "number",
+                context("Statistik-Spalte ohne Bandzuordnung: " .. tostring(definition.key)))
         end
     end
-    assert(statisticsWidth <= 920,
-        context("Statistik-Panel ist mit " .. statisticsWidth .. "px breiter als CONTENT_WIDTH"))
+
+    -- Bandgeometrie aus der ECHTEN Platzierung, nicht aus einer zweiten
+    -- Rechnung: kein Band darf ueber die Inhaltsbreite hinauslaufen.
+    assert(statisticsPanel.bandCount == 2,
+        context("Statistikseite muss genau zwei Baender haben, hat "
+            .. tostring(statisticsPanel.bandCount)))
+    assert(type(statisticsPanel.bandWidths) == "table"
+            and #statisticsPanel.bandWidths == 2,
+        context("Bandbreiten der Statistikseite fehlen"))
+    for band, width in ipairs(statisticsPanel.bandWidths) do
+        assert(width <= 920,
+            context("Statistik-Band " .. band .. " ist mit " .. width
+                .. "px breiter als CONTENT_WIDTH=920"))
+    end
 
     -- Zeile 1 ist die Accountsumme, danach die sortierten Charakterzeilen.
     local totalRow = statisticsPanel.rows[1]
@@ -548,6 +590,104 @@ local function RunSuite(locale, expect)
     assert(string.find(missing, "-", 1, true) and not string.find(missing, "0", 1, true),
         context("fehlender Charakterwert muss ein Strich sein und darf nie 0 werden, erhalten: " .. missing))
 
+    -- -----------------------------------------------------------------------
+    -- Bandlayout: echte Platzierung, echte Kanten, echtes Zeilenrecycling
+    -- -----------------------------------------------------------------------
+
+    -- Jede Zelle wird dort gemessen, wo sie tatsaechlich sitzt. Nichts darf
+    -- ueber die Inhaltsbreite hinausragen - Abschneiden ist keine Loesung.
+    local bandOffsets = {}
+    for _, column in ipairs(statisticColumns) do
+        local widget = mainRow.values[column.key]
+        assert(widget, context("Statistikzelle fehlt: " .. tostring(column.key)))
+        local point = widget.points[1]
+        assert(point, context("Statistikzelle ohne Ankerpunkt: " .. tostring(column.key)))
+        local left = point[2]
+        local right = left + (widget.width or 0)
+        assert(right <= 920,
+            context("Statistikzelle " .. tostring(column.key) .. " endet bei " .. right
+                .. "px und damit ausserhalb von CONTENT_WIDTH=920"))
+        assert((widget.width or 0) <= column.width,
+            context("Statistikzelle " .. tostring(column.key) .. " ist breiter als ihre Spalte"))
+        if type(column.band) == "number" then
+            local offset = point[3] or 0
+            if bandOffsets[column.band] == nil then bandOffsets[column.band] = offset end
+            assert(bandOffsets[column.band] == offset,
+                context("Zellen desselben Bandes liegen auf verschiedenen Hoehen: "
+                    .. tostring(column.key)))
+        end
+    end
+    assert(bandOffsets[1] ~= bandOffsets[2],
+        context("die beiden Statistik-Baender liegen uebereinander statt untereinander"))
+
+    -- Die hoehere Statistikzeile darf die uebrigen Seiten nicht veraendern.
+    assert(statisticsPanel.rowHeight > WAT.panels.overview.rowHeight,
+        context("die zweibaendige Statistikzeile muss hoeher sein als eine einbaendige"))
+    assert(WAT.panels.overview.rowHeight == 38,
+        context("Zeilenhoehe der einbaendigen Seiten wurde veraendert: "
+            .. tostring(WAT.panels.overview.rowHeight)))
+    assert(WAT.panels.overview.bandCount == 1,
+        context("die Uebersicht darf kein Bandlayout bekommen"))
+
+    -- Zeilen werden weiterhin recycelt, nicht neu erzeugt.
+    local pooledTotal, pooledMain = statisticsPanel.rows[1], statisticsPanel.rows[2]
+    local pooledCount = #statisticsPanel.rows
+    WAT:RefreshUI()
+    WAT:RefreshUI()
+    assert(statisticsPanel.rows[1] == pooledTotal and statisticsPanel.rows[2] == pooledMain,
+        context("Statistikzeilen werden bei jedem Refresh neu erzeugt statt recycelt"))
+    assert(#statisticsPanel.rows == pooledCount,
+        context("der Zeilenpool waechst bei jedem Refresh: " .. #statisticsPanel.rows
+            .. " statt " .. pooledCount))
+    totalRow = statisticsPanel.rows[1]
+    mainRow = statisticsPanel.rows[2]
+    altRow = statisticsPanel.rows[3]
+
+    -- -----------------------------------------------------------------------
+    -- Die vier neuen Werte
+    -- -----------------------------------------------------------------------
+
+    assert(string.find(mainRow.values.healthstones.text or "", "30", 1, true),
+        context("Heilsteine (812) fehlen, erhalten: " .. tostring(mainRow.values.healthstones.text)))
+    assert(string.find(mainRow.values.dungeonsEntered.text or "", "400", 1, true),
+        context("betretene Dungeons (932) fehlen, erhalten: "
+            .. tostring(mainRow.values.dungeonsEntered.text)))
+    assert(string.find(mainRow.values.midnightDungeons.text or "", "60", 1, true),
+        context("Midnight-Dungeon-Summe fehlt, erhalten: "
+            .. tostring(mainRow.values.midnightDungeons.text)))
+
+    -- Unbekannt bleibt ein Strich, auch bei den abgeleiteten Werten.
+    for _, key in ipairs({ "dungeonsEntered", "midnightDungeons" }) do
+        local text = altRow.values[key].text or ""
+        assert(string.find(text, "-", 1, true) and not string.find(text, "0", 1, true),
+            context("unbekannter abgeleiteter Wert muss ein Strich sein, erhalten fuer "
+                .. key .. ": " .. text))
+    end
+
+    -- Spielzeit: kompakt lokalisiert, echte Null bleibt eine Null.
+    local playtimeText = mainRow.values.playtimeTotal.text or ""
+    assert(string.find(playtimeText, expect.playtimeMain, 1, true),
+        context("Spielzeit nicht kompakt lokalisiert, erwartet " .. expect.playtimeMain
+            .. ", erhalten: " .. playtimeText))
+    local zeroText = altRow.values.playtimeTotal.text or ""
+    assert(string.find(zeroText, "0", 1, true) and not string.find(zeroText, "-", 1, true),
+        context("echte Spielzeit-Null muss als 0 erscheinen, erhalten: " .. zeroText))
+
+    -- Accountsummen der neuen Werte, inklusive Summe ueber Sekunden.
+    assert(string.find(totalRow.values.healthstones.text or "", "42", 1, true),
+        context("Accountsumme der Heilsteine falsch (erwartet 42), erhalten: "
+            .. tostring(totalRow.values.healthstones.text)))
+    assert(string.find(totalRow.values.dungeonsEntered.text or "", "400", 1, true),
+        context("Accountsumme der betretenen Dungeons falsch (erwartet 400), erhalten: "
+            .. tostring(totalRow.values.dungeonsEntered.text)))
+    assert(string.find(totalRow.values.midnightDungeons.text or "", "60", 1, true),
+        context("Accountsumme der Midnight-Dungeons falsch (erwartet 60), erhalten: "
+            .. tostring(totalRow.values.midnightDungeons.text)))
+    -- 90000 + 0 Sekunden: die Null zaehlt mit, ein fehlender Charakter nicht.
+    assert(string.find(totalRow.values.playtimeTotal.text or "", expect.playtimeMain, 1, true),
+        context("Accountsumme der Spielzeit falsch (erwartet " .. expect.playtimeMain
+            .. "), erhalten: " .. tostring(totalRow.values.playtimeTotal.text)))
+
     -- Lebenslange Werte veralten nicht mit der Woche.
     local savedIsStale = WAT.IsStale
     WAT.IsStale = function() return true end
@@ -572,6 +712,26 @@ local function RunSuite(locale, expect)
         context("Statistik-Tooltip nennt den Wert nicht, erhalten: " .. statisticsTooltip))
     assert(string.find(statisticsTooltip, expect.statisticsOfflineHint, 1, true),
         context("Offline-Hinweis der Statistiken nicht lokalisiert, erhalten: " .. statisticsTooltip))
+
+    -- Die synthetischen Werte haben keine Statistik-ID; GetAchievementInfo
+    -- kann fuer sie nichts liefern. Name UND Erklaerung muessen deshalb aus
+    -- dem eigenen Woerterbuch kommen.
+    assert(string.find(statisticsTooltip, expect.midnightDungeonsName, 1, true),
+        context("Tooltip nennt die Midnight-Dungeon-Summe nicht mit eigenem Namen, erhalten: "
+            .. statisticsTooltip))
+    assert(string.find(statisticsTooltip, expect.playtimeName, 1, true),
+        context("Tooltip nennt die Spielzeit nicht mit eigenem Namen, erhalten: "
+            .. statisticsTooltip))
+    assert(string.find(statisticsTooltip, expect.playtimeMain, 1, true),
+        context("Tooltip zeigt die Spielzeit nicht kompakt lokalisiert, erhalten: "
+            .. statisticsTooltip))
+    -- Der Tooltip muss sagen, dass 932 BETRETENE und keine abgeschlossenen
+    -- Dungeons zaehlt, und woraus die Summe entsteht.
+    assert(string.find(statisticsTooltip, expect.dungeonsEnteredNote, 1, true),
+        context("Tooltip erklaert 'betreten statt abgeschlossen' nicht, erhalten: "
+            .. statisticsTooltip))
+    assert(string.find(statisticsTooltip, expect.compositeNote, 1, true),
+        context("Tooltip erklaert die Endboss-Summe nicht, erhalten: " .. statisticsTooltip))
 
     -- Ohne lesbaren Clientnamen greift der eigene, uebersetzte Ersatzname.
     local savedInfo = GetAchievementInfo
@@ -922,6 +1082,12 @@ RunSuite("deDE", {
     accountTooltip = "Accountsumme",
     statisticsOfflineHint = "Lebenslange Werte",
     statisticFallbackName = "Abgeschlossene Tiefen",
+    -- 90000 Sekunden = 1 Tag 1 Stunde.
+    playtimeMain = "1T 1Std",
+    playtimeName = "Gesamte Spielzeit",
+    midnightDungeonsName = "Midnight-Dungeons (Endboss-Siege)",
+    dungeonsEnteredNote = "betreten",
+    compositeNote = "Endboss",
     staleWeek = "alte Woche",
     keystonePanel = "Schlüsselsteine",
     overviewShort = "ÜBERSICHT",
@@ -954,6 +1120,12 @@ RunSuite("enUS", {
     accountTooltip = "Account total",
     statisticsOfflineHint = "Lifetime values",
     statisticFallbackName = "Delves completed",
+    -- 90000 seconds = 1 day 1 hour.
+    playtimeMain = "1d 1h",
+    playtimeName = "Total playtime",
+    midnightDungeonsName = "Midnight dungeons (final boss kills)",
+    dungeonsEnteredNote = "entered",
+    compositeNote = "final boss",
     staleWeek = "old week",
     keystonePanel = "Keystones",
     overviewShort = "OVERVIEW",
@@ -987,6 +1159,12 @@ RunSuite("frFR", {
     accountTooltip = "Account total",
     statisticsOfflineHint = "Lifetime values",
     statisticFallbackName = "Delves completed",
+    -- 90000 seconds = 1 day 1 hour.
+    playtimeMain = "1d 1h",
+    playtimeName = "Total playtime",
+    midnightDungeonsName = "Midnight dungeons (final boss kills)",
+    dungeonsEnteredNote = "entered",
+    compositeNote = "final boss",
     staleWeek = "old week",
     keystonePanel = "Keystones",
     overviewShort = "OVERVIEW",
@@ -997,10 +1175,50 @@ RunSuite("frFR", {
     forbiddenInTooltip = { "Klasse", "Angelegte Gegenstandsstufe", "Wochenstand" },
 })
 
+-- Regression fuer eine teilweise geladene Datentabelle: Fehlen die direkten
+-- Statistiken, darf ein nil im ersten Quellslot die abgeleiteten Definitionen
+-- nicht ebenfalls verschlucken. Dieser Lauf lädt dieselbe Produktions-UI in
+-- einem frischen Namespace und erwartet Charakter + Midnight + Spielzeit.
+local function RunDerivedOnlyStatisticsSuite()
+    C_CurrencyInfo = RealCurrencyInfo()
+    local WAT = MakeWAT()
+    GetLocale = function() return "enUS" end
+    LoadInto(WAT, "Localization.lua")
+    LoadInto(WAT, "Data.lua")
+    local derived = WAT.Data.DERIVED_STATISTICS
+    assert(type(derived) == "table" and #derived == 2,
+        "[derived-only] Testvoraussetzung: genau zwei abgeleitete Statistiken")
+    WAT.Data.STATISTICS = nil
+    LoadInto(WAT, "UI.lua")
+    WAT:CreateUI()
+
+    -- Die Panelgeometrie bleibt absichtlich statisch bei Charakter + 13 Werten;
+    -- getestet wird der relevante Vertrag: StatisticDefinitions darf die beiden
+    -- abgeleiteten Werte trotz nil-Direktquelle nicht beim Befüllen verlieren.
+    local columns = WAT.panels.statistics.columns
+    assert(#columns == 14,
+        "[derived-only] die stabile 13-Werte-Geometrie wurde verändert: " .. tostring(#columns))
+    WAT:RefreshUI()
+    local totalRow = WAT.panels.statistics.rows[1]
+    assert(totalRow and totalRow.isAccountTotal,
+        "[derived-only] Account-Summenzeile fehlt")
+    assert(string.find(totalRow.values.midnightDungeons.text or "", "60", 1, true),
+        "[derived-only] Midnight-Summe wurde bei fehlender Direktquelle nicht befüllt: "
+            .. tostring(totalRow.values.midnightDungeons.text))
+    assert(string.find(totalRow.values.playtimeTotal.text or "", "1d 1h", 1, true),
+        "[derived-only] Spielzeit wurde bei fehlender Direktquelle nicht befüllt: "
+            .. tostring(totalRow.values.playtimeTotal.text))
+end
+
+RunDerivedOnlyStatisticsSuite()
+
 print("LUA UI RUNTIME OK: 7/7 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10,"
     .. " offene Berufs-Wochenquest, gesperrter Wappentausch und Wappensymbole"
     .. " (3343/3345/3347) inklusive 8 Fehlerfälle, short aus Data.CRESTS,"
     .. " keine iconFileID und kein Locale-Text in der DB, questID schlägt Legacy-Label,"
     .. " Dungeon-ID statt fremdsprachigem Namen, Statistiken mit echter Accountsumme"
-    .. " (200/50/7/1000) und Strich statt 0, Einstellungsformular mit 6 Skalierungsstufen,"
+    .. " (200/50/7/1000/42) und Strich statt 0, 13 Werte in zwei Baendern innerhalb"
+    .. " von CONTENT_WIDTH mit gemessenen Zellkanten und Zeilenrecycling,"
+    .. " kompakt lokalisierte Spielzeit mit echter Null und Derived-only-Quellfallback,"
+    .. " Einstellungsformular mit 6 Skalierungsstufen,"
     .. " Minimap-Sichtbarkeit und Positions-Reset - je einmal in deDE, enUS und frFR")

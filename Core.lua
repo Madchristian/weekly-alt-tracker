@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "0.3.1"
+WAT.version = "0.4.0"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -204,6 +204,10 @@ function WAT:Refresh(reason)
     if not self.db then return end
     local character = self:PrepareCurrentCharacter()
     if self.ScanCharacter then self:ScanCharacter(character, reason) end
+    -- Die Spielzeit kommt nicht aus einem Scan, sondern asynchron als Event.
+    -- RequestTimePlayed entscheidet selbst, ob der Grund erlaubt und die
+    -- Drosselung abgelaufen ist; hier wird nur der volle Weg angeboten.
+    if self.RequestTimePlayed then self:RequestTimePlayed(reason) end
     character.lastSeen = time()
     if self.RefreshUI then self:RefreshUI() end
 end
@@ -319,13 +323,35 @@ WAT.events:SetScript("OnEvent", function(_, event, ...)
         -- feuert im Kampf im Sekundentakt und wuerde den Scan sinnlos treiben.
         RegisterEventSafely("RECEIVED_ACHIEVEMENT_LIST")
         RegisterEventSafely("PLAYER_DEAD")
+        -- Antwort auf RequestTimePlayed(). Die Spielzeit ist ueber keine
+        -- synchrone API lesbar; ohne dieses Event bliebe sie fuer immer
+        -- unbekannt.
+        RegisterEventSafely("TIME_PLAYED_MSG")
     elseif event == "PLAYER_LOGIN" then
         WAT:Refresh(event)
         C_Timer.After(2, function() WAT:Refresh("delayed-login") end)
     elseif event == "PLAYER_DEAD" then
-        -- Neun Statistikaufrufe genuegen. Vault, Taschen, Widgets und Berufe
-        -- muessen im Todesmoment nicht komplett neu gescannt werden.
+        -- Die Statistikaufrufe genuegen. Vault, Taschen, Widgets und Berufe
+        -- muessen im Todesmoment nicht komplett neu gescannt werden. Die
+        -- Spielzeit wird hier bewusst NICHT angefordert: sie aendert sich im
+        -- Todesmoment nicht sprunghaft, und Blizzards Antwort waere eine
+        -- sichtbare Chatzeile bei jedem Tod.
         WAT:RefreshStatistics(event)
+    elseif event == "TIME_PLAYED_MSG" then
+        -- Nur die Gesamtzeit wird gespeichert; die Levelzeit des zweiten
+        -- Rueckgabewerts wird bewusst verworfen. RecordTimePlayed prueft den
+        -- Wert selbst und laesst einen bekannten Vorwert stehen, wenn er
+        -- unbrauchbar ist. Kein Vollscan: das Event traegt seine Daten mit.
+        --
+        -- Die Chatunterdrueckung wird ZUERST aufgehoben, vor jedem Guard: ein
+        -- fehlender Wert oder eine fehlende Datenbank darf den Standardchat
+        -- nicht dauerhaft von diesem Ereignis abschneiden.
+        if WAT.RestoreTimePlayedChat then WAT:RestoreTimePlayedChat(WAT.timePlayedToken) end
+        if not WAT.db or not WAT.RecordTimePlayed then return end
+        local totalSeconds = ...
+        local character = WAT:PrepareCurrentCharacter()
+        WAT:RecordTimePlayed(character, totalSeconds)
+        if WAT.RefreshUI then WAT:RefreshUI() end
     elseif event == "BAG_UPDATE_DELAYED" then
         WAT:Refresh(event)
     elseif event == "MYTHIC_PLUS_CURRENT_AFFIX_UPDATE" then

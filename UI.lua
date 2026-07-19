@@ -4,6 +4,11 @@ local FRAME_WIDTH = 1154
 local FRAME_HEIGHT = 570
 local CONTENT_WIDTH = 920
 local ROW_HEIGHT = 38
+-- Hoehe eines einzelnen Wertebandes innerhalb einer Zeile. Nur Seiten, deren
+-- Spalten eine Bandnummer tragen, werden mehrbaendig; alle uebrigen behalten
+-- exakt die bisherige einzeilige Geometrie.
+local BAND_HEIGHT = 28
+local HEADER_HEIGHT = 36
 local SIDEBAR_WIDTH = 176
 local CONTENT_LEFT = 196
 local SCROLLBAR_GUTTER = 18
@@ -103,24 +108,41 @@ local PANELS = {
             { key = "updated", label = L("COL_DATA_AGE"), width = 120 },
         },
     },
-    -- Die Spaltenschluessel sind identisch mit Data.STATISTICS[i].key und in
-    -- derselben Reihenfolge; der Runtime-Harness prueft das gegeneinander,
-    -- damit es ueber Reihenfolge und Menge keine zweite Wahrheit gibt.
+    -- Die Spaltenschluessel sind identisch mit Data.STATISTICS[i].key bzw.
+    -- Data.DERIVED_STATISTICS[i].key; der Runtime-Harness prueft das
+    -- gegeneinander, damit es ueber Menge und Schluessel keine zweite
+    -- Wahrheit gibt.
+    --
+    -- Dreizehn Werte passen nicht nebeneinander in 920px: bei lesbarer
+    -- Spaltenbreite waeren es rund 1200px. Statt Spalten abzuschneiden oder
+    -- Spaltenkoepfe unleserlich zu quetschen, liegen die Werte in zwei
+    -- uebereinanderliegenden Baendern innerhalb DERSELBEN Zeile. Die Zeile
+    -- bleibt damit eine Zeile pro Charakter - Sortierung, Zeilenfarben,
+    -- Tooltip und Zeilenrecycling bleiben unveraendert.
+    --
+    -- Band 1 buendelt Inhalte (Tiefen, Dungeons, Spielzeit), Band 2 Heilsteine,
+    -- Tode und Quests. Die Charakterspalte laeuft ueber beide Baender.
     statistics = {
         label = L("PANEL_STATISTICS"),
         shortLabel = L("PANEL_STATISTICS_SHORT"),
         description = L("PANEL_STATISTICS_DESC"),
         columns = {
-            { key = "character", label = L("COL_CHARACTER"), width = 152, left = true },
-            { key = "delvesTotal", label = L("STAT_COL_DELVES"), width = 85 },
-            { key = "delvesMidnight", label = L("STAT_COL_DELVES_MIDNIGHT"), width = 85 },
-            { key = "deathsTotal", label = L("STAT_COL_DEATHS"), width = 85 },
-            { key = "deathsDungeon", label = L("STAT_COL_DEATHS_DUNGEON"), width = 85 },
-            { key = "deathsRaid", label = L("STAT_COL_DEATHS_RAID"), width = 85 },
-            { key = "deathsFalling", label = L("STAT_COL_DEATHS_FALLING"), width = 85 },
-            { key = "questsCompleted", label = L("STAT_COL_QUESTS"), width = 85 },
-            { key = "questsDaily", label = L("STAT_COL_QUESTS_DAILY"), width = 85 },
-            { key = "questsAbandoned", label = L("STAT_COL_QUESTS_ABANDONED"), width = 85 },
+            { key = "character", label = L("COL_CHARACTER"), width = 150, left = true, band = "all" },
+            -- Band 1: 150 + 85 + 85 + 95 + 95 + 110 = 620
+            { key = "delvesTotal", label = L("STAT_COL_DELVES"), width = 85, band = 1 },
+            { key = "delvesMidnight", label = L("STAT_COL_DELVES_MIDNIGHT"), width = 85, band = 1 },
+            { key = "dungeonsEntered", label = L("STAT_COL_DUNGEONS"), width = 95, band = 1 },
+            { key = "midnightDungeons", label = L("STAT_COL_DUNGEONS_MIDNIGHT"), width = 95, band = 1 },
+            { key = "playtimeTotal", label = L("STAT_COL_PLAYTIME"), width = 110, band = 1 },
+            -- Band 2: 150 + 85 + 85 + 85 + 85 + 95 + 85 + 85 + 110 = 865
+            { key = "deathsTotal", label = L("STAT_COL_DEATHS"), width = 85, band = 2 },
+            { key = "deathsDungeon", label = L("STAT_COL_DEATHS_DUNGEON"), width = 85, band = 2 },
+            { key = "deathsRaid", label = L("STAT_COL_DEATHS_RAID"), width = 85, band = 2 },
+            { key = "deathsFalling", label = L("STAT_COL_DEATHS_FALLING"), width = 85, band = 2 },
+            { key = "healthstones", label = L("STAT_COL_HEALTHSTONES"), width = 95, band = 2 },
+            { key = "questsCompleted", label = L("STAT_COL_QUESTS"), width = 85, band = 2 },
+            { key = "questsDaily", label = L("STAT_COL_QUESTS_DAILY"), width = 85, band = 2 },
+            { key = "questsAbandoned", label = L("STAT_COL_QUESTS_ABANDONED"), width = 110, band = 2 },
         },
     },
     -- Formularseite ohne Spalten und ohne Charakterzeilen.
@@ -135,6 +157,67 @@ local PANELS = {
 -- der, den Core.lua beim Laden akzeptiert, und jeder Schritt ist reproduzierbar
 -- statt von einer Pixelposition abhaengig.
 local SCALE_PRESETS = { 0.70, 0.85, 1.00, 1.15, 1.30, 1.50 }
+
+-- ---------------------------------------------------------------------------
+-- Spaltenlayout
+--
+-- Eine Seite ohne Bandnummern bleibt exakt das, was sie vorher war: eine
+-- einzige Reihe von Spalten in einer 38px-Zeile. Traegt mindestens eine Spalte
+-- eine Bandnummer, entstehen mehrere uebereinanderliegende Baender innerhalb
+-- derselben Zeile. band = "all" laeuft ueber alle Baender (die Charakterspalte).
+--
+-- Header und Datenzeile durchlaufen DIESELBE Funktion. Es gibt damit keine
+-- zweite Rechnung, die auseinanderlaufen koennte, und die gemessenen
+-- Bandbreiten sind die tatsaechlichen rechten Kanten.
+-- ---------------------------------------------------------------------------
+
+local function BandCount(columns)
+    local count = 1
+    for _, column in ipairs(columns) do
+        if type(column.band) == "number" and column.band > count then count = column.band end
+    end
+    return count
+end
+
+-- Ruft place(column, left, band) je Spalte auf. band ist nil, wenn die Spalte
+-- die volle Zeilenhoehe einnimmt (einbaendige Seite oder band = "all").
+-- Liefert die rechte Kante je Band zurueck.
+local function LayoutColumns(columns, place)
+    local bands = BandCount(columns)
+    local edges = {}
+    for band = 1, bands do edges[band] = 4 end
+    for _, column in ipairs(columns) do
+        local width = column.width
+        if bands == 1 then
+            place(column, edges[1], nil)
+            edges[1] = edges[1] + width
+        elseif column.band == "all" then
+            -- Eine ueberspannende Spalte muss in jedem Band denselben Platz
+            -- belegen, sonst verrutschen die Baender gegeneinander.
+            local left = 0
+            for band = 1, bands do
+                if edges[band] > left then left = edges[band] end
+            end
+            place(column, left, nil)
+            for band = 1, bands do edges[band] = left + width end
+        else
+            local band = type(column.band) == "number" and column.band or 1
+            place(column, edges[band], band)
+            edges[band] = edges[band] + width
+        end
+    end
+    return edges, bands
+end
+
+local function PanelRowHeight(bands)
+    if bands <= 1 then return ROW_HEIGHT end
+    return bands * BAND_HEIGHT + 2
+end
+
+local function PanelHeaderHeight(bands)
+    if bands <= 1 then return HEADER_HEIGHT end
+    return bands * BAND_HEIGHT + 4
+end
 
 local function SetBackdrop(frame, background, border)
     frame:SetBackdrop({
@@ -668,27 +751,58 @@ end
 -- von einem Charakter mit echten 0 Toden nicht mehr zu unterscheiden.
 -- ---------------------------------------------------------------------------
 
-local function StatisticValue(character, statisticID)
-    if type(character) ~= "table" or type(statisticID) ~= "number" then return nil end
+-- Der Schluessel ist entweder eine numerische Statistik-ID oder der
+-- sprachneutrale Stringschluessel eines abgeleiteten Werts. Beide liegen im
+-- selben Container.
+local function StatisticValue(character, key)
+    if type(character) ~= "table" then return nil end
+    if type(key) ~= "number" and (type(key) ~= "string" or key == "") then return nil end
     local store = character.statistics
     if type(store) ~= "table" then return nil end
-    local entry = store[statisticID]
+    local entry = store[key]
     if type(entry) ~= "table" or type(entry.value) ~= "number" then return nil end
     return entry.value
 end
 
-local function StatisticCellText(value)
-    if type(value) ~= "number" then return COLORS.unknown .. "-|r" end
-    return "|cffd8e0e7" .. tostring(value) .. "|r"
+-- Kompakte, lokalisierte Dauer. Die Einheiten stehen im Woerterbuch, die
+-- Zerlegung selbst ist sprachneutral. Eine echte Null bleibt eine Null: sie
+-- ist ein gemessener Wert und darf nicht wie "unbekannt" aussehen.
+local function FormatDuration(seconds)
+    if type(seconds) ~= "number" or seconds < 0 then return nil end
+    local days = math.floor(seconds / 86400)
+    local hours = math.floor((seconds % 86400) / 3600)
+    local minutes = math.floor((seconds % 3600) / 60)
+    if days > 0 then
+        return days .. L("DURATION_UNIT_DAYS") .. " " .. hours .. L("DURATION_UNIT_HOURS")
+    end
+    if hours > 0 then
+        return hours .. L("DURATION_UNIT_HOURS") .. " " .. minutes .. L("DURATION_UNIT_MINUTES")
+    end
+    return minutes .. L("DURATION_UNIT_MINUTES")
+end
+
+-- Ein abgeleiteter Wert mit kind = "duration" wird als Dauer dargestellt,
+-- alles andere als blanke Zahl.
+local function StatisticDisplayValue(definition, value)
+    if type(value) ~= "number" then return nil end
+    if type(definition) == "table" and definition.kind == "duration" then
+        return FormatDuration(value)
+    end
+    return tostring(value)
+end
+
+local function StatisticCellText(text)
+    if type(text) ~= "string" then return COLORS.unknown .. "-|r" end
+    return "|cffd8e0e7" .. text .. "|r"
 end
 
 -- Summiert ausschliesslich sicher bekannte Charakterwerte. Kennt kein
 -- Charakter den Wert, bleibt die Summe unbekannt statt 0 zu behaupten.
-local function AccountStatisticTotal(characters, statisticID)
+local function AccountStatisticTotal(characters, key)
     local total
     if type(characters) ~= "table" then return nil end
     for _, character in ipairs(characters) do
-        local value = StatisticValue(character, statisticID)
+        local value = StatisticValue(character, key)
         if value ~= nil then
             if total == nil then total = 0 end
             total = total + value
@@ -697,36 +811,78 @@ local function AccountStatisticTotal(characters, statisticID)
     return total
 end
 
-local function StatisticDefinitions()
-    local definitions = WAT.Data and WAT.Data.STATISTICS
-    return type(definitions) == "table" and definitions or {}
+-- Der Speicherschluessel eines Werts: die Statistik-ID bei direkten Werten,
+-- der sprachneutrale Stringschluessel bei abgeleiteten.
+local function StatisticStorageKey(definition)
+    if type(definition) ~= "table" then return nil end
+    if type(definition.statisticID) == "number" then return definition.statisticID end
+    return type(definition.storageKey) == "string" and definition.storageKey or nil
 end
 
--- Der Statistikname kommt clientlokalisiert aus GetAchievementInfo. Nur wenn
--- er nicht sicher lesbar ist, greift der eigene uebersetzte Ersatzname.
+-- Direkte und abgeleitete Werte in Anzeigereihenfolge. Menge und Schluessel
+-- kommen ausschliesslich aus Data.lua.
+local function StatisticDefinitions()
+    local definitions = {}
+    local data = WAT.Data
+    -- Die Quellen werden einzeln angehaengt statt als Literaltabelle gebaut:
+    -- fehlt Data.STATISTICS, haette ein Literal ein nil im ersten Slot und
+    -- ipairs braeche sofort ab - die abgeleiteten Werte fielen still weg.
+    local sources = {}
+    if data then
+        if type(data.STATISTICS) == "table" then sources[#sources + 1] = data.STATISTICS end
+        if type(data.DERIVED_STATISTICS) == "table" then sources[#sources + 1] = data.DERIVED_STATISTICS end
+    end
+    for _, source in ipairs(sources) do
+        for _, definition in ipairs(source) do
+            definitions[#definitions + 1] = definition
+        end
+    end
+    return definitions
+end
+
+-- Der Statistikname kommt clientlokalisiert aus GetAchievementInfo. Fuer die
+-- abgeleiteten Werte gibt es keinen Erfolg und damit keinen Clientnamen: dort
+-- ist der eigene uebersetzte Name die einzige Quelle.
 local function StatisticDisplayName(definition)
-    local name = AchievementName(definition.statisticID)
-    if name then return name end
+    if type(definition.statisticID) == "number" then
+        local name = AchievementName(definition.statisticID)
+        if name then return name end
+    end
     return type(definition.nameKey) == "string" and L(definition.nameKey) or L("STATUS_UNKNOWN")
+end
+
+-- Erklaerungen, die ein kurzer Spaltenkopf nicht tragen kann: dass 932
+-- betretene und keine abgeschlossenen Dungeons zaehlt, und woraus die
+-- Midnight-Summe entsteht.
+local function AddStatisticNotes()
+    for _, definition in ipairs(StatisticDefinitions()) do
+        if type(definition.tooltipKey) == "string" then
+            GameTooltip:AddLine(L(definition.tooltipKey), 0.56, 0.6, 0.66, true)
+        end
+    end
 end
 
 local function ShowStatisticsTooltip(character)
     for _, definition in ipairs(StatisticDefinitions()) do
-        local value = StatisticValue(character, definition.statisticID)
+        local value = StatisticValue(character, StatisticStorageKey(definition))
         AddTooltipLine(StatisticDisplayName(definition),
-            type(value) == "number" and tostring(value) or L("STAT_NOT_RECORDED"))
+            StatisticDisplayValue(definition, value) or L("STAT_NOT_RECORDED"))
     end
     local store = type(character) == "table" and type(character.statistics) == "table"
         and character.statistics or {}
     AddTooltipLine(L("STAT_RECORDED"), FormatAge(store.scanned))
+    GameTooltip:AddLine(" ")
+    AddStatisticNotes()
 end
 
 local function ShowAccountTotalTooltip(characters)
     for _, definition in ipairs(StatisticDefinitions()) do
-        local total = AccountStatisticTotal(characters, definition.statisticID)
+        local total = AccountStatisticTotal(characters, StatisticStorageKey(definition))
         AddTooltipLine(StatisticDisplayName(definition),
-            type(total) == "number" and tostring(total) or L("STAT_NOT_RECORDED"))
+            StatisticDisplayValue(definition, total) or L("STAT_NOT_RECORDED"))
     end
+    GameTooltip:AddLine(" ")
+    AddStatisticNotes()
 end
 
 function WAT:ShowCharacterTooltip(row)
@@ -828,26 +984,36 @@ local function CreatePanel(parent, key, definition)
     panel.key = key
     panel.columns = definition.columns
 
+    local bands = BandCount(definition.columns)
+    local headerHeight = PanelHeaderHeight(bands)
+    panel.bandCount = bands
+    panel.rowHeight = PanelRowHeight(bands)
+
     local header = CreateFrame("Frame", nil, panel, "BackdropTemplate")
     header:SetPoint("TOPLEFT")
-    header:SetSize(CONTENT_WIDTH, 36)
+    header:SetSize(CONTENT_WIDTH, headerHeight)
     SetBackdrop(header, { 0.025, 0.035, 0.047, 0.98 }, COLORS.line)
     local topLine = header:CreateTexture(nil, "OVERLAY")
     topLine:SetPoint("TOPLEFT")
     topLine:SetPoint("TOPRIGHT")
     topLine:SetHeight(1)
     topLine:SetColorTexture(1, 1, 1, 0.08)
-    local x = 4
-    for _, column in ipairs(definition.columns) do
+    local edges = LayoutColumns(definition.columns, function(column, left, band)
         local label = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        label:SetPoint("LEFT", x, 0)
-        label:SetSize(column.width - 6, 30)
+        if band then
+            label:SetPoint("TOPLEFT", left, -((band - 1) * BAND_HEIGHT + 2))
+            label:SetSize(column.width - 6, BAND_HEIGHT)
+        else
+            label:SetPoint("LEFT", left, 0)
+            label:SetSize(column.width - 6, headerHeight - 6)
+        end
         label:SetJustifyH(column.left and "LEFT" or "CENTER")
         label:SetJustifyV("MIDDLE")
         label:SetTextColor(0.67, 0.71, 0.76)
         label:SetText(column.label)
-        x = x + column.width
-    end
+    end)
+    -- Die gemessenen rechten Kanten, nicht eine parallele Rechnung.
+    panel.bandWidths = edges
 
     local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -2)
@@ -1300,23 +1466,27 @@ local function GetCharacters()
 end
 
 local function CreateRow(panel, index)
+    local rowHeight = panel.rowHeight or ROW_HEIGHT
     local row = CreateFrame("Frame", nil, panel.child, "BackdropTemplate")
-    row:SetSize(CONTENT_WIDTH, ROW_HEIGHT - 1)
+    row:SetSize(CONTENT_WIDTH, rowHeight - 1)
     SetBackdrop(row, COLORS.surface, { 1, 1, 1, 0.025 })
     row:EnableMouse(true)
     row.values = {}
     row.panelKey = panel.key
-    local x = 4
-    for _, column in ipairs(panel.columns) do
+    LayoutColumns(panel.columns, function(column, left, band)
         local value = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        value:SetPoint("LEFT", x, 0)
-        value:SetSize(column.width - 6, ROW_HEIGHT - 2)
+        if band then
+            value:SetPoint("TOPLEFT", left, -((band - 1) * BAND_HEIGHT + 1))
+            value:SetSize(column.width - 6, BAND_HEIGHT)
+        else
+            value:SetPoint("LEFT", left, 0)
+            value:SetSize(column.width - 6, rowHeight - 2)
+        end
         value:SetJustifyH(column.left and "LEFT" or "CENTER")
         value:SetJustifyV("MIDDLE")
         value:SetWordWrap(false)
         row.values[column.key] = value
-        x = x + column.width
-    end
+    end)
     row:SetScript("OnEnter", function(r)
         r:SetBackdropColor(COLORS.hover[1], COLORS.hover[2], COLORS.hover[3], COLORS.hover[4])
         WAT:ShowCharacterTooltip(r)
@@ -1437,7 +1607,8 @@ local function FillStatistics(row, character)
     for _, definition in ipairs(StatisticDefinitions()) do
         local cell = row.values[definition.key]
         if cell then
-            cell:SetText(StatisticCellText(StatisticValue(character, definition.statisticID)))
+            local value = StatisticValue(character, StatisticStorageKey(definition))
+            cell:SetText(StatisticCellText(StatisticDisplayValue(definition, value)))
         end
     end
 end
@@ -1447,15 +1618,16 @@ local function FillStatisticsTotal(row, characters)
     for _, definition in ipairs(StatisticDefinitions()) do
         local cell = row.values[definition.key]
         if cell then
-            cell:SetText(StatisticCellText(
-                AccountStatisticTotal(characters, definition.statisticID)))
+            local total = AccountStatisticTotal(characters, StatisticStorageKey(definition))
+            cell:SetText(StatisticCellText(StatisticDisplayValue(definition, total)))
         end
     end
 end
 
 local function PlaceRow(panel, index)
     local row = panel.rows[index] or CreateRow(panel, index)
-    row:SetPoint("TOPLEFT", 0, -((index - 1) * ROW_HEIGHT))
+    row:ClearAllPoints()
+    row:SetPoint("TOPLEFT", 0, -((index - 1) * (panel.rowHeight or ROW_HEIGHT)))
     return row
 end
 
@@ -1515,7 +1687,7 @@ function WAT:RefreshUI()
                 end
                 row:Show()
             end
-            panel.child:SetHeight(math.max(1, index * ROW_HEIGHT))
+            panel.child:SetHeight(math.max(1, index * (panel.rowHeight or ROW_HEIGHT)))
         end
     end
 end

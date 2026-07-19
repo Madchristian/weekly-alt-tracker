@@ -74,8 +74,11 @@ ab +9 und das Tauschpotential von Helden- zu Mythischen Wappen.
 **Schlüsselsteine** - der aktuell besessene Mythic+-Schlüsselstein pro Charakter
 mit Dungeonname und Stufe als Offline-Snapshot.
 
-**Statistiken** - neun lebenslange WoW-Erfolgsstatistiken pro Charakter,
-darunter absolvierte Tiefen und Tode. Offline-Charaktere behalten ihren letzten
+**Statistiken** - dreizehn lebenslange Werte pro Charakter in zwei Bändern
+derselben Zeile: absolvierte Tiefen, Tode, Quests, benutzte Heilsteine,
+betretene 5-Spieler-Dungeons (betreten, nicht abgeschlossen), die Midnight-
+Dungeons als Summe der Endboss-Siege aus acht Dungeons über drei
+Schwierigkeiten und die Gesamtspielzeit. Offline-Charaktere behalten ihren letzten
 Snapshot; die Accountsumme addiert ausschließlich sicher bekannte Werte und
 zeigt bei vollständig unbekannten Daten `-` statt einer erfundenen Null.
 

@@ -85,6 +85,60 @@ Data.STATISTICS = {
     { key = "questsCompleted", statisticID = 98, labelKey = "STAT_COL_QUESTS", nameKey = "STAT_NAME_QUESTS" },
     { key = "questsDaily", statisticID = 97, labelKey = "STAT_COL_QUESTS_DAILY", nameKey = "STAT_NAME_QUESTS_DAILY" },
     { key = "questsAbandoned", statisticID = 94, labelKey = "STAT_COL_QUESTS_ABANDONED", nameKey = "STAT_NAME_QUESTS_ABANDONED" },
+    -- 0.4.0. Bewusst ANGEHAENGT: die Reihenfolge der urspruenglichen neun
+    -- bleibt unveraendert, damit ein 0.3.1-Snapshot unveraendert weiterlebt.
+    { key = "healthstones", statisticID = 812, labelKey = "STAT_COL_HEALTHSTONES", nameKey = "STAT_NAME_HEALTHSTONES" },
+    -- 932 zaehlt BETRETENE 5-Spieler-Dungeons, nicht abgeschlossene. Label und
+    -- Tooltip muessen das sagen; alles andere waere eine stille Falschaussage.
+    { key = "dungeonsEntered", statisticID = 932, labelKey = "STAT_COL_DUNGEONS", nameKey = "STAT_NAME_DUNGEONS", tooltipKey = "STAT_TIP_DUNGEONS" },
+}
+
+-- Die 24 Endboss-Statistiken der acht Midnight-Dungeons ueber Normal,
+-- Heroisch und Mythisch (Mythisch schliesst dort mit ein, wo Blizzard
+-- Mythisch+ mitzaehlt). Blizzard fuehrt KEINE einzelne Statistik
+-- "Midnight-Dungeons"; der angezeigte Wert entsteht deshalb erst als Summe.
+--
+-- Die IDs stammen aus der Achievement-DB2 von Retail 12.0.7. Es wird bewusst
+-- keine ID geraten oder ergaenzt: eine falsche ID liefert nicht nichts,
+-- sondern still den Wert einer fremden Statistik.
+Data.MIDNIGHT_DUNGEON_STATISTICS = {
+    41293, 41294, 41295,
+    61215, 61216, 61217,
+    61273, 61274, 61275,
+    61511, 61512, 61513,
+    61650, 61651, 61652,
+    61653, 61654, 61655,
+    61656, 61657, 61658,
+    61659, 61660, 61661,
+}
+
+-- Sprachneutrale Speicherschluessel der abgeleiteten Werte. Sie stehen als
+-- Strings neben den numerischen Statistik-IDs im selben Container und sind
+-- damit ueber alle Clientsprachen hinweg identisch.
+Data.MIDNIGHT_DUNGEONS_KEY = "midnightDungeons"
+Data.PLAYTIME_KEY = "playtimeTotal"
+
+-- Werte, die NICHT aus einem einzelnen GetStatistic-Aufruf stammen. Sie tragen
+-- deshalb keine statisticID, und GetAchievementInfo kann fuer sie auch keinen
+-- clientlokalisierten Namen liefern: Name und Tooltip kommen zwingend aus den
+-- eigenen Woerterbuechern.
+Data.DERIVED_STATISTICS = {
+    {
+        key = "midnightDungeons",
+        storageKey = Data.MIDNIGHT_DUNGEONS_KEY,
+        kind = "composite",
+        labelKey = "STAT_COL_DUNGEONS_MIDNIGHT",
+        nameKey = "STAT_NAME_DUNGEONS_MIDNIGHT",
+        tooltipKey = "STAT_TIP_DUNGEONS_MIDNIGHT",
+    },
+    {
+        key = "playtimeTotal",
+        storageKey = Data.PLAYTIME_KEY,
+        kind = "duration",
+        labelKey = "STAT_COL_PLAYTIME",
+        nameKey = "STAT_NAME_PLAYTIME",
+        tooltipKey = "STAT_TIP_PLAYTIME",
+    },
 }
 
 -- Schlüssel ist die lokalisierungsunabhängige Basis-Skill-Line-ID aus

@@ -159,6 +159,126 @@ do
 end
 
 -- ---------------------------------------------------------------------------
+-- 3a. Gesamtspielzeit: Registrierung, Routing und Anforderungspfade
+--
+-- TIME_PLAYED_MSG ist die einzige Quelle der Spielzeit; sie kommt asynchron
+-- nach RequestTimePlayed(). Core muss das echte Event registrieren, es an
+-- RecordTimePlayed weiterreichen und die Anforderung ausschliesslich auf
+-- vollen bzw. Login-Wegen ausloesen - nie im Statistik-only-Refresh nach dem
+-- Tod, der genau deshalb ein eigener Pfad ist.
+-- ---------------------------------------------------------------------------
+
+do
+    local WAT = Load("deDE")
+    WeeklyAltTrackerDB = nil
+    player.guid = "Player-Test-Playtime"
+    player.name = "Spielzeittest"
+    player.realm = "Testrealm"
+    player.secondsUntilReset = 3600
+
+    -- Core.lua baut beim ADDON_LOADED die UI; UI.lua ist hier nicht geladen.
+    WAT.CreateUI = function() end
+    local onEvent = WAT.events:GetScript("OnEvent")
+    onEvent(nil, "ADDON_LOADED", "WeeklyAltTracker")
+
+    check(WAT.events.registered["TIME_PLAYED_MSG"],
+        "TIME_PLAYED_MSG wird nicht registriert")
+
+    local recorded, requests, fullScans, statisticScans, uiRefreshes = {}, {}, 0, 0, 0
+    WAT.ScanCharacter = function() fullScans = fullScans + 1 end
+    WAT.ScanStatistics = function() statisticScans = statisticScans + 1 end
+    WAT.RefreshUI = function() uiRefreshes = uiRefreshes + 1 end
+    WAT.RecordTimePlayed = function(_, character, total)
+        recorded[#recorded + 1] = { character = character, total = total }
+        return true
+    end
+    WAT.RequestTimePlayed = function(_, reason)
+        requests[#requests + 1] = reason
+        return true
+    end
+
+    -- Das Event wird an RecordTimePlayed geroutet, mit dem aktuellen Charakter
+    -- und der GESAMTZEIT - nicht der Levelzeit.
+    onEvent(nil, "TIME_PLAYED_MSG", 987654, 4321)
+    checkEqual(#recorded, 1, "TIME_PLAYED_MSG wird nicht an RecordTimePlayed geroutet")
+    if recorded[1] then
+        checkEqual(recorded[1].total, 987654, "TIME_PLAYED_MSG uebergibt nicht die Gesamtzeit")
+        check(type(recorded[1].character) == "table",
+            "TIME_PLAYED_MSG uebergibt keinen Charakter")
+        checkEqual(recorded[1].character.guid, "Player-Test-Playtime",
+            "TIME_PLAYED_MSG schreibt auf den falschen Charakter")
+    end
+    check(uiRefreshes > 0, "TIME_PLAYED_MSG aktualisiert die Anzeige nicht")
+    checkEqual(fullScans, 0, "TIME_PLAYED_MSG darf keinen Vollscan ausloesen")
+
+    -- Ein unbrauchbarer Payload darf weder werfen noch etwas anderes ausloesen.
+    for _, payload in ipairs({ { nil, nil }, { SECRET_VALUE, 1 }, { "3600", 1 }, { -5, 1 } }) do
+        local ok = pcall(function() onEvent(nil, "TIME_PLAYED_MSG", payload[1], payload[2]) end)
+        check(ok, "TIME_PLAYED_MSG warf bei unbrauchbarem Payload")
+    end
+    checkEqual(fullScans, 0, "unbrauchbarer Payload hat einen Vollscan ausgeloest")
+
+    -- Der Todespfad fordert die Spielzeit NICHT an.
+    local before = #requests
+    onEvent(nil, "PLAYER_DEAD")
+    checkEqual(#requests, before, "PLAYER_DEAD fordert die Spielzeit an")
+    check(statisticScans > 0, "PLAYER_DEAD scannt keine Statistiken")
+
+    -- Der Login-Weg fordert sie an; die Entscheidung ueber Drosselung und
+    -- erlaubte Gruende faellt in RequestTimePlayed selbst.
+    onEvent(nil, "PLAYER_LOGIN")
+    check(#requests > before, "PLAYER_LOGIN fordert die Spielzeit nicht an")
+    checkEqual(requests[#requests], "PLAYER_LOGIN",
+        "PLAYER_LOGIN reicht den Grund nicht durch")
+
+    -- Die Chatunterdrueckung muss auf dem Ereignisweg IMMER aufgehoben werden,
+    -- auch wenn der Wert unbrauchbar ist oder die Datenbank fehlt. Sonst
+    -- bliebe der Standardchat dauerhaft von TIME_PLAYED_MSG abgeschnitten -
+    -- ein fremder Nebeneffekt, den kein Spieler zurueckdrehen kann.
+    local restores = {}
+    WAT.RecordTimePlayed = function() return false end
+    WAT.RestoreTimePlayedChat = function(_, token)
+        restores[#restores + 1] = token
+        return true
+    end
+
+    WAT.timePlayedToken = 41
+    onEvent(nil, "TIME_PLAYED_MSG", 987654, 4321)
+    checkEqual(#restores, 1, "TIME_PLAYED_MSG stellt die Chatrahmen nicht wieder her")
+    checkEqual(restores[1], 41, "TIME_PLAYED_MSG stellt mit dem falschen Token wieder her")
+
+    -- Unbrauchbarer Payload: die Wiederherstellung laeuft trotzdem.
+    WAT.timePlayedToken = 42
+    onEvent(nil, "TIME_PLAYED_MSG", SECRET_VALUE, 1)
+    checkEqual(#restores, 2, "unbrauchbarer Payload verhindert die Wiederherstellung")
+
+    -- Fehlende Datenbank: ebenfalls. Der Restore steht VOR jedem db-Guard.
+    local savedDB = WAT.db
+    WAT.db = nil
+    WAT.timePlayedToken = 43
+    local okRestore = pcall(function() onEvent(nil, "TIME_PLAYED_MSG", 60, 60) end)
+    check(okRestore, "TIME_PLAYED_MSG warf ohne Datenbank")
+    checkEqual(#restores, 3, "fehlende Datenbank verhindert die Wiederherstellung")
+    WAT.db = savedDB
+
+    -- Der Todesweg fordert nichts an und unterdrueckt folglich auch nichts.
+    local beforeRestores = #restores
+    onEvent(nil, "PLAYER_DEAD")
+    checkEqual(#restores, beforeRestores,
+        "PLAYER_DEAD hat die Chatunterdrueckung angefasst")
+
+    -- Fehlen die Funktionen komplett (Activities.lua nicht geladen), darf
+    -- nichts werfen.
+    WAT.RecordTimePlayed = nil
+    WAT.RequestTimePlayed = nil
+    WAT.RestoreTimePlayedChat = nil
+    local ok = pcall(function() onEvent(nil, "TIME_PLAYED_MSG", 60, 60) end)
+    check(ok, "TIME_PLAYED_MSG warf ohne RecordTimePlayed")
+    ok = pcall(function() onEvent(nil, "PLAYER_LOGIN") end)
+    check(ok, "PLAYER_LOGIN warf ohne RequestTimePlayed")
+end
+
+-- ---------------------------------------------------------------------------
 -- 3. Todes-Event: nur Statistiken, kein teurer Vollscan
 -- ---------------------------------------------------------------------------
 

@@ -34,7 +34,7 @@ def check_toc() -> list[Path]:
     text = TOC.read_text(encoding="utf-8")
     required = {
         "## Interface: 120007",
-        "## Version: 0.3.1",
+        "## Version: 0.4.0",
         "## X-License: All Rights Reserved",
         "## X-Wago-ID: ZKxZJkNk",
         "## X-Curse-Project-ID: 1616769",
