@@ -114,9 +114,15 @@ Data.MIDNIGHT_PROFESSION_SKILL_LINES = {
     [197] = 2918, -- Schneiderei
 }
 
--- Midnight-Wissensgegenstände, bestätigt gegen die für Interface 120007
--- gepflegte Liste BetterBags_AllCraftingKnowledge 1.0.14. Gespeichert werden
--- ausschließlich Item-ID, Basisberuf und sicher bekannter Wissenswert.
+-- Midnight-Wissensgegenstände: 169 faktische Item-IDs, das sind 169 der 170
+-- IDs aus BetterBags_AllCraftingKnowledge 1.0.14 (RaithZ, Data/Midnight.lua).
+-- Bewusst ausgelassen ist 255157 ("Abyss Angler's Fish Log"), ein
+-- Angel-Wissensgegenstand: Angeln wird hier nicht als Hauptberuf getrackt.
+-- Eine unabhängige vollständige Erhebung wird nicht behauptet. Kein fremder
+-- Quelltext, Text oder Asset ist übernommen; Struktur und Codeausdruck unten
+-- sind eigenständig.
+-- Details und Lizenzstatus siehe THIRD_PARTY_NOTICES.md.
+-- Gespeichert werden ausschließlich Item-ID, Basisberuf und Wissenswert.
 Data.MIDNIGHT_KNOWLEDGE_ITEMS = {}
 local function AddKnowledgeItems(professionID, points, itemIDs)
     for _, itemID in ipairs(itemIDs) do

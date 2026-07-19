@@ -25,4 +25,6 @@ Die Software wird „wie besehen“ und ohne ausdrückliche oder stillschweigend
 
 World of Warcraft, Blizzard Entertainment und zugehörige Namen, Marken, Grafiken und Inhalte sind Eigentum ihrer jeweiligen Rechteinhaber. WeeklyAltTracker ist ein unabhängiges Fanprojekt und steht nicht in Verbindung mit Blizzard Entertainment.
 
+Angezeigte Spielsymbole sind Client-Assets von Blizzard. Das Addon liefert keine Bilddateien mit, sondern verweist zur Laufzeit nur auf die im installierten Client vorhandenen Symbole. Die Herkunft der verwendeten Daten und die dazu genannten Referenzen sind in THIRD_PARTY_NOTICES.md offengelegt; die dort genannten Quellen sind nicht Bestandteil dieser Software, und aus ihnen wird kein Nutzungsrecht abgeleitet.
+
 Anfragen zu Genehmigungen können über die offizielle Projektseite an den Rechteinhaber gerichtet werden.

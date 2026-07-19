@@ -165,9 +165,43 @@ local function MythicPlusTenText(vault, stale)
     return COLORS.unknown .. "-|r"
 end
 
+-- Reihenfolge und Farbe der Wappenspalte. Der Kurzbuchstabe kommt primär aus
+-- Data.CRESTS[key].short; die Buchstaben hier sind nur die Reserve, falls die
+-- Datentabelle fehlt oder unbrauchbar ist (keine zweite Wahrheit im Normalfall).
+local CREST_ORDER = { "champion", "hero", "myth" }
+local CREST_DISPLAY = {
+    champion = { short = "C", color = "|cff79bdf2" },
+    hero = { short = "H", color = "|cffb28cff" },
+    myth = { short = "M", color = "|cffe0b6ff" },
+}
+
+-- Wappensymbol des laufenden Clients. Die iconFileID wird ausschliesslich zur
+-- Laufzeit referenziert und nie gespeichert. Nur eine sichere, positive
+-- Ganzzahl ergibt Markup; jeder andere Fall liefert "" und damit den
+-- Buchstaben-Fallback. Die Ganzzahlprüfung ist nötig, weil %d einen Bruchwert
+-- je nach Lua-Variante still abschneiden oder mit einem Fehler abbrechen würde;
+-- inf und nan fallen über denselben Test heraus (x % 1 ist dort nie 0).
+-- Auch der Feldzugriff info.iconFileID liegt im pcall: eine Metatable auf der
+-- Rückgabe kann beim Lesen selbst einen Fehler werfen.
+local function CrestIcon(currencyID)
+    if type(currencyID) ~= "number" then return "" end
+    local getter = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
+    if not getter then return "" end
+    local ok, icon = pcall(function()
+        local info = getter(currencyID)
+        if (issecretvalue and issecretvalue(info)) or type(info) ~= "table" then return nil end
+        return info.iconFileID
+    end)
+    if not ok then return "" end
+    if (issecretvalue and issecretvalue(icon)) or type(icon) ~= "number" then return "" end
+    if icon <= 0 or icon % 1 ~= 0 then return "" end
+    return string.format("|T%d:12:12:0:0|t ", icon)
+end
+
 local function CrestText(weekly, stale)
     if stale then return COLORS.stale .. "alte Woche|r" end
     local crests = type(weekly.crests) == "table" and weekly.crests or {}
+    local definitions = WAT.Data and WAT.Data.CRESTS or {}
     local function Quantity(key)
         local entry = crests[key]
         if type(entry) == "table" and type(entry.quantity) == "number" then return tostring(entry.quantity) end
@@ -177,9 +211,17 @@ local function CrestText(weekly, stale)
         end
         return "-"
     end
-    return "|cff79bdf2C " .. Quantity("champion") .. "|r  "
-        .. "|cffb28cffH " .. Quantity("hero") .. "|r  "
-        .. "|cffe0b6ffM " .. Quantity("myth") .. "|r"
+    local parts = {}
+    for _, key in ipairs(CREST_ORDER) do
+        local display = CREST_DISPLAY[key]
+        local definition = definitions[key] or {}
+        local icon = CrestIcon(definition.currencyID)
+        local short = definition.short
+        if type(short) ~= "string" or short == "" then short = display.short end
+        local prefix = icon ~= "" and icon or (short .. " ")
+        parts[#parts + 1] = display.color .. prefix .. Quantity(key) .. "|r"
+    end
+    return table.concat(parts, "  ")
 end
 
 local function MidnightWeeklyText(snapshot, stale)

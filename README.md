@@ -162,7 +162,7 @@ Der Workflow läuft ausschließlich bei Tags nach dem Muster `v*`, zum Beispiel 
 
 Vor jedem Tag müssen die feste Version in `WeeklyAltTracker.toc` und `Core.lua` sowie Anleitung und Changelog auf denselben Release-Stand aktualisiert werden. Der Packager benennt das Release nach dem Tag, ersetzt die feste Addon-Version aber bewusst nicht automatisch.
 
-Der Paketumfang wird über `.pkgmeta` gesteuert. Das ZIP enthält den Ordner `WeeklyAltTracker` mit den fünf Lua-Dateien, der TOC, `README.md`, `Anleitung.html`, `LICENSE.txt` sowie einer vom Packager generierten `CHANGELOG.md`. Nicht enthalten sind `.github`, `.gitignore`, `.pkgmeta`, `tools/`, `wago/` und alle lokalen Arbeitsordner.
+Der Paketumfang wird über `.pkgmeta` gesteuert. Das ZIP enthält den Ordner `WeeklyAltTracker` mit den fünf Lua-Dateien, der TOC, `README.md`, `Anleitung.html`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md` sowie einer vom Packager generierten `CHANGELOG.md`. Nicht enthalten sind `.github`, `.gitignore`, `.pkgmeta`, `tools/`, `wago/` und alle lokalen Arbeitsordner. `.pkgmeta` arbeitet mit einer `ignore`-Liste, daher wird eine neue Datei im Projektstamm automatisch mitgepackt.
 
 Das GitHub-Release wird mit dem automatisch bereitgestellten `GITHUB_TOKEN` erstellt; ein eigenes Secret ist dafür nicht nötig.
 
@@ -173,3 +173,7 @@ Das Addon ist auf Wago Addons veröffentlicht: [addons.wago.io/addons/weekly-alt
 Version 0.2.5 wurde über die offizielle Wago-Upload-API als Stable für Retail-Patch 12.0.7 veröffentlicht. Das öffentlich ausgelieferte CDN-ZIP wurde zurückgeladen und stimmt bytegenau mit dem hochgeladenen Paket überein.
 
 Das Secret `WAGO_API_TOKEN` ist im Repository unter *Settings → Secrets and variables → Actions* hinterlegt. Der Tokenwert gehört ausschließlich in dieses Secret und niemals in das Repository. Damit lädt jeder künftige `v*`-Tag über den BigWigs-Packager automatisch sowohl zum GitHub-Release als auch zu Wago hoch.
+
+## Datenherkunft und Dritte
+
+Die Datenherkunft der Item-IDs, die dazu genannte Referenz und der Grund, warum daraus kein Nutzungsrecht abgeleitet wird, sind in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) offengelegt. Dort ist auch beschrieben, dass die Wappensymbole reine Client-Assets von Blizzard sind: Das Addon referenziert sie zur Laufzeit nur über die `iconFileID` und liefert keine Bilddateien mit.

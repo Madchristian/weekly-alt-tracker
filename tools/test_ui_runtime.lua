@@ -1,5 +1,22 @@
 -- Ausführbarer Runtime-Smoke-Test für UI.lua außerhalb von WoW.
--- Prüft Fenstererstellung, fünf Sidebar-Klickziele und die Schlüsselstein-Zelle.
+-- Prüft Fenstererstellung, fünf Sidebar-Klickziele, die Schlüsselstein-Zelle
+-- und die Wappensymbole der Übersicht inklusive Fallback ohne Symbol.
+
+local SECRET_VALUE = setmetatable({}, { __tostring = function() return "secret" end })
+function issecretvalue(value) return value == SECRET_VALUE end
+
+-- Eindeutige Testsymbol-IDs je Wappen-Currency. Der Client liefert echte
+-- iconFileIDs; hier genügt, dass sie unterscheidbar sind.
+local CREST_ICON_IDS = { [3343] = 5872025, [3345] = 5872026, [3347] = 5872027 }
+local CREST_QUANTITIES = { [3343] = 120, [3345] = 60, [3347] = 15 }
+
+C_CurrencyInfo = {
+    GetCurrencyInfo = function(currencyID)
+        local icon = CREST_ICON_IDS[currencyID]
+        if not icon then return nil end
+        return { quantity = CREST_QUANTITIES[currencyID], iconFileID = icon }
+    end,
+}
 
 local Widget = {}
 Widget.__index = Widget
@@ -68,7 +85,13 @@ function date() return "01.01. 00:00" end
 
 local WAT = {
     version = "0.2.5",
-    Data = {},
+    Data = {
+        CRESTS = {
+            champion = { currencyID = 3343, short = "C", label = "Champion" },
+            hero = { currencyID = 3345, short = "H", label = "Held" },
+            myth = { currencyID = 3347, short = "M", label = "Mythisch" },
+        },
+    },
     db = {
         settings = {
             scale = 1,
@@ -120,6 +143,11 @@ local WAT = {
                             { threshold = 1, progress = 1, level = 10, rewardItemLevel = 272 },
                         },
                         updated = 995,
+                    },
+                    crests = {
+                        champion = { quantity = 120 },
+                        hero = { quantity = 60 },
+                        myth = { quantity = 15 },
                     },
                     crestSources = {
                         heroToMyth = { unlocked = false, heroQuantity = 60 },
@@ -219,5 +247,146 @@ assert(overviewRow.values.mythic10
         and string.find(overviewRow.values.mythic10.text or "", "Ja", 1, true),
     "M+10-Abschluss für die 272er Belohnung wird nicht auf einen Blick angezeigt")
 
+-- Wappensymbole: jede der drei Currencies muss ihr eigenes iconFileID aus
+-- C_CurrencyInfo als Inline-Texturmarkup in der echten Übersicht zeigen.
+local crestText = overviewRow.values.crests.text or ""
+for _, case in ipairs({
+    { key = "champion", currencyID = 3343 },
+    { key = "hero", currencyID = 3345 },
+    { key = "myth", currencyID = 3347 },
+}) do
+    local icon = CREST_ICON_IDS[case.currencyID]
+    assert(string.find(crestText, "|T" .. icon .. ":", 1, true),
+        "Wappensymbol fehlt für " .. case.key .. " (Currency " .. case.currencyID
+            .. ", iconFileID " .. icon .. "), erhalten: " .. crestText)
+    assert(string.find(crestText, tostring(CREST_QUANTITIES[case.currencyID]), 1, true),
+        "Wappenmenge fehlt für " .. case.key .. ", erhalten: " .. crestText)
+end
+
+-- Fallback ohne API: exakt lesbarer bisheriger Plain-Text, kein halbes |T-Markup.
+C_CurrencyInfo = nil
+WAT:RefreshUI()
+local plainText = WAT.panels.overview.rows[1].values.crests.text or ""
+assert(not string.find(plainText, "|T", 1, true),
+    "ohne C_CurrencyInfo darf kein Texturmarkup entstehen, erhalten: " .. plainText)
+for _, expected in ipairs({ "C 120", "H 60", "M 15" }) do
+    assert(string.find(plainText, expected, 1, true),
+        "Plain-Text-Fallback fehlt: " .. expected .. ", erhalten: " .. plainText)
+end
+
+-- Jede feindselige Antwort von GetCurrencyInfo muss sauber auf den Plain-Text
+-- zurückfallen: kein Fehler, kein halbes |T-Markup, Mengen weiterhin lesbar.
+local THROWING_INFO = setmetatable({}, {
+    __index = function() error("Feldzugriff verweigert") end,
+})
+
+for _, case in ipairs({
+    {
+        name = "Secret Value / falscher Typ / negativ",
+        getter = function(currencyID)
+            if currencyID == 3343 then return { quantity = 120, iconFileID = SECRET_VALUE } end
+            if currencyID == 3345 then return { quantity = 60, iconFileID = "keineZahl" } end
+            return { quantity = 15, iconFileID = -1 }
+        end,
+    },
+    {
+        name = "iconFileID = 0",
+        getter = function() return { iconFileID = 0 } end,
+    },
+    {
+        -- Positiver Bruchwert: %d würde ihn je nach Lua-Variante still
+        -- abschneiden oder mit einem Fehler abbrechen. Beides ist unerwünscht.
+        name = "iconFileID ist ein positiver Bruchwert",
+        getter = function() return { iconFileID = 5872025.5 } end,
+    },
+    {
+        name = "GetCurrencyInfo wirft einen Fehler",
+        getter = function() error("C_CurrencyInfo nicht verfügbar") end,
+    },
+    {
+        name = "info = nil",
+        getter = function() return nil end,
+    },
+    {
+        name = "falscher Container statt Tabelle",
+        getter = function(currencyID)
+            if currencyID == 3343 then return "keineTabelle" end
+            if currencyID == 3345 then return 12345 end
+            return true
+        end,
+    },
+    {
+        name = "Metatable wirft beim Lesen von iconFileID",
+        getter = function() return THROWING_INFO end,
+    },
+    {
+        name = "info ist ein Secret Value",
+        getter = function() return SECRET_VALUE end,
+    },
+}) do
+    C_CurrencyInfo = { GetCurrencyInfo = case.getter }
+    local ok, err = pcall(function() WAT:RefreshUI() end)
+    assert(ok, "RefreshUI darf bei '" .. case.name .. "' nicht scheitern: " .. tostring(err))
+    local text = WAT.panels.overview.rows[1].values.crests.text or ""
+    assert(not string.find(text, "|T", 1, true),
+        "'" .. case.name .. "' darf kein Texturmarkup erzeugen, erhalten: " .. text)
+    for _, expected in ipairs({ "C 120", "H 60", "M 15" }) do
+        assert(string.find(text, expected, 1, true),
+            "Plain-Text-Fallback bei '" .. case.name .. "' fehlt: " .. expected
+                .. ", erhalten: " .. text)
+    end
+end
+
+-- Der Kurzbuchstabe stammt primär aus Data.CRESTS[key].short: eine geänderte
+-- Datentabelle muss sich im Fallback zeigen, sonst gäbe es eine zweite Wahrheit.
+WAT.Data.CRESTS.champion.short = "Z"
+WAT:RefreshUI()
+local shortText = WAT.panels.overview.rows[1].values.crests.text or ""
+assert(string.find(shortText, "Z 120", 1, true),
+    "Fallback-Buchstabe kommt nicht aus Data.CRESTS[key].short, erhalten: " .. shortText)
+WAT.Data.CRESTS.champion.short = "C"
+
+-- iconFileIDs sind reine Laufzeit-Referenzen und dürfen nirgends in WAT.db und
+-- damit nie in den SavedVariables landen. Rekursiv über die gesamte DB geprüft.
+C_CurrencyInfo = {
+    GetCurrencyInfo = function(currencyID)
+        local icon = CREST_ICON_IDS[currencyID]
+        if not icon then return nil end
+        return { quantity = CREST_QUANTITIES[currencyID], iconFileID = icon }
+    end,
+}
+WAT:RefreshUI()
+
+local function FindIconID(value, seen, path)
+    if type(value) == "number" then
+        for currencyID, icon in pairs(CREST_ICON_IDS) do
+            if value == icon then
+                return path .. " = " .. icon .. " (Currency " .. currencyID .. ")"
+            end
+        end
+        return nil
+    end
+    if type(value) == "string" then
+        for currencyID, icon in pairs(CREST_ICON_IDS) do
+            if string.find(value, tostring(icon), 1, true) then
+                return path .. " enthält " .. icon .. " (Currency " .. currencyID .. ")"
+            end
+        end
+        return nil
+    end
+    if type(value) ~= "table" or seen[value] then return nil end
+    seen[value] = true
+    for key, entry in pairs(value) do
+        local found = FindIconID(entry, seen, path .. "." .. tostring(key))
+        if found then return found end
+    end
+    return nil
+end
+
+local leaked = FindIconID(WAT.db, {}, "db")
+assert(not leaked, "iconFileID wurde in die SavedVariables geschrieben: " .. tostring(leaked))
+
 print("LUA UI RUNTIME OK: 5/5 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10,"
-    .. " offene Berufs-Wochenquest und gesperrter Wappentausch angezeigt")
+    .. " offene Berufs-Wochenquest, gesperrter Wappentausch und Wappensymbole"
+    .. " (3343/3345/3347) inklusive 8 Fehlerfälle, short aus Data.CRESTS"
+    .. " und keine iconFileID in der DB")
