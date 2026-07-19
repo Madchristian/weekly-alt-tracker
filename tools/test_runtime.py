@@ -65,6 +65,16 @@ def check_harness_set() -> list[str]:
     return problems
 
 
+def resolve_npm_command(node: str, npm_lookup=shutil.which) -> list[str] | None:
+    """Bevorzugt das portable npm-cli neben Node, sonst das System-npm."""
+    node_path = Path(node).resolve()
+    npm_cli = node_path.parent / "node_modules" / "npm" / "bin" / "npm-cli.js"
+    if npm_cli.exists():
+        return [str(node_path), str(npm_cli.resolve())]
+    npm = npm_lookup("npm")
+    return [str(Path(npm).resolve())] if npm else None
+
+
 def main() -> int:
     problems = check_harness_set()
     if problems:
@@ -79,15 +89,12 @@ def main() -> int:
         return 1
 
     if not CLI.exists():
-        node_path = Path(node).resolve()
-        npm_cli = node_path.parent / "node_modules" / "npm" / "bin" / "npm-cli.js"
-        if not npm_cli.exists():
-            print(f"LUA RUNTIME FAILED: npm-cli.js fehlt neben Node: {npm_cli}")
+        npm_command = resolve_npm_command(node)
+        if not npm_command:
+            print("LUA RUNTIME FAILED: weder node-lokales npm-cli.js noch systemweites npm gefunden")
             return 1
         try:
-            install = run([
-                str(node_path),
-                str(npm_cli),
+            install = run(npm_command + [
                 "install",
                 "--prefix",
                 str(TEMP_ROOT),

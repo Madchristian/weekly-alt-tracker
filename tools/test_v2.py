@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,7 +30,38 @@ def ids(body: str) -> list[int]:
     return [int(value) for value in re.findall(r"\b(\d{5})\b", body)]
 
 
+def check_runtime_npm_resolution() -> None:
+    import test_runtime
+
+    resolver = getattr(test_runtime, "resolve_npm_command", None)
+    require(callable(resolver),
+            "Runtime-Orchestrator braucht einen plattformübergreifenden npm-Resolver")
+    if not callable(resolver):
+        return
+
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        node = root / "bin" / "node"
+        node.parent.mkdir(parents=True)
+        node.touch()
+        system_npm = root / "system" / "npm"
+        system_npm.parent.mkdir(parents=True)
+        system_npm.touch()
+
+        command = resolver(str(node), lambda name: str(system_npm) if name == "npm" else None)
+        require(command == [str(system_npm.resolve())],
+                "Linux muss auf das systemweite npm zurückfallen, wenn neben node kein npm-cli.js liegt")
+
+        local_cli = node.parent / "node_modules" / "npm" / "bin" / "npm-cli.js"
+        local_cli.parent.mkdir(parents=True)
+        local_cli.touch()
+        command = resolver(str(node), lambda _name: str(system_npm))
+        require(command == [str(node.resolve()), str(local_cli.resolve())],
+                "Node-lokales npm-cli.js muss für den Windows-portablen Pfad Vorrang behalten")
+
+
 def main() -> int:
+    check_runtime_npm_resolution()
     toc = text("WeeklyAltTracker.toc")
     data = text("Data.lua")
     scanner = text("Scanner.lua")
