@@ -202,6 +202,17 @@ Die projektseitigen CurseForge-Texte liegen versioniert unter `curseforge/`:
 
 Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mit ausgeliefert.
 
+#### Paket für den manuellen Upload bauen
+
+Der separate Workflow `.github/workflows/curseforge-package.yml` (**Build CurseForge ZIP**) erzeugt das hochladbare ZIP als Actions-Artefakt. Er hat nur Leserechte, kennt kein `CF_API_KEY` und lädt nirgendwohin hoch – der Upload bleibt in jedem Fall manuell.
+
+1. In GitHub auf *Actions → Build CurseForge ZIP → Run workflow* gehen. Der Workflow läuft zusätzlich automatisch bei jedem Push auf `main`, der Paket- oder Prüfdateien berührt.
+2. Nach dem Lauf unten auf der Zusammenfassungsseite das Artefakt `WeeklyAltTracker-<version>-CurseForge-manual-upload` herunterladen.
+3. Das heruntergeladene Actions-Archiv **einmal** entpacken.
+4. Die darin liegende Datei `WeeklyAltTracker-<version>.zip` **unverändert** bei CurseForge hochladen – nicht erneut ein- oder auspacken.
+
+Der Workflow führt vorher das vollständige `tools/check.py` aus und prüft das gebaute ZIP anschließend mit `tools/verify_package.py` (14 erwartete Dateien unter `WeeklyAltTracker/`, bytegleich zum Repository, TOC-Kennwerte, keine Secret-Zuweisungen). Die mitgelieferte `SHA256SUMS.txt` dient zur Kontrolle der heruntergeladenen Datei.
+
 Das Addon ist auf CurseForge unter [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker) angelegt. Das Projekt verwendet die Project ID `1616769` und die Lizenz **All Rights Reserved**; die ID steht als `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.2.6 wird zunächst manuell über die CurseForge-Projektseite hochgeladen; dafür ist kein API-Key erforderlich. Ein automatischer CurseForge-Upload ist ohne `CF_API_KEY` bewusst nicht eingerichtet.
 
 ## Datenherkunft und Dritte

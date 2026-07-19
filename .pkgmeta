@@ -11,6 +11,7 @@ ignore:
   - artwork
   - backups
   - design
+  - dist
   - releases
   - tools
   - wago

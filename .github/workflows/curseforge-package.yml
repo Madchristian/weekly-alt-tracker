@@ -1,0 +1,119 @@
+name: Build CurseForge ZIP
+
+# Baut ausschliesslich ein Artefakt zum manuellen Upload bei CurseForge.
+# Bewusst getrennt von release.yml: kein Tag-Trigger, keine Schreibrechte,
+# kein GitHub-Release, kein Wago-Upload, kein CF_API_KEY. Der Workflow
+# veroeffentlicht nichts - er legt eine pruefbare Datei in Actions ab.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      # Die Workflow-Datei selbst steht mit in der Liste, damit schon ihr
+      # erster Commit einen echten Lauf ausloest.
+      - '.github/workflows/curseforge-package.yml'
+      - 'tools/**'
+      - '.pkgmeta'
+      - 'WeeklyAltTracker.toc'
+      - '*.lua'
+      - 'README.md'
+      - 'README.en.md'
+      - 'Anleitung.html'
+      - 'Guide.en.html'
+      - 'LICENSE.txt'
+      - 'THIRD_PARTY_NOTICES.md'
+      - 'Media/WeeklyAltTrackerIcon.tga'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: curseforge-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Build and verify ZIP
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node
+        # Nur fuer die Fengari-Runtime-Harnesses aus tools/test_runtime.py,
+        # das npm bei Bedarf selbst nach dem Temp-Verzeichnis installiert.
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Quality gate
+        # Vollstaendiges Gate vor dem Paketbau: TOC, statische Lua-Pruefung,
+        # Vertragstests und die fünf Lua-Runtime-Harnesses.
+        run: python tools/check.py
+
+      - name: Read addon version from TOC
+        id: version
+        run: |
+          version="$(python -c "import re,pathlib;m=re.search(r'(?m)^## Version:\s*(\S+)$',pathlib.Path('WeeklyAltTracker.toc').read_text(encoding='utf-8'));print(m.group(1) if m else '')")"
+          if [ -z "$version" ]; then
+            echo "Keine '## Version:' Zeile in WeeklyAltTracker.toc gefunden." >&2
+            exit 1
+          fi
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "Ungueltige Version in der TOC: '$version'" >&2; exit 1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Addon-Version: $version"
+
+      - name: Build deterministic ZIP
+        run: python tools/package_preview.py --out dist
+
+      - name: Verify built ZIP
+        # Prueft die tatsaechlich geschriebene Datei, nicht den Bauzustand.
+        run: python tools/verify_package.py "dist/WeeklyAltTracker-${{ steps.version.outputs.version }}.zip"
+
+      - name: Write checksum
+        working-directory: dist
+        run: sha256sum "WeeklyAltTracker-${{ steps.version.outputs.version }}.zip" > SHA256SUMS.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WeeklyAltTracker-${{ steps.version.outputs.version }}-CurseForge-manual-upload
+          path: |
+            dist/WeeklyAltTracker-${{ steps.version.outputs.version }}.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+          # Das innere Addon-ZIP ist bereits komprimiert; erneutes Packen
+          # kostet Zeit und bringt nichts.
+          compression-level: 0
+
+      - name: Step summary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          {
+            echo "## CurseForge-Paket $VERSION"
+            echo
+            echo "Artefakt: **WeeklyAltTracker-$VERSION-CurseForge-manual-upload**"
+            echo
+            echo "1. Artefakt unten auf dieser Seite herunterladen."
+            echo "2. Das heruntergeladene Actions-Archiv **einmal** entpacken."
+            echo "3. Die darin liegende Datei \`WeeklyAltTracker-$VERSION.zip\` **unveraendert** bei CurseForge hochladen."
+            echo
+            echo "Nicht erneut ein- oder auspacken: CurseForge erwartet genau dieses ZIP mit dem Ordner \`WeeklyAltTracker/\` an der Wurzel."
+            echo
+            echo "\`SHA256SUMS.txt\` liegt zur Kontrolle daneben und enthaelt die Pruefsumme des Addon-ZIPs."
+            echo
+            echo "Dieser Workflow laedt nichts hoch - der Upload bleibt manuell."
+          } >> "$GITHUB_STEP_SUMMARY"
