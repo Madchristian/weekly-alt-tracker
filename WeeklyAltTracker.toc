@@ -4,6 +4,7 @@
 ## Author: Christian
 ## Version: 0.2.5
 ## X-License: All Rights Reserved
+## X-Wago-ID: ZKxZJkNk
 ## SavedVariables: WeeklyAltTrackerDB
 ## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
 

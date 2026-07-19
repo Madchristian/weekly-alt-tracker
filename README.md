@@ -168,10 +168,12 @@ Das GitHub-Release wird mit dem automatisch bereitgestellten `GITHUB_TOKEN` erst
 
 ### Wago-Upload (noch nicht aktiv)
 
-`WAGO_API_TOKEN` ist im Workflow bereits vorbereitet, der Upload ist aber bewusst noch inaktiv. Damit er startet, sind drei Schritte nötig:
+`WAGO_API_TOKEN` ist im Workflow bereits vorbereitet, der Upload ist aber noch nicht aktiv. Stand der drei nötigen Schritte:
 
-1. Projekt auf Wago Addons anlegen und die Projekt-ID notieren.
-2. In `WeeklyAltTracker.toc` die Zeile `## X-Wago-ID: <id>` ergänzen.
-3. Im Repository unter *Settings → Secrets and variables → Actions* das Secret `WAGO_API_TOKEN` hinterlegen.
+1. **Erledigt:** Das Projekt ist auf Wago Addons angelegt, die Projekt-ID lautet `ZKxZJkNk`.
+2. **Erledigt:** `WeeklyAltTracker.toc` enthält die Zeile `## X-Wago-ID: ZKxZJkNk`.
+3. **Offen:** Im Repository unter *Settings → Secrets and variables → Actions* muss das Secret `WAGO_API_TOKEN` hinterlegt werden. Der Tokenwert gehört ausschließlich in dieses Secret und nicht in das Repository.
 
-Solange die TOC keine `## X-Wago-ID` enthält, überspringt der Packager den Wago-Schritt kommentarlos; der Job schlägt dadurch nicht fehl.
+Erst wenn das Secret gesetzt ist, lädt ein Tag-Release automatisch nach Wago hoch. Solange die TOC keine `## X-Wago-ID` enthielt, übersprang der Packager den Wago-Schritt kommentarlos; der Job schlug dadurch nicht fehl.
+
+Der bereits veröffentlichte Release 0.2.5 wird nicht rückwirkend hochgeladen, weil sein Tag-Workflow lief, bevor die Wago-ID in der TOC stand. Er kann bei Bedarf einmalig manuell über die offizielle Wago-Upload-API nachgereicht werden; alle folgenden Tag-Releases laufen dann automatisch, sobald Schritt 3 erledigt ist.
