@@ -86,7 +86,9 @@ Neu in 0.3.0, in 0.4.0 von neun auf dreizehn Werte erweitert. Der Bereich zeigt 
 - Benutzte Heilsteine
 - Abgeschlossene Quests, abgeschlossene Tagesquests und abgebrochene Quests
 
-Dreizehn Werte passen nicht nebeneinander in die Tabellenbreite. Sie liegen deshalb in zwei übereinanderliegenden Bändern innerhalb derselben Charakterzeile: oben Inhalte (Tiefen, Dungeons, Spielzeit), unten Heilsteine, Tode und Quests. Es bleibt bei einer Zeile pro Charakter, nichts wird abgeschnitten.
+Dreizehn Werte passen nicht nebeneinander in die Tabellenbreite. Sie liegen deshalb in drei thematisch gruppierten, übereinanderliegenden Bändern innerhalb derselben Charakterzeile: **Inhalte** (Tiefen, Midnight-Tiefen, Dungeons betreten, Midnight-Dungeons, Spielzeit), **Überleben** (Tode gesamt, im Dungeon, im Schlachtzug, durch Sturz, Heilsteine) und **Quests** (abgeschlossen, täglich, abgebrochen). Es bleibt bei einer Zeile pro Charakter.
+
+Seit 0.4.1 sind es drei statt zwei Bänder: im zweibändigen Layout trug das untere Band acht Spalten zu 85 Pixeln, in denen zweizeilige Spaltenköpfe wie „TODE SCHLACHTZUG“ nicht mehr lesbar waren. Jede Zelle sitzt zusätzlich in einem eigenen Rahmen, der hart abschneidet – ein Wert kann damit unter keiner Skalierungsstufe mehr in die Nachbarspalte laufen. Sehr große lebenslange Werte werden in der Zelle abgekürzt (`123Bio`) statt ausgeschrieben; der Tooltip nennt weiterhin den exakten vollen Wert, und gespeichert wird ohnehin immer die genaue Zahl. Kleine Werte bleiben unverändert exakt, die Spielzeit wird nie abgekürzt.
 
 Zwei Werte verdienen eine ausdrückliche Erklärung, weil ein kurzer Spaltenkopf sie nicht tragen kann und der Tooltip sie deshalb ausschreibt:
 
@@ -222,7 +224,7 @@ Das GitHub-Release wird mit dem automatisch bereitgestellten `GITHUB_TOKEN` erst
 
 Das Addon ist auf Wago Addons veröffentlicht: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). Die Projekt-ID `ZKxZJkNk` steht als `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` und ist auch auf der Projektseite sichtbar.
 
-Version 0.3.0 wurde über den tagbasierten BigWigs-Packager als Stable für Retail-Patch 12.0.7 veröffentlicht und öffentlich bytegenau verifiziert. Version 0.3.1 korrigiert die Position des Minimap-Symbols, sodass es tangential außerhalb statt innerhalb des Minimap-Randes sitzt. Version 0.4.0 erweitert die Statistikseite von neun auf dreizehn lebenslange Werte und legt sie in zwei Bänder.
+Version 0.3.0 wurde über den tagbasierten BigWigs-Packager als Stable für Retail-Patch 12.0.7 veröffentlicht und öffentlich bytegenau verifiziert. Version 0.3.1 korrigiert die Position des Minimap-Symbols, sodass es tangential außerhalb statt innerhalb des Minimap-Randes sitzt. Version 0.4.0 erweitert die Statistikseite von neun auf dreizehn lebenslange Werte und legt sie in zwei Bänder. Version 0.4.1 ist ein reiner UI-Hotfix darauf: drei thematisch gruppierte Bänder statt zwei, hart abschneidende Zellrahmen gegen überlappende Werte und eine kompakte Zellendarstellung sehr großer Zahlen bei unverändert exaktem Tooltip- und Speicherwert.
 
 Das Secret `WAGO_API_TOKEN` ist im Repository unter *Settings → Secrets and variables → Actions* hinterlegt. Der Tokenwert gehört ausschließlich in dieses Secret und niemals in das Repository. Damit lädt jeder künftige `v*`-Tag über den BigWigs-Packager automatisch sowohl zum GitHub-Release als auch zu Wago hoch.
 
@@ -232,7 +234,7 @@ Die projektseitigen CurseForge-Texte liegen versioniert unter `curseforge/`:
 
 - `PROJECT-en.md` – englischer Titel, Kurzbeschreibung und Beschreibung. CurseForge verlangt Englisch als Projektsprache.
 - `PROJECT-de.md` – deutsche Zusatzfassung derselben Beschreibung.
-- `CHANGELOG-0.4.0-en.md` und `CHANGELOG-0.4.0-de.md` – Änderungsprotokoll zum aktuellen Release. Die Protokolle der Vorversionen (`CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) bleiben als Historie erhalten.
+- `CHANGELOG-0.4.1-en.md` und `CHANGELOG-0.4.1-de.md` – Änderungsprotokoll zum aktuellen Release. Die Protokolle der Vorversionen (`CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) bleiben als Historie erhalten.
 
 Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mit ausgeliefert.
 
@@ -247,7 +249,7 @@ Der separate Workflow `.github/workflows/curseforge-package.yml` (**Build CurseF
 
 Der Workflow führt vorher das vollständige `tools/check.py` aus und prüft das gebaute ZIP anschließend mit `tools/verify_package.py` (14 erwartete Dateien unter `WeeklyAltTracker/`, bytegleich zum Repository, TOC-Kennwerte, keine Secret-Zuweisungen). Die mitgelieferte `SHA256SUMS.txt` dient zur Kontrolle der heruntergeladenen Datei.
 
-Das Addon ist auf CurseForge unter [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker) angelegt. Das Projekt verwendet die Project ID `1616769` und die Lizenz **All Rights Reserved**; die ID steht als `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.4.0 wird wie 0.2.6 und 0.3.1 manuell über die CurseForge-Projektseite hochgeladen; dafür ist kein API-Key erforderlich. Ein automatischer CurseForge-Upload ist ohne `CF_API_KEY` bewusst nicht eingerichtet.
+Das Addon ist auf CurseForge unter [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker) angelegt. Das Projekt verwendet die Project ID `1616769` und die Lizenz **All Rights Reserved**; die ID steht als `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.4.1 wird wie 0.2.6, 0.3.1 und 0.4.0 manuell über die CurseForge-Projektseite hochgeladen; dafür ist kein API-Key erforderlich. Ein automatischer CurseForge-Upload ist ohne `CF_API_KEY` bewusst nicht eingerichtet.
 
 ## Datenherkunft und Dritte
 

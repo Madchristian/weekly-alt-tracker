@@ -48,7 +48,9 @@ WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 1
 
 ### Statistiken
 
-- dreizehn lebenslange Werte pro Charakter in zwei Bändern derselben Zeile
+- dreizehn lebenslange Werte pro Charakter in drei gruppierten Bändern derselben Zeile: Inhalte, Überleben, Quests
+- jede Zelle schneidet hart ab, kein Wert läuft in die Nachbarspalte
+- sehr große Werte in der Zelle abgekürzt, im Tooltip exakt
 - unter anderem absolvierte Tiefen, Tode, benutzte Heilsteine und Quests
 - betretene 5-Spieler-Dungeons (betreten, nicht abgeschlossen)
 - Midnight-Dungeons als Summe der Endboss-Siege aus acht Dungeons über drei Schwierigkeiten

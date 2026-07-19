@@ -88,7 +88,9 @@ New in 0.3.0, extended from nine to thirteen values in 0.4.0. This section shows
 - Healthstones used
 - Quests completed, daily quests completed and quests abandoned
 
-Thirteen values do not fit side by side across the table width. They are therefore laid out in two stacked bands inside the same character row: content on top (delves, dungeons, playtime), healthstones, deaths and quests below. It remains one row per character and nothing is clipped.
+Thirteen values do not fit side by side across the table width. They are therefore laid out in three thematically grouped stacked bands inside the same character row: **content** (delves, Midnight delves, dungeons entered, Midnight dungeons, playtime), **survival** (deaths total, in dungeons, in raids, from falling, healthstones) and **quests** (completed, daily, abandoned). It remains one row per character.
+
+Since 0.4.1 there are three bands instead of two: in the two-band layout the lower band carried eight columns at 85 pixels each, which left two-line column heads such as "DEATHS RAID" unreadable. Every cell now also sits in its own container that clips hard, so a value can no longer bleed into its neighbour at any scale preset. Very large lifetime values are abbreviated inside the cell (`123T`) instead of being written out in full; the tooltip still states the exact full value, and the stored number is always the precise one anyway. Small values stay exact and playtime is never abbreviated.
 
 Two values deserve an explicit explanation, because a short column head cannot carry it and the tooltip therefore spells it out:
 
@@ -226,7 +228,7 @@ The GitHub release is created with the automatically provided `GITHUB_TOKEN`; no
 
 The addon is published on Wago Addons: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). The project ID `ZKxZJkNk` is declared as `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` and is also visible on the project page.
 
-Version 0.3.0 was published through the tag-based BigWigs Packager as a stable release for Retail patch 12.0.7 and its public artifact was verified byte-for-byte. Version 0.3.1 fixes the minimap button position so it sits tangentially outside rather than inside the minimap edge. Version 0.4.0 extends the statistics page from nine to thirteen lifetime values and lays them out in two bands.
+Version 0.3.0 was published through the tag-based BigWigs Packager as a stable release for Retail patch 12.0.7 and its public artifact was verified byte-for-byte. Version 0.3.1 fixes the minimap button position so it sits tangentially outside rather than inside the minimap edge. Version 0.4.0 extends the statistics page from nine to thirteen lifetime values and lays them out in two bands. Version 0.4.1 is a pure UI hotfix on top of it: three thematically grouped bands instead of two, hard-clipping cell containers against overlapping values, and a compact cell display for very large numbers with tooltip and stored values left exact.
 
 The secret `WAGO_API_TOKEN` is stored in the repository under *Settings → Secrets and variables → Actions*. The token value belongs exclusively in that secret and never in the repository.
 
@@ -236,7 +238,7 @@ The project-side CurseForge texts are versioned under `curseforge/`:
 
 - `PROJECT-en.md` – English title, summary and description. CurseForge requires English as the project language.
 - `PROJECT-de.md` – German additional version of the same description.
-- `CHANGELOG-0.4.0-en.md` and `CHANGELOG-0.4.0-de.md` – change log for the current release. The logs of the previous versions (`CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
+- `CHANGELOG-0.4.1-en.md` and `CHANGELOG-0.4.1-de.md` – change log for the current release. The logs of the previous versions (`CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
 
 The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 
@@ -251,7 +253,7 @@ The separate workflow `.github/workflows/curseforge-package.yml` (**Build CurseF
 
 The workflow runs the full `tools/check.py` first and then verifies the built ZIP with `tools/verify_package.py` (14 expected files under `WeeklyAltTracker/`, byte-identical to the repository, TOC fields, no secret assignments). The bundled `SHA256SUMS.txt` is there to check the downloaded file.
 
-The addon is listed on CurseForge at [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker). The project uses Project ID `1616769` under the **All Rights Reserved** licence; the ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.4.0 is uploaded manually through the CurseForge project page just like 0.2.6 and 0.3.1, which does not require an API key. Automated CurseForge uploads are deliberately not configured without `CF_API_KEY`.
+The addon is listed on CurseForge at [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker). The project uses Project ID `1616769` under the **All Rights Reserved** licence; the ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.4.1 is uploaded manually through the CurseForge project page just like 0.2.6, 0.3.1 and 0.4.0, which does not require an API key. Automated CurseForge uploads are deliberately not configured without `CF_API_KEY`.
 
 ## Data provenance and third parties
 

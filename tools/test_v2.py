@@ -350,7 +350,26 @@ def main() -> int:
         # GetAchievementInfo kann für eine synthetische Statistik nichts
         # liefern; die Literale werden unten gegen beide Wörterbücher geprüft.
         ("UI.lua", "definition.tooltipKey"),
+        # Kompaktdarstellung grosser Zellenwerte: COMPACT_UNITS[...].key. Die
+        # Tabelle steht als Literal in UI.lua; ihre vier Schlüssel werden
+        # unmittelbar darunter gegen beide Wörterbücher geprüft.
+        ("UI.lua", "unit.key"),
     }
+
+    # Statische Absicherung von L(unit.key): die Schlüsselquelle ist die
+    # Literaltabelle COMPACT_UNITS in UI.lua. Menge und Namen werden hier
+    # eingefroren, damit der dynamische Aufruf nie ins Leere laufen kann.
+    compact_match = re.search(r"local COMPACT_UNITS = \{(.*?)\n\}", ui, re.DOTALL)
+    require(compact_match is not None,
+            "COMPACT_UNITS fehlt in UI.lua - die Kompaktdarstellung braucht ihre Einheitentabelle")
+    compact_body = compact_match.group(1) if compact_match else ""
+    compact_keys = re.findall(r'key\s*=\s*"([A-Za-z_][A-Za-z0-9_]*)"', compact_body)
+    require(compact_keys == ["NUMBER_UNIT_TRILLION", "NUMBER_UNIT_BILLION",
+                             "NUMBER_UNIT_MILLION", "NUMBER_UNIT_THOUSAND"],
+            f"COMPACT_UNITS muss absteigend Bio/Mrd/M/K fuehren, hat aber: {compact_keys}")
+    for key in compact_keys:
+        require(key in en_keys, f"UI.lua: COMPACT_UNITS-Schlüssel {key} fehlt im enUS-Wörterbuch")
+        require(key in de_keys, f"UI.lua: COMPACT_UNITS-Schlüssel {key} fehlt im deDE-Wörterbuch")
 
     seen_dynamic: set[tuple[str, str]] = set()
     for name, source in (("Localization.lua", localization), ("Core.lua", core), ("Data.lua", data),
@@ -601,13 +620,27 @@ def main() -> int:
         match = re.search(rf"local {name}\s*=\s*(\d+)", ui)
         return int(match.group(1)) if match else None
     frame_width = constant("FRAME_WIDTH")
+    frame_height = constant("FRAME_HEIGHT")
     content_width = constant("CONTENT_WIDTH")
     content_left = constant("CONTENT_LEFT")
     scrollbar_gutter = constant("SCROLLBAR_GUTTER")
+    band_height = constant("BAND_HEIGHT")
+    header_band_height = constant("HEADER_BAND_HEIGHT")
     require(frame_width is not None and content_width is not None and content_left is not None
             and scrollbar_gutter is not None
             and content_left + content_width + scrollbar_gutter + 20 <= frame_width,
             "Sidebar, Tabellen-Viewport und Scrollbar-Gutter passen nicht vollständig in das Fenster")
+    # Statistikseite: Accountsumme plus mindestens drei Charaktere müssen ohne
+    # Scrollen vollständig sichtbar sein. Das verhindert, dass mehr Bänder die
+    # Alt-Vergleichsansicht praktisch auf nur zwei Charaktere zusammenschieben.
+    if frame_height is not None and band_height is not None and header_band_height is not None:
+        statistics_panel_height = frame_height - 150 - 48
+        statistics_header_height = 3 * header_band_height + 4
+        statistics_row_height = 3 * band_height + 2
+        visible_statistics_rows = (statistics_panel_height - statistics_header_height - 2) // statistics_row_height
+        require(visible_statistics_rows >= 4,
+                "Statistikseite zeigt nur "
+                f"{visible_statistics_rows} vollständige Zeilen; erwartet Accountsumme plus drei Charaktere")
     require('scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMLEFT", CONTENT_WIDTH, 0)' in ui,
             "ScrollFrame-Viewport muss exakt CONTENT_WIDTH breit sein")
     for index, panel in enumerate(panel_order):

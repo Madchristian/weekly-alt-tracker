@@ -1,13 +1,16 @@
 local _, WAT = ...
 
 local FRAME_WIDTH = 1154
-local FRAME_HEIGHT = 570
+local FRAME_HEIGHT = 600
 local CONTENT_WIDTH = 920
 local ROW_HEIGHT = 38
 -- Hoehe eines einzelnen Wertebandes innerhalb einer Zeile. Nur Seiten, deren
 -- Spalten eine Bandnummer tragen, werden mehrbaendig; alle uebrigen behalten
 -- exakt die bisherige einzeilige Geometrie.
-local BAND_HEIGHT = 28
+local BAND_HEIGHT = 24
+-- Zweizeilige Spaltenkoepfe brauchen etwas mehr vertikalen Raum als die
+-- einzeiligen Datenwerte; getrennte Hoehen halten beides lesbar und kompakt.
+local HEADER_BAND_HEIGHT = 28
 local HEADER_HEIGHT = 36
 local SIDEBAR_WIDTH = 176
 local CONTENT_LEFT = 196
@@ -115,34 +118,43 @@ local PANELS = {
     --
     -- Dreizehn Werte passen nicht nebeneinander in 920px: bei lesbarer
     -- Spaltenbreite waeren es rund 1200px. Statt Spalten abzuschneiden oder
-    -- Spaltenkoepfe unleserlich zu quetschen, liegen die Werte in zwei
+    -- Spaltenkoepfe unleserlich zu quetschen, liegen die Werte in drei
     -- uebereinanderliegenden Baendern innerhalb DERSELBEN Zeile. Die Zeile
     -- bleibt damit eine Zeile pro Charakter - Sortierung, Zeilenfarben,
     -- Tooltip und Zeilenrecycling bleiben unveraendert.
     --
-    -- Band 1 buendelt Inhalte (Tiefen, Dungeons, Spielzeit), Band 2 Heilsteine,
-    -- Tode und Quests. Die Charakterspalte laeuft ueber beide Baender.
+    -- Drei Baender statt zwei: mit zwei Baendern trug das untere acht Spalten
+    -- zu 85px. Ein zweizeiliger Kopf wie "TODE\nSCHLACHTZUG" passt dort nicht,
+    -- Die kompakte dritte Bandzeile schafft durchgehend lesbare Spaltenbreiten;
+    -- 30px zusaetzliche Fensterhoehe erhalten vier voll sichtbare Zeilen.
+    --
+    -- Die Baender sind thematisch gruppiert, nicht bloss aufgefuellt:
+    --   Band 1 Inhalte    - Tiefen, Dungeons, Spielzeit
+    --   Band 2 Ueberleben - Tode und Heilsteine
+    --   Band 3 Quests
+    -- Die Charakterspalte laeuft ueber alle drei Baender.
     statistics = {
         label = L("PANEL_STATISTICS"),
         shortLabel = L("PANEL_STATISTICS_SHORT"),
         description = L("PANEL_STATISTICS_DESC"),
         columns = {
-            { key = "character", label = L("COL_CHARACTER"), width = 150, left = true, band = "all" },
-            -- Band 1: 150 + 85 + 85 + 95 + 95 + 110 = 620
-            { key = "delvesTotal", label = L("STAT_COL_DELVES"), width = 85, band = 1 },
-            { key = "delvesMidnight", label = L("STAT_COL_DELVES_MIDNIGHT"), width = 85, band = 1 },
-            { key = "dungeonsEntered", label = L("STAT_COL_DUNGEONS"), width = 95, band = 1 },
-            { key = "midnightDungeons", label = L("STAT_COL_DUNGEONS_MIDNIGHT"), width = 95, band = 1 },
-            { key = "playtimeTotal", label = L("STAT_COL_PLAYTIME"), width = 110, band = 1 },
-            -- Band 2: 150 + 85 + 85 + 85 + 85 + 95 + 85 + 85 + 110 = 865
-            { key = "deathsTotal", label = L("STAT_COL_DEATHS"), width = 85, band = 2 },
-            { key = "deathsDungeon", label = L("STAT_COL_DEATHS_DUNGEON"), width = 85, band = 2 },
-            { key = "deathsRaid", label = L("STAT_COL_DEATHS_RAID"), width = 85, band = 2 },
-            { key = "deathsFalling", label = L("STAT_COL_DEATHS_FALLING"), width = 85, band = 2 },
-            { key = "healthstones", label = L("STAT_COL_HEALTHSTONES"), width = 95, band = 2 },
-            { key = "questsCompleted", label = L("STAT_COL_QUESTS"), width = 85, band = 2 },
-            { key = "questsDaily", label = L("STAT_COL_QUESTS_DAILY"), width = 85, band = 2 },
-            { key = "questsAbandoned", label = L("STAT_COL_QUESTS_ABANDONED"), width = 110, band = 2 },
+            { key = "character", label = L("COL_CHARACTER"), width = 160, left = true, band = "all" },
+            -- Band 1 Inhalte:    164 + 145 + 150 + 150 + 150 + 150 = 909
+            { key = "delvesTotal", label = L("STAT_COL_DELVES"), width = 145, band = 1 },
+            { key = "delvesMidnight", label = L("STAT_COL_DELVES_MIDNIGHT"), width = 150, band = 1 },
+            { key = "dungeonsEntered", label = L("STAT_COL_DUNGEONS"), width = 150, band = 1 },
+            { key = "midnightDungeons", label = L("STAT_COL_DUNGEONS_MIDNIGHT"), width = 150, band = 1 },
+            { key = "playtimeTotal", label = L("STAT_COL_PLAYTIME"), width = 150, band = 1 },
+            -- Band 2 Ueberleben: 164 + 130 + 135 + 130 + 135 + 135 = 829
+            { key = "deathsTotal", label = L("STAT_COL_DEATHS"), width = 130, band = 2 },
+            { key = "deathsDungeon", label = L("STAT_COL_DEATHS_DUNGEON"), width = 135, band = 2 },
+            { key = "deathsRaid", label = L("STAT_COL_DEATHS_RAID"), width = 130, band = 2 },
+            { key = "deathsFalling", label = L("STAT_COL_DEATHS_FALLING"), width = 135, band = 2 },
+            { key = "healthstones", label = L("STAT_COL_HEALTHSTONES"), width = 135, band = 2 },
+            -- Band 3 Quests:     164 + 175 + 175 + 180 = 694
+            { key = "questsCompleted", label = L("STAT_COL_QUESTS"), width = 175, band = 3 },
+            { key = "questsDaily", label = L("STAT_COL_QUESTS_DAILY"), width = 175, band = 3 },
+            { key = "questsAbandoned", label = L("STAT_COL_QUESTS_ABANDONED"), width = 180, band = 3 },
         },
     },
     -- Formularseite ohne Spalten und ohne Charakterzeilen.
@@ -216,7 +228,7 @@ end
 
 local function PanelHeaderHeight(bands)
     if bands <= 1 then return HEADER_HEIGHT end
-    return bands * BAND_HEIGHT + 4
+    return bands * HEADER_BAND_HEIGHT + 4
 end
 
 local function SetBackdrop(frame, background, border)
@@ -782,13 +794,56 @@ local function FormatDuration(seconds)
 end
 
 -- Ein abgeleiteter Wert mit kind = "duration" wird als Dauer dargestellt,
--- alles andere als blanke Zahl.
+-- alles andere als blanke Zahl. Bewusst string.format statt tostring: unter
+-- Lua 5.1 kippt tostring grosse Zahlen in die Exponentialschreibweise
+-- ("1.2345678901234e+14"), und genau solche Werte kommen hier vor.
 local function StatisticDisplayValue(definition, value)
     if type(value) ~= "number" then return nil end
     if type(definition) == "table" and definition.kind == "duration" then
         return FormatDuration(value)
     end
-    return tostring(value)
+    return string.format("%.0f", value)
+end
+
+-- Kompakte Darstellung grosser Zahlen fuer die TABELLENZELLE. Der Parser in
+-- Activities.lua akzeptiert 15-stellige Statistikwerte; ausgeschrieben passt
+-- so einer in keine Spalte und liefe in den Nachbarn.
+--
+-- Bewusst ohne Dezimaltrennzeichen: Punkt und Komma haben je nach Clientsprache
+-- die umgekehrte Bedeutung, "1.5M" waere in deDE als 15 Millionen lesbar.
+-- Abgerundete Ganzzahlen mit lokalisierter Einheit sind in jeder Sprache
+-- eindeutig. Die Schwellen sind so gewaehlt, dass die Zelle nie mehr als fuenf
+-- Ziffern plus Einheit traegt.
+local COMPACT_UNITS = {
+    { threshold = 1e14, divisor = 1e12, key = "NUMBER_UNIT_TRILLION" },
+    { threshold = 1e11, divisor = 1e9, key = "NUMBER_UNIT_BILLION" },
+    { threshold = 1e8, divisor = 1e6, key = "NUMBER_UNIT_MILLION" },
+    { threshold = 1e5, divisor = 1e3, key = "NUMBER_UNIT_THOUSAND" },
+}
+
+local function CompactNumber(value)
+    if type(value) ~= "number" then return nil end
+    local sign = value < 0 and "-" or ""
+    local magnitude = math.abs(value)
+    for _, unit in ipairs(COMPACT_UNITS) do
+        if magnitude >= unit.threshold then
+            return sign .. string.format("%.0f", math.floor(magnitude / unit.divisor))
+                .. L(unit.key)
+        end
+    end
+    -- Unter der ersten Schwelle bleibt der Wert exakt: eine Abkuerzung waere
+    -- dort Informationsverlust ohne jeden Platzgewinn.
+    return sign .. string.format("%.0f", magnitude)
+end
+
+-- Was in der Zelle steht. Eine Dauer wird nie gekuerzt - "1T 1Std" ist bereits
+-- kompakt, und eine Tausenderabkuerzung waere dort schlicht falsch.
+local function StatisticCellValue(definition, value)
+    if type(value) ~= "number" then return nil end
+    if type(definition) == "table" and definition.kind == "duration" then
+        return FormatDuration(value)
+    end
+    return CompactNumber(value)
 end
 
 local function StatisticCellText(text)
@@ -998,19 +1053,32 @@ local function CreatePanel(parent, key, definition)
     topLine:SetPoint("TOPRIGHT")
     topLine:SetHeight(1)
     topLine:SetColorTexture(1, 1, 1, 0.08)
+    panel.headerCells = {}
+    panel.headerLabels = {}
     local edges = LayoutColumns(definition.columns, function(column, left, band)
-        local label = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        -- Derselbe Clipping-Rahmen wie in der Datenzeile: ein Spaltenkopf darf
+        -- ebenso wenig in den Nachbarn laufen wie ein Wert.
+        local cell = CreateFrame("Frame", nil, header)
         if band then
-            label:SetPoint("TOPLEFT", left, -((band - 1) * BAND_HEIGHT + 2))
-            label:SetSize(column.width - 6, BAND_HEIGHT)
+            cell:SetPoint("TOPLEFT", left, -((band - 1) * HEADER_BAND_HEIGHT + 2))
+            cell:SetSize(column.width - 6, HEADER_BAND_HEIGHT)
         else
-            label:SetPoint("LEFT", left, 0)
-            label:SetSize(column.width - 6, headerHeight - 6)
+            cell:SetPoint("LEFT", left, 0)
+            cell:SetSize(column.width - 6, headerHeight - 6)
         end
+        cell:SetClipsChildren(true)
+        local label = cell:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        label:SetAllPoints(cell)
         label:SetJustifyH(column.left and "LEFT" or "CENTER")
         label:SetJustifyV("MIDDLE")
+        -- Anders als ein Wert darf ein Kopf zwei Zeilen nutzen: die Labels
+        -- tragen dafuer ein bewusstes "\n" ("TODE\nSCHLACHTZUG"). Mehr als
+        -- zwei Zeilen passen in die Bandhoehe nicht.
+        label:SetMaxLines(2)
         label:SetTextColor(0.67, 0.71, 0.76)
         label:SetText(column.label)
+        panel.headerCells[column.key] = cell
+        panel.headerLabels[column.key] = label
     end)
     -- Die gemessenen rechten Kanten, nicht eine parallele Rechnung.
     panel.bandWidths = edges
@@ -1472,21 +1540,43 @@ local function CreateRow(panel, index)
     SetBackdrop(row, COLORS.surface, { 1, 1, 1, 0.025 })
     row:EnableMouse(true)
     row.values = {}
+    row.cells = {}
     row.panelKey = panel.key
     LayoutColumns(panel.columns, function(column, left, band)
-        local value = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        -- SetWordWrap(false) verhindert nur den Umbruch, nicht das Hinausragen
+        -- ueber die Spaltengrenze: ein zu langer Text laeuft weiter in den
+        -- Nachbarn. Die harte Grenze zieht erst dieser Rahmen mit
+        -- SetClipsChildren - die FontString sitzt darin und wird beschnitten.
+        local cell = CreateFrame("Frame", nil, row)
         if band then
-            value:SetPoint("TOPLEFT", left, -((band - 1) * BAND_HEIGHT + 1))
-            value:SetSize(column.width - 6, BAND_HEIGHT)
+            cell:SetPoint("TOPLEFT", left, -((band - 1) * BAND_HEIGHT + 1))
+            cell:SetSize(column.width - 6, BAND_HEIGHT)
         else
-            value:SetPoint("LEFT", left, 0)
-            value:SetSize(column.width - 6, rowHeight - 2)
+            cell:SetPoint("LEFT", left, 0)
+            cell:SetSize(column.width - 6, rowHeight - 2)
         end
+        cell:SetClipsChildren(true)
+        local value = cell:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        value:SetAllPoints(cell)
         value:SetJustifyH(column.left and "LEFT" or "CENTER")
         value:SetJustifyV("MIDDLE")
         value:SetWordWrap(false)
+        -- Ein Datenwert ist immer einzeilig: eine zweite Zeile waere in der
+        -- kompakten Bandhoehe halb abgeschnitten und damit unlesbar.
+        value:SetMaxLines(1)
+        row.cells[column.key] = cell
         row.values[column.key] = value
     end)
+    -- Dezente Bandtrennung: eine 1px-Linie sehr niedriger Deckkraft je
+    -- Bandgrenze. Sie gliedert die Wertegruppen im dunklen Grundton der UI,
+    -- ohne wie eine zweite Tabelle oder eine aufgesetzte Karte zu wirken.
+    for band = 1, (panel.bandCount or 1) - 1 do
+        local separator = row:CreateTexture(nil, "ARTWORK")
+        separator:SetPoint("TOPLEFT", 4, -(band * BAND_HEIGHT))
+        separator:SetPoint("TOPRIGHT", -4, -(band * BAND_HEIGHT))
+        separator:SetHeight(1)
+        separator:SetColorTexture(1, 1, 1, 0.035)
+    end
     row:SetScript("OnEnter", function(r)
         r:SetBackdropColor(COLORS.hover[1], COLORS.hover[2], COLORS.hover[3], COLORS.hover[4])
         WAT:ShowCharacterTooltip(r)
@@ -1608,7 +1698,7 @@ local function FillStatistics(row, character)
         local cell = row.values[definition.key]
         if cell then
             local value = StatisticValue(character, StatisticStorageKey(definition))
-            cell:SetText(StatisticCellText(StatisticDisplayValue(definition, value)))
+            cell:SetText(StatisticCellText(StatisticCellValue(definition, value)))
         end
     end
 end
@@ -1619,7 +1709,7 @@ local function FillStatisticsTotal(row, characters)
         local cell = row.values[definition.key]
         if cell then
             local total = AccountStatisticTotal(characters, StatisticStorageKey(definition))
-            cell:SetText(StatisticCellText(StatisticDisplayValue(definition, total)))
+            cell:SetText(StatisticCellText(StatisticCellValue(definition, total)))
         end
     end
 end

@@ -106,6 +106,12 @@ local enUS = {
     DURATION_UNIT_DAYS = "d",
     DURATION_UNIT_HOURS = "h",
     DURATION_UNIT_MINUTES = "m",
+    -- Kurzformen fuer die Kompaktdarstellung grosser Zellenwerte. Sie stehen
+    -- NUR in der Tabellenzelle; der Tooltip nennt immer den vollen Wert.
+    NUMBER_UNIT_THOUSAND = "K",
+    NUMBER_UNIT_MILLION = "M",
+    NUMBER_UNIT_BILLION = "B",
+    NUMBER_UNIT_TRILLION = "T",
     STAT_ACCOUNT_TOTAL = "ALL CHARACTERS",
     STAT_ACCOUNT_TOOLTIP = "Account total",
     STAT_ACCOUNT_HINT = "Sum of all known character values. Characters without a recorded value are not counted.",
@@ -369,6 +375,12 @@ local deDE = {
     DURATION_UNIT_DAYS = "T",
     DURATION_UNIT_HOURS = "Std",
     DURATION_UNIT_MINUTES = "Min",
+    -- Kurzformen fuer die Kompaktdarstellung grosser Zellenwerte. Sie stehen
+    -- NUR in der Tabellenzelle; der Tooltip nennt immer den vollen Wert.
+    NUMBER_UNIT_THOUSAND = "K",
+    NUMBER_UNIT_MILLION = "M",
+    NUMBER_UNIT_BILLION = "Mrd",
+    NUMBER_UNIT_TRILLION = "Bio",
     STAT_ACCOUNT_TOTAL = "ALLE CHARAKTERE",
     STAT_ACCOUNT_TOOLTIP = "Accountsumme",
     STAT_ACCOUNT_HINT = "Summe aller bekannten Charakterwerte. Charaktere ohne erfassten Wert zählen nicht mit.",

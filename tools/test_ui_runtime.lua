@@ -54,6 +54,12 @@ function Widget:SetAlpha(value) self.alpha = value end
 function Widget:SetJustifyH(value) self.justifyH = value end
 function Widget:SetJustifyV(value) self.justifyV = value end
 function Widget:SetWordWrap(value) self.wordWrap = value end
+-- SetWordWrap allein ist KEINE Begrenzung: es verhindert nur den Umbruch, nicht
+-- das Hinausragen in die Nachbarspalte. Erst ein Rahmen mit SetClipsChildren
+-- schneidet wirklich ab. Beides wird hier mitgeschrieben, damit der Test die
+-- echte Begrenzung pruefen kann und nicht bloss die Absicht.
+function Widget:SetClipsChildren(value) self.clipsChildren = value end
+function Widget:SetMaxLines(value) self.maxLines = value end
 function Widget:SetFont(...) self.font = { ... } end
 function Widget:SetScale(value) self.scale = value end
 function Widget:SetFrameStrata(value) self.frameStrata = value end
@@ -113,7 +119,13 @@ local KEYSTONE_MAP_ID = 503
 --   98    (Quests)       1000 +  - = 1000  nur Testheld
 --   14787/14784/114/97/94                  bei keinem bekannt -> Strich, nie 0
 --   812   (Heilsteine)      30 + 12 =  42   beide bekannt
---   932   (Dungeons)       400 +  - = 400   nur Testheld
+--   932   (Dungeons)       400 + 123456789012345   realistischer Extremwert
+--
+-- 932 traegt bewusst einen 15-stelligen Wert. Der Parser in Activities.lua
+-- akzeptiert genau diese Groessenordnung, also muss die Zelle sie auch
+-- darstellen koennen. Ausgeschrieben waeren das rund 120px Text in einer
+-- 150px-Spalte - zusammen mit dem Spaltenabstand reicht das nicht, und ohne
+-- Kompaktdarstellung wandert der Wert in die Nachbarspalte.
 --   midnightDungeons        60 +  - =  60   nur Testheld (synthetische Summe)
 --   playtimeTotal        90000 +  0 = 90000 Zweitheld hat ECHTE Null
 local STATISTICS_MAIN = {
@@ -134,6 +146,8 @@ local STATISTICS_ALT = {
     [61790] = { value = 7, updated = 990 },
     [60] = { value = 5, updated = 990 },
     [812] = { value = 12, updated = 990 },
+    -- Realistischer Extremwert einer lebenslangen Statistik: 15 Stellen.
+    [932] = { value = 123456789012345, updated = 990 },
     -- Echte Null: sie muss als 0 erscheinen und darf nicht mit "unbekannt"
     -- verwechselt werden.
     playtimeTotal = { value = 0, updated = 990 },
@@ -145,7 +159,7 @@ local function MakeWAT()
     -- Data.lua wird echt geladen (siehe RunSuite); hier steht bewusst kein
     -- Stub, damit die Ableitung questID -> Labelschluessel wirklich laeuft.
     local WAT = {
-        version = "0.4.0",
+        version = "0.4.1",
         db = {
             settings = {
                 scale = 1,
@@ -308,7 +322,7 @@ local function RunSuite(locale, expect)
     WAT:CreateUI()
 
     assert(WAT.frame, context("Hauptfenster wurde nicht erstellt"))
-    assert(WAT.frame.width == 1154 and WAT.frame.height == 570,
+    assert(WAT.frame.width == 1154 and WAT.frame.height == 600,
         context("unerwartete Fenstergröße: " .. tostring(WAT.frame.width) .. "x" .. tostring(WAT.frame.height)))
     assert(WAT.sidebar and WAT.sidebar.width == 176, context("Sidebar fehlt oder hat falsche Breite"))
     assert(WAT.minimapButton, context("Minimap-Symbol fehlt"))
@@ -483,8 +497,11 @@ local function RunSuite(locale, expect)
         context("Statistik-Seitentitel nicht lokalisiert: " .. tostring(WAT.pageTitle.text)))
 
     -- Dreizehn Werte passen nicht nebeneinander in 920px. Die Statistikseite
-    -- legt sie deshalb in zwei uebereinanderliegende Baender innerhalb
-    -- derselben Zeile. Es darf trotzdem keine zweite Wahrheit ueber Menge oder
+    -- legt sie deshalb in drei thematisch gruppierte, uebereinanderliegende
+    -- Baender innerhalb derselben Zeile: Inhalte, Ueberleben, Quests. Drei
+    -- Baender statt zwei geben jeder Spalte genug Breite, dass ein Spaltenkopf
+    -- lesbar bleibt statt auf 85px gequetscht zu werden.
+    -- Es darf trotzdem keine zweite Wahrheit ueber Menge oder
     -- Schluessel geben: jede direkte und jede abgeleitete Statistik erscheint
     -- genau einmal, und nichts wird weggeschnitten.
     local statisticColumns = statisticsPanel.columns
@@ -499,7 +516,7 @@ local function RunSuite(locale, expect)
     assert(statisticColumns[1].key == "character",
         context("erste Statistik-Spalte ist nicht der Charakter"))
     assert(statisticColumns[1].band == "all",
-        context("die Charakterspalte muss ueber beide Baender laufen"))
+        context("die Charakterspalte muss ueber alle Baender laufen"))
 
     local columnByKey = {}
     for _, column in ipairs(statisticColumns) do
@@ -522,16 +539,42 @@ local function RunSuite(locale, expect)
 
     -- Bandgeometrie aus der ECHTEN Platzierung, nicht aus einer zweiten
     -- Rechnung: kein Band darf ueber die Inhaltsbreite hinauslaufen.
-    assert(statisticsPanel.bandCount == 2,
-        context("Statistikseite muss genau zwei Baender haben, hat "
+    assert(statisticsPanel.bandCount == 3,
+        context("Statistikseite muss genau drei Baender haben, hat "
             .. tostring(statisticsPanel.bandCount)))
     assert(type(statisticsPanel.bandWidths) == "table"
-            and #statisticsPanel.bandWidths == 2,
+            and #statisticsPanel.bandWidths == 3,
         context("Bandbreiten der Statistikseite fehlen"))
     for band, width in ipairs(statisticsPanel.bandWidths) do
         assert(width <= 920,
             context("Statistik-Band " .. band .. " ist mit " .. width
                 .. "px breiter als CONTENT_WIDTH=920"))
+    end
+
+    -- Die thematische Gruppierung ist der Zweck der drei Baender, nicht ein
+    -- Nebeneffekt. Sie wird deshalb festgeschrieben: Inhalte, Ueberleben,
+    -- Quests. Eine Statistik in ein fremdes Band zu schieben ist eine
+    -- inhaltliche Aenderung und soll den Test brechen.
+    local EXPECTED_BANDS = {
+        delvesTotal = 1, delvesMidnight = 1, dungeonsEntered = 1,
+        midnightDungeons = 1, playtimeTotal = 1,
+        deathsTotal = 2, deathsDungeon = 2, deathsRaid = 2,
+        deathsFalling = 2, healthstones = 2,
+        questsCompleted = 3, questsDaily = 3, questsAbandoned = 3,
+    }
+    for key, band in pairs(EXPECTED_BANDS) do
+        local column = columnByKey[key]
+        assert(column and column.band == band,
+            context("Statistik " .. key .. " gehoert in Band " .. band .. ", liegt aber in Band "
+                .. tostring(column and column.band)))
+    end
+
+    -- Breite Spalten sind der zweite Zweck der Umstellung: ein Spaltenkopf wie
+    -- "TODE SCHLACHTZUG" braucht Platz. 85px waren zu wenig.
+    for key in pairs(EXPECTED_BANDS) do
+        assert(columnByKey[key].width >= 115,
+            context("Statistik-Spalte " .. key .. " ist mit " .. columnByKey[key].width
+                .. "px zu schmal fuer einen lesbaren Spaltenkopf"))
     end
 
     -- Zeile 1 ist die Accountsumme, danach die sortierten Charakterzeilen.
@@ -596,9 +639,13 @@ local function RunSuite(locale, expect)
 
     -- Jede Zelle wird dort gemessen, wo sie tatsaechlich sitzt. Nichts darf
     -- ueber die Inhaltsbreite hinausragen - Abschneiden ist keine Loesung.
+    -- Gemessen wird der Clipping-Rahmen: er ist seit 0.4.1 die geometrische
+    -- Wahrheit der Zelle. Die FontString darin fuellt ihn per SetAllPoints und
+    -- kann per Definition nicht darueber hinausragen.
     local bandOffsets = {}
     for _, column in ipairs(statisticColumns) do
-        local widget = mainRow.values[column.key]
+        assert(mainRow.values[column.key], context("Statistikwert fehlt: " .. tostring(column.key)))
+        local widget = mainRow.cells[column.key]
         assert(widget, context("Statistikzelle fehlt: " .. tostring(column.key)))
         local point = widget.points[1]
         assert(point, context("Statistikzelle ohne Ankerpunkt: " .. tostring(column.key)))
@@ -617,8 +664,134 @@ local function RunSuite(locale, expect)
                     .. tostring(column.key)))
         end
     end
-    assert(bandOffsets[1] ~= bandOffsets[2],
-        context("die beiden Statistik-Baender liegen uebereinander statt untereinander"))
+    assert(bandOffsets[1] ~= bandOffsets[2] and bandOffsets[2] ~= bandOffsets[3]
+            and bandOffsets[1] ~= bandOffsets[3],
+        context("die drei Statistik-Baender liegen uebereinander statt untereinander"))
+
+    -- -----------------------------------------------------------------------
+    -- Harte Begrenzung: echte Clipping-Rahmen statt blossem SetWordWrap
+    -- -----------------------------------------------------------------------
+
+    -- SetWordWrap(false) verhindert nur den Umbruch. Ein zu langer Text laeuft
+    -- damit weiterhin ueber die Spaltengrenze hinaus in den Nachbarn. Erst ein
+    -- Rahmen mit SetClipsChildren(true), in dem die FontString sitzt, schneidet
+    -- wirklich ab. Geprueft wird deshalb der Rahmen, nicht die Absicht.
+    for _, column in ipairs(statisticColumns) do
+        local cell = mainRow.cells and mainRow.cells[column.key]
+        assert(cell, context("Statistikzelle ohne Clipping-Rahmen: " .. tostring(column.key)))
+        assert(cell.clipsChildren == true,
+            context("Clipping-Rahmen der Statistikzelle " .. tostring(column.key)
+                .. " schneidet nicht ab (SetClipsChildren fehlt)"))
+        assert((cell.width or 0) <= column.width,
+            context("Clipping-Rahmen von " .. tostring(column.key) .. " ist breiter als seine Spalte"))
+        -- Ein Datenwert ist immer einzeilig: eine zweite Zeile waere in einer
+        -- kompakten Bandhoehe halb abgeschnitten und damit unlesbar.
+        local value = mainRow.values[column.key]
+        assert(value.wordWrap == false,
+            context("Statistikwert " .. tostring(column.key) .. " darf nicht umbrechen"))
+        assert(value.maxLines == 1,
+            context("Statistikwert " .. tostring(column.key) .. " ist nicht auf eine Zeile begrenzt"))
+    end
+    assert(totalRow.cells and totalRow.cells.delvesTotal
+            and totalRow.cells.delvesTotal.clipsChildren == true,
+        context("auch die Accountsummenzeile braucht Clipping-Rahmen"))
+
+    -- Die Spaltenkoepfe tragen bewusst zweizeilige Labels ("TODE\nDUNGEON").
+    -- Sie duerfen zwei Zeilen nutzen, aber ebenfalls nicht ueber ihre Spalte
+    -- hinauslaufen.
+    for _, column in ipairs(statisticColumns) do
+        local headerCell = statisticsPanel.headerCells and statisticsPanel.headerCells[column.key]
+        assert(headerCell, context("Spaltenkopf ohne Clipping-Rahmen: " .. tostring(column.key)))
+        assert(headerCell.clipsChildren == true,
+            context("Spaltenkopf " .. tostring(column.key) .. " schneidet nicht ab"))
+        assert((headerCell.height or 0) >= 28,
+            context("Spaltenkopf " .. tostring(column.key)
+                .. " ist mit " .. tostring(headerCell.height)
+                .. "px zu niedrig fuer zwei lesbare Zeilen"))
+        local point = headerCell.points[1]
+        assert(point, context("Spaltenkopf ohne Ankerpunkt: " .. tostring(column.key)))
+        assert(point[2] + (headerCell.width or 0) <= 920,
+            context("Spaltenkopf " .. tostring(column.key) .. " endet ausserhalb von CONTENT_WIDTH=920"))
+        local label = statisticsPanel.headerLabels and statisticsPanel.headerLabels[column.key]
+        assert(label and (label.maxLines or 0) <= 2 and (label.maxLines or 0) >= 1,
+            context("Spaltenkopf " .. tostring(column.key) .. " ist nicht auf hoechstens zwei Zeilen begrenzt"))
+    end
+
+    -- -----------------------------------------------------------------------
+    -- Kompaktdarstellung: 15 Stellen muessen in eine Zelle passen
+    -- -----------------------------------------------------------------------
+
+    local function PlainText(widget)
+        local text = (widget and widget.text) or ""
+        text = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
+        text = string.gsub(text, "|r", "")
+        return text
+    end
+
+    -- Der Parser akzeptiert 15-stellige Werte, also muss die Zelle sie tragen
+    -- koennen. Ausgeschrieben passt das in keine Spalte - abgekuerzt schon.
+    local hugeCell = PlainText(altRow.values.dungeonsEntered)
+    assert(not string.find(hugeCell, "123456789012345", 1, true),
+        context("ein 15-stelliger Wert darf nicht ausgeschrieben in der Zelle stehen, erhalten: "
+            .. hugeCell))
+    assert(string.find(hugeCell, expect.compactHuge, 1, true),
+        context("15-stelliger Wert nicht als '" .. expect.compactHuge .. "' abgekuerzt, erhalten: "
+            .. hugeCell))
+    assert(#hugeCell <= 8,
+        context("abgekuerzter Wert ist mit " .. #hugeCell
+            .. " Zeichen immer noch zu lang fuer die Zelle: " .. hugeCell))
+
+    -- Auch die drei kleineren Einheiten laufen durch die echte Produktions-UI.
+    -- Sonst koennte ein vertauschter Divisor in K/M/Mrd unbemerkt bleiben,
+    -- solange nur der 15-stellige Bio/T-Extremwert getestet wird.
+    local mainStatistics = WAT.db.characters.test.statistics
+    local savedDeaths = mainStatistics[60].value
+    local savedDelves = mainStatistics[40734].value
+    local savedHealthstones = mainStatistics[812].value
+    mainStatistics[60].value = 123456
+    mainStatistics[40734].value = 123456789
+    mainStatistics[812].value = 123456789012
+    WAT:RefreshUI()
+    assert(PlainText(mainRow.values.deathsTotal) == expect.compactThousand,
+        context("Tausenderstufe falsch, erwartet " .. expect.compactThousand
+            .. ", erhalten: " .. PlainText(mainRow.values.deathsTotal)))
+    assert(PlainText(mainRow.values.delvesTotal) == expect.compactMillion,
+        context("Millionenstufe falsch, erwartet " .. expect.compactMillion
+            .. ", erhalten: " .. PlainText(mainRow.values.delvesTotal)))
+    assert(PlainText(mainRow.values.healthstones) == expect.compactBillion,
+        context("Milliardenstufe falsch, erwartet " .. expect.compactBillion
+            .. ", erhalten: " .. PlainText(mainRow.values.healthstones)))
+    mainStatistics[60].value = savedDeaths
+    mainStatistics[40734].value = savedDelves
+    mainStatistics[812].value = savedHealthstones
+    WAT:RefreshUI()
+
+    -- Kleine Werte bleiben exakt: eine Abkuerzung dort waere ein Informations-
+    -- verlust ohne jeden Platzgewinn.
+    assert(PlainText(mainRow.values.dungeonsEntered) == "400",
+        context("kleiner Wert muss exakt bleiben, erhalten: "
+            .. PlainText(mainRow.values.dungeonsEntered)))
+    assert(PlainText(mainRow.values.questsCompleted) == "1000",
+        context("vierstelliger Wert muss exakt bleiben, erhalten: "
+            .. PlainText(mainRow.values.questsCompleted)))
+
+    -- Die Spielzeit ist eine Dauer, keine Stueckzahl. Sie wird nie abgekuerzt.
+    assert(string.find(PlainText(mainRow.values.playtimeTotal), expect.playtimeMain, 1, true),
+        context("die Spielzeit darf nicht kompaktiert werden, erhalten: "
+            .. PlainText(mainRow.values.playtimeTotal)))
+
+    -- Unbekannt bleibt ein Strich, nie eine abgekuerzte Null.
+    assert(PlainText(mainRow.values.deathsRaid) == "-",
+        context("unbekannter Wert muss ein Strich bleiben, erhalten: "
+            .. PlainText(mainRow.values.deathsRaid)))
+
+    -- Der Tooltip ist die Stelle fuer den vollen Wert. Die Kompaktdarstellung
+    -- gilt ausschliesslich fuer die Zelle - sonst waere die Zahl unwiederbring-
+    -- lich verloren.
+    altRow.scripts.OnEnter(altRow)
+    local hugeTooltip = GameTooltip:TooltipText()
+    assert(string.find(hugeTooltip, "123456789012345", 1, true),
+        context("der Tooltip muss den vollen 15-stelligen Wert nennen, erhalten: " .. hugeTooltip))
 
     -- Die hoehere Statistikzeile darf die uebrigen Seiten nicht veraendern.
     assert(statisticsPanel.rowHeight > WAT.panels.overview.rowHeight,
@@ -656,8 +829,11 @@ local function RunSuite(locale, expect)
         context("Midnight-Dungeon-Summe fehlt, erhalten: "
             .. tostring(mainRow.values.midnightDungeons.text)))
 
-    -- Unbekannt bleibt ein Strich, auch bei den abgeleiteten Werten.
-    for _, key in ipairs({ "dungeonsEntered", "midnightDungeons" }) do
+    -- Unbekannt bleibt ein Strich, auch bei den abgeleiteten Werten. 932 traegt
+    -- beim Zweithelden inzwischen den 15-stelligen Extremwert und ist deshalb
+    -- kein Strich mehr; die Strich-Deckung fuer direkte Statistiken leistet
+    -- weiterhin die Schleife ueber 14787/14784/114/97/94 weiter oben.
+    for _, key in ipairs({ "midnightDungeons" }) do
         local text = altRow.values[key].text or ""
         assert(string.find(text, "-", 1, true) and not string.find(text, "0", 1, true),
             context("unbekannter abgeleiteter Wert muss ein Strich sein, erhalten fuer "
@@ -677,9 +853,18 @@ local function RunSuite(locale, expect)
     assert(string.find(totalRow.values.healthstones.text or "", "42", 1, true),
         context("Accountsumme der Heilsteine falsch (erwartet 42), erhalten: "
             .. tostring(totalRow.values.healthstones.text)))
-    assert(string.find(totalRow.values.dungeonsEntered.text or "", "400", 1, true),
-        context("Accountsumme der betretenen Dungeons falsch (erwartet 400), erhalten: "
+    -- 400 + 123456789012345 = 123456789012745. Die Summe wird in der Zelle
+    -- ebenso kompaktiert wie ein Einzelwert - auch die Summenzeile hat nur
+    -- Spaltenbreite zur Verfuegung.
+    assert(string.find(totalRow.values.dungeonsEntered.text or "", expect.compactHuge, 1, true),
+        context("Accountsumme der betretenen Dungeons nicht kompaktiert (erwartet "
+            .. expect.compactHuge .. "), erhalten: "
             .. tostring(totalRow.values.dungeonsEntered.text)))
+    -- Der Tooltip der Summenzeile fuehrt weiterhin den vollen Wert.
+    totalRow.scripts.OnEnter(totalRow)
+    assert(string.find(GameTooltip:TooltipText(), "123456789012745", 1, true),
+        context("der Summen-Tooltip muss den vollen Wert nennen, erhalten: "
+            .. GameTooltip:TooltipText()))
     assert(string.find(totalRow.values.midnightDungeons.text or "", "60", 1, true),
         context("Accountsumme der Midnight-Dungeons falsch (erwartet 60), erhalten: "
             .. tostring(totalRow.values.midnightDungeons.text)))
@@ -1084,6 +1269,11 @@ RunSuite("deDE", {
     statisticFallbackName = "Abgeschlossene Tiefen",
     -- 90000 Sekunden = 1 Tag 1 Stunde.
     playtimeMain = "1T 1Std",
+    -- 123456789012345 abgerundet auf Billionen.
+    compactHuge = "123Bio",
+    compactThousand = "123K",
+    compactMillion = "123M",
+    compactBillion = "123Mrd",
     playtimeName = "Gesamte Spielzeit",
     midnightDungeonsName = "Midnight-Dungeons (Endboss-Siege)",
     dungeonsEnteredNote = "betreten",
@@ -1122,6 +1312,11 @@ RunSuite("enUS", {
     statisticFallbackName = "Delves completed",
     -- 90000 seconds = 1 day 1 hour.
     playtimeMain = "1d 1h",
+    -- 123456789012345 rounded down to trillions.
+    compactHuge = "123T",
+    compactThousand = "123K",
+    compactMillion = "123M",
+    compactBillion = "123B",
     playtimeName = "Total playtime",
     midnightDungeonsName = "Midnight dungeons (final boss kills)",
     dungeonsEnteredNote = "entered",
@@ -1161,6 +1356,11 @@ RunSuite("frFR", {
     statisticFallbackName = "Delves completed",
     -- 90000 seconds = 1 day 1 hour.
     playtimeMain = "1d 1h",
+    -- 123456789012345 rounded down to trillions.
+    compactHuge = "123T",
+    compactThousand = "123K",
+    compactMillion = "123M",
+    compactBillion = "123B",
     playtimeName = "Total playtime",
     midnightDungeonsName = "Midnight dungeons (final boss kills)",
     dungeonsEnteredNote = "entered",
@@ -1217,8 +1417,11 @@ print("LUA UI RUNTIME OK: 7/7 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Be
     .. " (3343/3345/3347) inklusive 8 Fehlerfälle, short aus Data.CRESTS,"
     .. " keine iconFileID und kein Locale-Text in der DB, questID schlägt Legacy-Label,"
     .. " Dungeon-ID statt fremdsprachigem Namen, Statistiken mit echter Accountsumme"
-    .. " (200/50/7/1000/42) und Strich statt 0, 13 Werte in zwei Baendern innerhalb"
-    .. " von CONTENT_WIDTH mit gemessenen Zellkanten und Zeilenrecycling,"
+    .. " (200/50/7/1000/42) und Strich statt 0, 13 Werte in drei thematisch"
+    .. " gruppierten Baendern (Inhalte/Ueberleben/Quests) innerhalb von CONTENT_WIDTH"
+    .. " mit gemessenen Zellkanten, hart abschneidenden Clipping-Rahmen fuer Kopf und"
+    .. " Wert, einzeiligen Werten, zweizeilig begrenzten Spaltenkoepfen,"
+    .. " kompaktiertem 15-stelligen Extremwert bei exaktem Tooltip und Zeilenrecycling,"
     .. " kompakt lokalisierte Spielzeit mit echter Null und Derived-only-Quellfallback,"
     .. " Einstellungsformular mit 6 Skalierungsstufen,"
     .. " Minimap-Sichtbarkeit und Positions-Reset - je einmal in deDE, enUS und frFR")
