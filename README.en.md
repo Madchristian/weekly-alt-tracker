@@ -192,6 +192,8 @@ The GitHub release is created with the automatically provided `GITHUB_TOKEN`; no
 
 The addon is published on Wago Addons: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). The project ID `ZKxZJkNk` is declared as `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` and is also visible on the project page.
 
+Version 0.2.6 was published through the official Wago upload API as a stable release for Retail patch 12.0.7. The public CDN ZIP was downloaded and verified byte-for-byte against the uploaded package.
+
 The secret `WAGO_API_TOKEN` is stored in the repository under *Settings → Secrets and variables → Actions*. The token value belongs exclusively in that secret and never in the repository.
 
 ### CurseForge publication
@@ -204,7 +206,7 @@ The project-side CurseForge texts are versioned under `curseforge/`:
 
 The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 
-A CurseForge project ID does not exist yet. Therefore there is deliberately **no** `## X-Curse-Project-ID` in the TOC and no CurseForge URL is stored in the repository; both will be added once the project has been created. A CurseForge upload through the packager is therefore not active yet and will later require its own secret (`CF_API_KEY`), which likewise never belongs in the repository.
+The CurseForge project was created with Project ID `1616769` under the **All Rights Reserved** licence. The ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.2.6 is initially uploaded manually through the CurseForge project page, which does not require an API key. Automated CurseForge uploads are deliberately not configured without `CF_API_KEY`. The public CurseForge URL will be added after its final slug has been verified.
 
 ## Data provenance and third parties
 

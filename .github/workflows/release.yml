@@ -32,7 +32,6 @@ jobs:
         env:
           # Vom Runner automatisch bereitgestellt, kein eigenes Secret noetig.
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
-          # Vorbereitet, aber noch inaktiv: der Upload startet erst, wenn die TOC
-          # eine Zeile "## X-Wago-ID: <id>" enthaelt. Fehlt das Secret, wird der
-          # Wago-Schritt uebersprungen und der Job schlaegt nicht fehl.
+          # Aktiver Wago-Releasekanal. Der Tokenwert liegt ausschliesslich im
+          # gleichnamigen GitHub-Actions-Secret und niemals im Repository.
           WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}

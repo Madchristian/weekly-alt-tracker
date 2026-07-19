@@ -188,7 +188,7 @@ Das GitHub-Release wird mit dem automatisch bereitgestellten `GITHUB_TOKEN` erst
 
 Das Addon ist auf Wago Addons veröffentlicht: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). Die Projekt-ID `ZKxZJkNk` steht als `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` und ist auch auf der Projektseite sichtbar.
 
-Version 0.2.5 wurde über die offizielle Wago-Upload-API als Stable für Retail-Patch 12.0.7 veröffentlicht. Das öffentlich ausgelieferte CDN-ZIP wurde zurückgeladen und stimmt bytegenau mit dem hochgeladenen Paket überein.
+Version 0.2.6 wurde über die offizielle Wago-Upload-API als Stable für Retail-Patch 12.0.7 veröffentlicht. Das öffentlich ausgelieferte CDN-ZIP wurde zurückgeladen und stimmt bytegenau mit dem hochgeladenen Paket überein.
 
 Das Secret `WAGO_API_TOKEN` ist im Repository unter *Settings → Secrets and variables → Actions* hinterlegt. Der Tokenwert gehört ausschließlich in dieses Secret und niemals in das Repository. Damit lädt jeder künftige `v*`-Tag über den BigWigs-Packager automatisch sowohl zum GitHub-Release als auch zu Wago hoch.
 
@@ -202,7 +202,7 @@ Die projektseitigen CurseForge-Texte liegen versioniert unter `curseforge/`:
 
 Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mit ausgeliefert.
 
-Eine CurseForge-Projekt-ID liegt noch nicht vor. Deshalb steht bewusst **kein** `## X-Curse-Project-ID` in der TOC und im Repository ist keine CurseForge-URL hinterlegt; beides wird erst nach dem Anlegen des Projekts ergänzt. Ein CurseForge-Upload über den Packager ist damit noch nicht aktiv und benötigt später ein eigenes Secret (`CF_API_KEY`), das ebenfalls niemals ins Repository gehört.
+Das CurseForge-Projekt wurde mit der Project ID `1616769` und der Lizenz **All Rights Reserved** angelegt. Die ID steht als `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.2.6 wird zunächst manuell über die CurseForge-Projektseite hochgeladen; dafür ist kein API-Key erforderlich. Ein automatischer CurseForge-Upload ist ohne `CF_API_KEY` bewusst nicht eingerichtet. Eine öffentliche CurseForge-URL wird erst eingetragen, sobald ihr endgültiger Slug verifiziert ist.
 
 ## Datenherkunft und Dritte
 

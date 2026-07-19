@@ -6,6 +6,7 @@
 ## Version: 0.2.6
 ## X-License: All Rights Reserved
 ## X-Wago-ID: ZKxZJkNk
+## X-Curse-Project-ID: 1616769
 ## SavedVariables: WeeklyAltTrackerDB
 ## IconTexture: Interface\AddOns\WeeklyAltTracker\Media\WeeklyAltTrackerIcon
 
