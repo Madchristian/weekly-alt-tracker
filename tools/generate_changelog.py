@@ -14,7 +14,7 @@ OUTPUT = ROOT / "CHANGELOG.md"
 NOTE_NAME = re.compile(r"^CHANGELOG-(\d+)\.(\d+)\.(\d+)\.md$")
 CANONICAL_SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
 RELEASE_VERSIONS = (
-    "0.6.0", "0.5.0", "0.4.2", "0.4.1", "0.4.0", "0.3.1",
+    "0.6.1", "0.6.0", "0.5.0", "0.4.2", "0.4.1", "0.4.0", "0.3.1",
     "0.3.0", "0.2.6", "0.2.5", "0.2.4",
 )
 HEADER = (

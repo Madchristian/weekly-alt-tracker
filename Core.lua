@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "0.6.0"
+WAT.version = "0.6.1"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
