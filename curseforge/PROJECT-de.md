@@ -74,16 +74,21 @@ ab +9 und das Tauschpotential von Helden- zu Mythischen Wappen.
 **Schlüsselsteine** - der aktuell besessene Mythic+-Schlüsselstein pro Charakter
 mit Dungeonname und Stufe als Offline-Snapshot.
 
-**Statistiken** - dreizehn lebenslange Werte pro Charakter in drei thematisch
-gruppierten Bändern derselben Zeile (Inhalte, Überleben, Quests): absolvierte
+**Statistiken** - ein Dashboard je Bereich statt einer Vergleichstabelle. Eine
+feste Registerleiste am unteren Rand wählt den Bereich: ganz links dauerhaft
+GESAMT (die Accountsumme), rechts daneben je ein Reiter pro Charakter. Bei
+vielen Charakteren blättern die Charakterreiter waagerecht mit ausdrücklichen
+Pfeilen, während GESAMT immer angeheftet bleibt. Darüber stehen alle dreizehn
+lebenslangen Werte des gewählten Bereichs gleichzeitig als Kennzahlkarten in
+drei Abschnitten (Inhalte, Überleben, Quests): absolvierte
 Tiefen, Tode, Quests, benutzte Heilsteine,
 betretene 5-Spieler-Dungeons (betreten, nicht abgeschlossen), die Midnight-
 Dungeons als Summe der Endboss-Siege aus acht Dungeons über drei
 Schwierigkeiten und die Gesamtspielzeit. Offline-Charaktere behalten ihren letzten
 Snapshot; die Accountsumme addiert ausschließlich sicher bekannte Werte und
 zeigt bei vollständig unbekannten Daten `-` statt einer erfundenen Null. Jede
-Zelle schneidet hart ab, sodass kein Wert in die Nachbarspalte laufen kann; sehr
-große Zahlen erscheinen in der Zelle abgekürzt und im Tooltip exakt.
+Karte schneidet hart ab, sodass kein Wert in die Nachbarkarte laufen kann; sehr
+große Zahlen erscheinen auf der Karte abgekürzt und im Tooltip exakt.
 
 **Einstellungen** - Aktualisieren, Fensterposition zurücksetzen, Minimap-Symbol
 ein- oder ausblenden und die UI-Skalierung bequem im Addon ändern.

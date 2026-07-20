@@ -354,7 +354,23 @@ def main() -> int:
         # Tabelle steht als Literal in UI.lua; ihre vier Schlüssel werden
         # unmittelbar darunter gegen beide Wörterbücher geprüft.
         ("UI.lua", "unit.key"),
+        # Abschnittstitel der Statistikseite: STATISTIC_GROUPS[...].titleKey.
+        # Die Tabelle steht als Literal in UI.lua; ihre drei Schlüssel werden
+        # unmittelbar darunter gegen beide Wörterbücher geprüft.
+        ("UI.lua", "group.titleKey"),
     }
+
+    # Statische Absicherung von L(group.titleKey): die Schlüsselquelle ist die
+    # Literaltabelle STATISTIC_GROUPS in UI.lua.
+    group_title_keys = re.findall(r'titleKey\s*=\s*"([A-Za-z_][A-Za-z0-9_]*)"',
+                                  strip_comments(ui))
+    require(group_title_keys == ["STAT_GROUP_CONTENT", "STAT_GROUP_SURVIVAL",
+                                 "STAT_GROUP_QUESTS"],
+            "STATISTIC_GROUPS muss die drei Abschnittstitel in fester Reihenfolge führen, "
+            f"gefunden: {group_title_keys}")
+    for key in group_title_keys:
+        require(key in en_keys, f"UI.lua: Abschnittstitel {key} fehlt im enUS-Wörterbuch")
+        require(key in de_keys, f"UI.lua: Abschnittstitel {key} fehlt im deDE-Wörterbuch")
 
     # Statische Absicherung von L(unit.key): die Schlüsselquelle ist die
     # Literaltabelle COMPACT_UNITS in UI.lua. Menge und Namen werden hier
@@ -624,23 +640,94 @@ def main() -> int:
     content_width = constant("CONTENT_WIDTH")
     content_left = constant("CONTENT_LEFT")
     scrollbar_gutter = constant("SCROLLBAR_GUTTER")
-    band_height = constant("BAND_HEIGHT")
-    header_band_height = constant("HEADER_BAND_HEIGHT")
     require(frame_width is not None and content_width is not None and content_left is not None
             and scrollbar_gutter is not None
             and content_left + content_width + scrollbar_gutter + 20 <= frame_width,
             "Sidebar, Tabellen-Viewport und Scrollbar-Gutter passen nicht vollständig in das Fenster")
-    # Statistikseite: Accountsumme plus mindestens drei Charaktere müssen ohne
-    # Scrollen vollständig sichtbar sein. Das verhindert, dass mehr Bänder die
-    # Alt-Vergleichsansicht praktisch auf nur zwei Charaktere zusammenschieben.
-    if frame_height is not None and band_height is not None and header_band_height is not None:
-        statistics_panel_height = frame_height - 150 - 48
-        statistics_header_height = 3 * header_band_height + 4
-        statistics_row_height = 3 * band_height + 2
-        visible_statistics_rows = (statistics_panel_height - statistics_header_height - 2) // statistics_row_height
-        require(visible_statistics_rows >= 4,
-                "Statistikseite zeigt nur "
-                f"{visible_statistics_rows} vollständige Zeilen; erwartet Accountsumme plus drei Charaktere")
+
+    # -----------------------------------------------------------------------
+    # Statistikseite: Bereichs-Dashboard statt Vergleichstabelle
+    #
+    # Die Seite zeigt seit 0.4.2 genau EINEN Bereich (Accountsumme oder ein
+    # Charakter) und dafür alle dreizehn Werte gleichzeitig als Kennzahlkarten
+    # in drei Abschnitten. Der dreibändige Tabellenkopf und die Charakterzeilen
+    # sind ersatzlos entfallen.
+    # -----------------------------------------------------------------------
+    require("isDashboard" in ui,
+            "die Statistikseite muss als Dashboard markiert sein")
+    for token in ("FillStatistics", "FillStatisticsTotal", "isAccountTotal"):
+        require(token not in ui,
+                f"Rest der alten Statistik-Tabelle in UI.lua: {token}")
+    # Generischer Bandcode darf nur bleiben, wenn ihn noch jemand nutzt. Nach
+    # dem Wegfall der Statistiktabelle nutzt ihn niemand mehr.
+    for token in ("BAND_HEIGHT", "HEADER_BAND_HEIGHT", "BandCount", "bandCount",
+                  "bandWidths", 'band = "all"'):
+        require(token not in ui,
+                f"toter Bandcode nach dem Wegfall der Statistiktabelle: {token}")
+
+    # Die dreizehn Karten liegen in drei Gruppen zu 5/5/3. Menge und Zuordnung
+    # sind der Kern der neuen Seite und werden hier eingefroren.
+    groups_body = nested_table_body(ui, "STATISTIC_GROUPS")
+    require(groups_body != "", "Gruppendefinition STATISTIC_GROUPS fehlt in UI.lua")
+    group_keys = re.findall(r'key\s*=\s*"(content|survival|quests)"', groups_body)
+    require(group_keys == ["content", "survival", "quests"],
+            "die drei Abschnitte müssen in der Reihenfolge Inhalte, Überleben, Quests "
+            f"stehen, gefunden: {group_keys}")
+    grouped = re.findall(r"keys\s*=\s*\{([^}]*)\}", groups_body)
+    require(len(grouped) == 3,
+            f"jeder Abschnitt braucht seine Werteliste, gefunden: {len(grouped)}")
+    if len(grouped) == 3:
+        sizes = [len(re.findall(r'"([A-Za-z][A-Za-z0-9]*)"', block)) for block in grouped]
+        require(sizes == [5, 5, 3],
+                f"die Abschnitte müssen 5/5/3 Karten führen, gefunden: {sizes}")
+        assigned = [name for block in grouped
+                    for name in re.findall(r'"([A-Za-z][A-Za-z0-9]*)"', block)]
+        require(len(assigned) == 13 and len(set(assigned)) == 13,
+                f"es müssen genau 13 verschiedene Werte auf Karten liegen, gefunden: {assigned}")
+        expected_assignment = [
+            "delvesTotal", "delvesMidnight", "dungeonsEntered", "midnightDungeons",
+            "playtimeTotal",
+            "deathsTotal", "deathsDungeon", "deathsRaid", "deathsFalling", "healthstones",
+            "questsCompleted", "questsDaily", "questsAbandoned",
+        ]
+        require(assigned == expected_assignment,
+                "die thematische Zuordnung der Karten hat sich geändert, gefunden: "
+                f"{assigned}")
+
+    # Geometrie: drei Abschnitte plus Registerleiste müssen in das Panel passen.
+    section_height = constant("DASHBOARD_SECTION_HEIGHT")
+    bar_height = constant("DASHBOARD_BAR_HEIGHT")
+    section_gap = constant("DASHBOARD_GAP")
+    require(section_height is not None and 90 <= section_height <= 100,
+            f"ein Abschnitt muss 90-100px hoch sein, gefunden: {section_height}")
+    require(bar_height is not None and 30 <= bar_height <= 34,
+            f"die Registerleiste muss 30-34px hoch sein, gefunden: {bar_height}")
+    if (frame_height is not None and section_height is not None
+            and bar_height is not None and section_gap is not None):
+        panel_height = frame_height - 150 - 48
+        needed = 3 * section_height + 2 * section_gap + bar_height + section_gap
+        require(needed <= panel_height,
+                f"drei Abschnitte plus Registerleiste brauchen {needed}px, "
+                f"das Panel hat nur {panel_height}px")
+
+    # Kartenbreiten: gleich breite Karten, harte Kante bei CONTENT_WIDTH.
+    card_gap = constant("CARD_GAP")
+    if content_width is not None and card_gap is not None:
+        for count in (5, 3):
+            width = (content_width - (count - 1) * card_gap) // count
+            edge = count * width + (count - 1) * card_gap
+            require(edge <= content_width,
+                    f"{count} Karten enden bei {edge}px und damit außerhalb von "
+                    f"CONTENT_WIDTH={content_width}")
+
+    # Registerleiste: GESAMT fest links, Charakterreiter im blätternden
+    # Ausschnitt, ausdrückliche Pfeile.
+    for token in ("totalTab", "characterTabs", "tabViewport", "prevArrow", "nextArrow",
+                  "tabOffset", "SetStatisticsScope"):
+        require(token in ui, f"Registerleiste der Statistikseite unvollständig: {token}")
+    require("SetClipsChildren" in ui,
+            "der blätternde Reiter-Ausschnitt muss hart abschneiden")
+
     require('scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMLEFT", CONTENT_WIDTH, 0)' in ui,
             "ScrollFrame-Viewport muss exakt CONTENT_WIDTH breit sein")
     for index, panel in enumerate(panel_order):
@@ -648,29 +735,19 @@ def main() -> int:
         end = ui.find(f"    {panel_order[index + 1]} = {{", start) if index + 1 < len(panel_order) else ui.find("\n}", start)
         require(start >= 0 and end > start, f"Paneldefinition nicht lesbar: {panel}")
         if start >= 0 and end > start:
-            # Bandbewusst: eine Seite darf ihre Werte in mehrere
-            # uebereinanderliegende Baender legen. Entscheidend ist dann nicht
-            # die Gesamtsumme, sondern das BREITESTE Band - eine ueberspannende
-            # Spalte (band = "all") zaehlt in jedem Band mit.
-            spanning = 0
-            bands: dict[int, int] = {}
-            for line in ui[start:end].splitlines():
-                measured = re.search(r"width\s*=\s*(\d+)", line)
-                if not measured:
-                    continue
-                value = int(measured.group(1))
-                assigned = re.search(r'band\s*=\s*(?:"(all)"|(\d+))', line)
-                if assigned and assigned.group(1):
-                    spanning += value
-                else:
-                    # NICHT "index": das wuerde den Panelzaehler der
-                    # aeusseren enumerate-Schleife ueberschreiben.
-                    band_index = int(assigned.group(2)) if assigned else 1
-                    bands[band_index] = bands.get(band_index, 0) + value
-            widest = spanning + max(bands.values(), default=0)
-            require(widest <= 920,
-                    f"Panel {panel} ist mit {widest}px im breitesten Band breiter als "
-                    f"CONTENT_WIDTH=920")
+            body = ui[start:end]
+            # Jede Tabellenseite bleibt einbändig: die Summe ihrer Spalten muss
+            # in die Inhaltsbreite passen.
+            total = sum(int(measured.group(1))
+                        for measured in re.finditer(r"width\s*=\s*(\d+)", body))
+            if panel in ("statistics", "settings"):
+                # Die Statistikseite ist ein Dashboard, die Einstellungsseite
+                # ein Formular. Beide führen ausdrücklich KEINE Spalten.
+                require("columns = {" not in body,
+                        f"Panel {panel} darf keine Tabellenspalten mehr definieren")
+            else:
+                require(total <= 920,
+                        f"Panel {panel} ist mit {total}px breiter als CONTENT_WIDTH=920")
 
     if FAILURES:
         print("V2 TESTS FAILED")

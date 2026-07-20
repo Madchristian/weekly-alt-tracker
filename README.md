@@ -77,7 +77,7 @@ Die wiederholbaren Quellen besitzen keinen rückwirkenden quellenspezifischen Wo
 
 ### Statistiken
 
-Neu in 0.3.0, in 0.4.0 von neun auf dreizehn Werte erweitert. Der Bereich zeigt dreizehn lebenslange Werte je Charakter und darüber eine optisch abgesetzte Accountsumme:
+Neu in 0.3.0, in 0.4.0 von neun auf dreizehn Werte erweitert. Der Bereich erfasst dreizehn lebenslange Werte je bekanntem Charakter und bildet daraus zusätzlich eine Accountsumme:
 
 - Abgeschlossene Tiefen insgesamt und Abgeschlossene Midnight-Tiefen
 - Betretene 5-Spieler-Dungeons und Midnight-Dungeons (Endboss-Siege)
@@ -86,13 +86,17 @@ Neu in 0.3.0, in 0.4.0 von neun auf dreizehn Werte erweitert. Der Bereich zeigt 
 - Benutzte Heilsteine
 - Abgeschlossene Quests, abgeschlossene Tagesquests und abgebrochene Quests
 
-Dreizehn Werte passen nicht nebeneinander in die Tabellenbreite. Sie liegen deshalb in drei thematisch gruppierten, übereinanderliegenden Bändern innerhalb derselben Charakterzeile: **Inhalte** (Tiefen, Midnight-Tiefen, Dungeons betreten, Midnight-Dungeons, Spielzeit), **Überleben** (Tode gesamt, im Dungeon, im Schlachtzug, durch Sturz, Heilsteine) und **Quests** (abgeschlossen, täglich, abgebrochen). Es bleibt bei einer Zeile pro Charakter.
+Dreizehn Werte passen nicht nebeneinander in die Tabellenbreite. Seit 0.4.2 zeigt der Bereich deshalb keinen Vergleich aller Charaktere mehr, sondern immer genau **einen Bereich** – und für diesen alle dreizehn Werte gleichzeitig.
 
-Seit 0.4.1 sind es drei statt zwei Bänder: im zweibändigen Layout trug das untere Band acht Spalten zu 85 Pixeln, in denen zweizeilige Spaltenköpfe wie „TODE SCHLACHTZUG“ nicht mehr lesbar waren. Jede Zelle sitzt zusätzlich in einem eigenen Rahmen, der hart abschneidet – ein Wert kann damit unter keiner Skalierungsstufe mehr in die Nachbarspalte laufen. Sehr große lebenslange Werte werden in der Zelle abgekürzt (`123Bio`) statt ausgeschrieben; der Tooltip nennt weiterhin den exakten vollen Wert, und gespeichert wird ohnehin immer die genaue Zahl. Kleine Werte bleiben unverändert exakt, die Spielzeit wird nie abgekürzt.
+Den Bereich wählt eine feste Registerleiste am unteren Rand: ganz links dauerhaft **GESAMT** (die Accountsumme), rechts daneben je ein Reiter pro bekanntem Charakter in der bisherigen deterministischen Sortierung. Ab dem achten Charakter liegen die Charakterreiter in einem waagerecht blätternden Ausschnitt mit ausdrücklichen Pfeilen; **GESAMT** bleibt dabei immer angeheftet und blättert nie mit weg. Die Auswahl hängt am stabilen Charakterschlüssel (der GUID), nicht an einer Position: sie überlebt jede Aktualisierung, und verschwindet der Charakter aus der Datenbank, fällt der Bereich auf **GESAMT** zurück statt eine fremde Zahl zu zeigen. Der aktive GESAMT-Reiter ist türkis, der aktive Charakterreiter trägt seine Klassenfarbe; inaktive Reiter bleiben im neutralen Dunkel.
 
-Zwei Werte verdienen eine ausdrückliche Erklärung, weil ein kurzer Spaltenkopf sie nicht tragen kann und der Tooltip sie deshalb ausschreibt:
+Über der Leiste stehen die dreizehn Werte des gewählten Bereichs als Kennzahlkarten in drei gleichzeitig sichtbaren Abschnitten – nicht als Navigationsreiter und nicht als gestapelte Tabellenzeilen: **Inhalte** (Tiefen, Midnight-Tiefen, Dungeons betreten, Midnight-Dungeons, Spielzeit), **Überleben** (Tode gesamt, im Dungeon, im Schlachtzug, durch Sturz, Heilsteine) und **Quests** (abgeschlossen, täglich, abgebrochen). Jede Karte bindet eine knappe Beschriftung sichtbar an einen prominenten Wert.
 
-- **Betretene 5-Spieler-Dungeons** zählt das *Betreten*, nicht das Abschließen. Blizzard führt die Statistik so; die Spalte heißt deshalb `DUNGEONS BETRETEN`, und der Tooltip erklärt den Unterschied ausdrücklich.
+Jede Karte schneidet hart ab – ein Wert kann damit unter keiner Skalierungsstufe in die Nachbarkarte laufen. Sehr große lebenslange Werte werden auf der Karte abgekürzt (`123Bio`) statt ausgeschrieben; der Tooltip nennt weiterhin den exakten vollen Wert, und gespeichert wird ohnehin immer die genaue Zahl. Kleine Werte bleiben unverändert exakt, die Spielzeit wird nie abgekürzt.
+
+Zwei Werte verdienen eine ausdrückliche Erklärung, weil eine kurze Kartenbeschriftung sie nicht vollständig erklären kann und der Tooltip sie deshalb ausschreibt:
+
+- **Betretene 5-Spieler-Dungeons** zählt das *Betreten*, nicht das Abschließen. Blizzard führt die Statistik so; die Karte heißt deshalb `DUNGEONS BETRETEN`, und der Tooltip erklärt den Unterschied ausdrücklich.
 - **Midnight-Dungeons** ist keine einzelne Blizzard-Statistik, sondern die Summe der 24 Endboss-Statistiken der acht Midnight-Dungeons über Normal, Heroisch und Mythisch. Sie wird nur gebildet, wenn *alle* 24 Bestandteile sicher lesbar sind. Ist auch nur einer unlesbar, bleibt die ganze Summe unbekannt und ein früherer sicherer Wert bleibt stehen – eine Teilsumme sähe aus wie ein echter, nur kleinerer Wert und wäre damit eine stille Falschaussage.
 
 Gelesen werden die Statistiken ausschließlich für den gerade eingeloggten Charakter über `GetStatistic`. Die Gesamtspielzeit ist über keine synchrone Abfrage lesbar: sie wird mit `RequestTimePlayed()` angefordert und trifft asynchron als `TIME_PLAYED_MSG` ein. Angefordert wird sie nur auf vollen Wegen wie Login, Weltwechsel und manuellem Aktualisieren und dort zusätzlich gedrosselt – nicht bei jedem Hintergrundereignis und ausdrücklich nicht beim Tod, denn der Client beantwortet jede Anfrage mit einer sichtbaren Chatzeile. Sie wird kompakt dargestellt (`1T 1Std`).
@@ -212,9 +216,9 @@ Releases werden von [BigWigsMods/packager](https://github.com/BigWigsMods/packag
 
 Der Workflow läuft ausschließlich bei Tags nach dem Muster `v*`, zum Beispiel `v0.3.0`. Normale Pushes auf `main` erzeugen kein Release. Zusätzlich gibt es `workflow_dispatch` für einen manuellen Trockenlauf; dieser packt nur und lädt nichts hoch (Packager-Option `-d`).
 
-Vor jedem Tag müssen die feste Version in `WeeklyAltTracker.toc` und `Core.lua` sowie Anleitung und Changelog auf denselben Release-Stand aktualisiert werden. Der Packager benennt das Release nach dem Tag, ersetzt die feste Addon-Version aber bewusst nicht automatisch.
+Vor jedem Tag müssen die feste Version in `WeeklyAltTracker.toc` und `Core.lua` sowie Anleitung und Changelog auf denselben Release-Stand aktualisiert werden. Der Packager benennt das Release nach dem Tag, ersetzt die feste Addon-Version aber bewusst nicht automatisch. Die kanonische [`CHANGELOG.md`](CHANGELOG.md) ist eine kumulative, absteigend sortierte Historie aller öffentlichen Versionen seit 0.2.4; ältere Einträge bleiben als tatsächlicher damaliger Release-Stand erhalten.
 
-Der Paketumfang wird über `.pkgmeta` gesteuert. Das ZIP enthält den Ordner `WeeklyAltTracker` mit den sechs Lua-Dateien (`Localization.lua`, `Core.lua`, `Data.lua`, `Scanner.lua`, `Activities.lua`, `UI.lua`), der TOC, `README.md`, `README.en.md`, `Anleitung.html`, `Guide.en.html`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, der Textur `Media/WeeklyAltTrackerIcon.tga` sowie einer vom Packager generierten `CHANGELOG.md`. Nicht enthalten sind `.github`, `.gitignore`, `.pkgmeta`, `artwork/`, `design/`, `tools/`, `wago/`, `curseforge/`, `Media/README.md` und alle lokalen Arbeitsordner. `.pkgmeta` arbeitet mit einer `ignore`-Liste, daher wird eine neue Datei im Projektstamm automatisch mitgepackt.
+Der Paketumfang wird über `.pkgmeta` gesteuert. Das ZIP enthält den Ordner `WeeklyAltTracker` mit den sechs Lua-Dateien (`Localization.lua`, `Core.lua`, `Data.lua`, `Scanner.lua`, `Activities.lua`, `UI.lua`), der TOC, `README.md`, `README.en.md`, `Anleitung.html`, `Guide.en.html`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, der Textur `Media/WeeklyAltTrackerIcon.tga` sowie der manuell gepflegten vollständigen `CHANGELOG.md`. `.pkgmeta` weist sie zugleich als öffentlichen Markdown-Changelog für GitHub und Wago aus, sodass der Packager die Historie nicht durch eine reine Liste der letzten Commits ersetzt. Nicht enthalten sind `.github`, `.gitignore`, `.pkgmeta`, `.claude`, `artwork/`, `design/`, `tools/`, `wago/`, `curseforge/`, `Media/README.md` und alle lokalen Arbeitsordner. `.pkgmeta` arbeitet mit einer `ignore`-Liste, daher wird eine neue Datei im Projektstamm automatisch mitgepackt.
 
 Der versionierte Original-Master des Logos liegt als Vektorgrafik unter `artwork/WeeklyAltTracker-Logo.svg` und wird bewusst **nicht** ausgeliefert. Ausgeliefert wird nur der daraus erzeugte Rasterexport `Media/WeeklyAltTrackerIcon.tga`, den `UI.lua` als Minimap-Symbol referenziert.
 
@@ -224,7 +228,7 @@ Das GitHub-Release wird mit dem automatisch bereitgestellten `GITHUB_TOKEN` erst
 
 Das Addon ist auf Wago Addons veröffentlicht: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). Die Projekt-ID `ZKxZJkNk` steht als `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` und ist auch auf der Projektseite sichtbar.
 
-Version 0.3.0 wurde über den tagbasierten BigWigs-Packager als Stable für Retail-Patch 12.0.7 veröffentlicht und öffentlich bytegenau verifiziert. Version 0.3.1 korrigiert die Position des Minimap-Symbols, sodass es tangential außerhalb statt innerhalb des Minimap-Randes sitzt. Version 0.4.0 erweitert die Statistikseite von neun auf dreizehn lebenslange Werte und legt sie in zwei Bänder. Version 0.4.1 ist ein reiner UI-Hotfix darauf: drei thematisch gruppierte Bänder statt zwei, hart abschneidende Zellrahmen gegen überlappende Werte und eine kompakte Zellendarstellung sehr großer Zahlen bei unverändert exaktem Tooltip- und Speicherwert.
+Version 0.3.0 wurde über den tagbasierten BigWigs-Packager als Stable für Retail-Patch 12.0.7 veröffentlicht und öffentlich bytegenau verifiziert. Version 0.3.1 korrigiert die Position des Minimap-Symbols, sodass es tangential außerhalb statt innerhalb des Minimap-Randes sitzt. Version 0.4.0 erweitert die Statistikseite von neun auf dreizehn lebenslange Werte und legt sie in zwei Bänder. Version 0.4.1 ist ein reiner UI-Hotfix darauf: drei thematisch gruppierte Bänder statt zwei und hart abschneidende Zellrahmen. Version 0.4.2 ersetzt die Vergleichstabelle vollständig durch ein Dashboard je Bereich: eine feste Registerleiste mit angeheftetem GESAMT und je einem Charakterreiter, darüber alle dreizehn Werte gleichzeitig als Kennzahlkarten in drei Abschnitten.
 
 Das Secret `WAGO_API_TOKEN` ist im Repository unter *Settings → Secrets and variables → Actions* hinterlegt. Der Tokenwert gehört ausschließlich in dieses Secret und niemals in das Repository. Damit lädt jeder künftige `v*`-Tag über den BigWigs-Packager automatisch sowohl zum GitHub-Release als auch zu Wago hoch.
 
@@ -234,7 +238,7 @@ Die projektseitigen CurseForge-Texte liegen versioniert unter `curseforge/`:
 
 - `PROJECT-en.md` – englischer Titel, Kurzbeschreibung und Beschreibung. CurseForge verlangt Englisch als Projektsprache.
 - `PROJECT-de.md` – deutsche Zusatzfassung derselben Beschreibung.
-- `CHANGELOG-0.4.1-en.md` und `CHANGELOG-0.4.1-de.md` – Änderungsprotokoll zum aktuellen Release. Die Protokolle der Vorversionen (`CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) bleiben als Historie erhalten.
+- `CHANGELOG-0.4.2-en.md` und `CHANGELOG-0.4.2-de.md` – Änderungsprotokoll zum aktuellen Release. Die Protokolle der Vorversionen (`CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) bleiben als Historie erhalten.
 
 Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mit ausgeliefert.
 
@@ -249,7 +253,7 @@ Der separate Workflow `.github/workflows/curseforge-package.yml` (**Build CurseF
 
 Der Workflow führt vorher das vollständige `tools/check.py` aus und prüft das gebaute ZIP anschließend mit `tools/verify_package.py` (14 erwartete Dateien unter `WeeklyAltTracker/`, bytegleich zum Repository, TOC-Kennwerte, keine Secret-Zuweisungen). Die mitgelieferte `SHA256SUMS.txt` dient zur Kontrolle der heruntergeladenen Datei.
 
-Das Addon ist auf CurseForge unter [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker) angelegt. Das Projekt verwendet die Project ID `1616769` und die Lizenz **All Rights Reserved**; die ID steht als `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.4.1 wird wie 0.2.6, 0.3.1 und 0.4.0 manuell über die CurseForge-Projektseite hochgeladen; dafür ist kein API-Key erforderlich. Ein automatischer CurseForge-Upload ist ohne `CF_API_KEY` bewusst nicht eingerichtet.
+Das Addon ist auf CurseForge unter [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker) angelegt. Das Projekt verwendet die Project ID `1616769` und die Lizenz **All Rights Reserved**; die ID steht als `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.4.2 wird wie 0.2.6, 0.3.1, 0.4.0 und 0.4.1 manuell über die CurseForge-Projektseite hochgeladen; dafür ist kein API-Key erforderlich. Ein automatischer CurseForge-Upload ist ohne `CF_API_KEY` bewusst nicht eingerichtet.
 
 ## Datenherkunft und Dritte
 

@@ -29,9 +29,25 @@ end
 local Widget = {}
 Widget.__index = Widget
 
-local function NewWidget(kind)
-    return setmetatable({ kind = kind, shown = true, scripts = {}, points = {} }, Widget)
+-- Jede erzeugte Widget-Instanz wird gezaehlt und kennt ihr Elternteil. Nur so
+-- laesst sich beweisen, dass ein wiederholtes RefreshUI Objekte WIEDERVERWENDET
+-- statt neue anzulegen: ein Pool, der bei jedem Durchlauf waechst, ist im Spiel
+-- ein echtes Leck und nicht bloss ein Schoenheitsfehler.
+local widgetCount = 0
+
+local function NewWidget(kind, parent)
+    widgetCount = widgetCount + 1
+    return setmetatable({
+        kind = kind,
+        shown = true,
+        scripts = {},
+        points = {},
+        parent = parent,
+        children = {},
+    }, Widget)
 end
+
+function WidgetsCreated() return widgetCount end
 
 function Widget:SetSize(width, height) self.width, self.height = width, height end
 function Widget:SetWidth(width) self.width = width end
@@ -76,13 +92,29 @@ function Widget:IsShown() return self.shown end
 function Widget:SetScript(name, callback) self.scripts[name] = callback end
 function Widget:StartMoving() self.moving = true end
 function Widget:StopMovingOrSizing() self.moving = false end
-function Widget:CreateTexture(...) return NewWidget("Texture") end
-function Widget:CreateFontString(...) return NewWidget("FontString") end
+function Widget:CreateTexture(...)
+    local child = NewWidget("Texture", self)
+    self.children[#self.children + 1] = child
+    return child
+end
+function Widget:CreateFontString(...)
+    local child = NewWidget("FontString", self)
+    self.children[#self.children + 1] = child
+    return child
+end
 function Widget:GetCenter() return self.centerX or 500, self.centerY or 500 end
 function Widget:GetEffectiveScale() return self.effectiveScale or 1 end
 
-function CreateFrame(kind)
-    return NewWidget(kind)
+-- Das dritte Argument ist der Elternrahmen. Er wird mitgeschrieben, damit der
+-- Test die tatsaechliche Rahmenhierarchie pruefen kann: eine Karte, die nicht
+-- in ihrem Abschnitt haengt, wird beim Ausblenden des Panels nicht mit
+-- ausgeblendet und bleibt als Geisterelement im Bild stehen.
+function CreateFrame(kind, name, parent)
+    local frame = NewWidget(kind, parent)
+    if type(parent) == "table" and type(parent.children) == "table" then
+        parent.children[#parent.children + 1] = frame
+    end
+    return frame
 end
 
 UIParent = NewWidget("UIParent")
@@ -90,7 +122,14 @@ Minimap = NewWidget("Minimap")
 Minimap:SetSize(140, 140)
 function GetCursorPosition() return 600, 500 end
 GameFontNormalLarge = { GetFont = function() return "Fonts\\FRIZQT__.TTF", 14, "" end }
-RAID_CLASS_COLORS = {}
+-- Echte Klassenfarben statt einer leeren Tabelle: der aktive Charakter-Reiter
+-- traegt seine Klassenfarbe, und ohne Werte hier waere dieser Vertrag nicht
+-- pruefbar. Die Werte entsprechen den Retail-Klassenfarben von Magier (hellblau)
+-- und Schurke (gelb).
+RAID_CLASS_COLORS = {
+    MAGE = { r = 0.25, g = 0.78, b = 0.92 },
+    ROGUE = { r = 1.00, g = 0.96, b = 0.41 },
+}
 
 -- Der Tooltip zeichnet seine Zeilen mit, damit die Tooltip-Texte in beiden
 -- Sprachen wirklich geprüft werden können und nicht ins Leere laufen.
@@ -159,7 +198,7 @@ local function MakeWAT()
     -- Data.lua wird echt geladen (siehe RunSuite); hier steht bewusst kein
     -- Stub, damit die Ableitung questID -> Labelschluessel wirklich laeuft.
     local WAT = {
-        version = "0.4.1",
+        version = "0.4.2",
         db = {
             settings = {
                 scale = 1,
@@ -173,6 +212,7 @@ local function MakeWAT()
                 alt = {
                     name = "Zweitheld",
                     realm = "Zweitreich",
+                    classFile = "ROGUE",
                     lastSeen = 990,
                     statistics = STATISTICS_ALT,
                     weekly = {},
@@ -180,6 +220,7 @@ local function MakeWAT()
                 test = {
                     name = "Testheld",
                     realm = "Testreich",
+                    classFile = "MAGE",
                     lastSeen = 995,
                     statistics = STATISTICS_MAIN,
                     professions = {
@@ -487,7 +528,14 @@ local function RunSuite(locale, expect)
     GetAchievementInfo = savedAchievementInfo
 
     -- -----------------------------------------------------------------------
-    -- Statistiken: Accountsumme und Charakterzeilen
+    -- Statistiken: Dashboard je Bereich statt Vergleichstabelle
+    --
+    -- Die Seite zeigt NICHT mehr alle Charaktere nebeneinander. Sie zeigt genau
+    -- einen Bereich - die Accountsumme oder einen Charakter - und dafuer alle
+    -- dreizehn Werte gleichzeitig in drei thematischen Karten-Abschnitten.
+    -- Der Bereich wird ueber eine feste Registerleiste am unteren Rand
+    -- gewechselt. Die alte Tabelle mit ihrem dreibaendigen Kopf ist ersatzlos
+    -- entfallen; ihre Rueckkehr soll den Test brechen.
     -- -----------------------------------------------------------------------
 
     WAT:SetActiveTab("statistics")
@@ -496,443 +544,483 @@ local function RunSuite(locale, expect)
     assert(WAT.pageTitle.text == expect.statisticsPanel,
         context("Statistik-Seitentitel nicht lokalisiert: " .. tostring(WAT.pageTitle.text)))
 
-    -- Dreizehn Werte passen nicht nebeneinander in 920px. Die Statistikseite
-    -- legt sie deshalb in drei thematisch gruppierte, uebereinanderliegende
-    -- Baender innerhalb derselben Zeile: Inhalte, Ueberleben, Quests. Drei
-    -- Baender statt zwei geben jeder Spalte genug Breite, dass ein Spaltenkopf
-    -- lesbar bleibt statt auf 85px gequetscht zu werden.
-    -- Es darf trotzdem keine zweite Wahrheit ueber Menge oder
-    -- Schluessel geben: jede direkte und jede abgeleitete Statistik erscheint
-    -- genau einmal, und nichts wird weggeschnitten.
-    local statisticColumns = statisticsPanel.columns
+    -- Die Seite ist ein Dashboard, kein Tabellenpanel. Das ist der Schalter,
+    -- an dem RefreshUI entscheidet, dass hier keine Charakterzeilen entstehen.
+    assert(statisticsPanel.isDashboard == true,
+        context("Statistik-Panel muss als Dashboard markiert sein"))
+
+    -- Kein Tabellenrest: keine Zeilen, keine Spalten, kein Mehrband-Kopf.
+    assert(type(statisticsPanel.rows) == "table" and #statisticsPanel.rows == 0,
+        context("die Statistikseite darf keine Tabellenzeilen mehr erzeugen, hat aber "
+            .. tostring(statisticsPanel.rows and #statisticsPanel.rows)))
+    assert(statisticsPanel.columns == nil or #statisticsPanel.columns == 0,
+        context("die Statistikseite darf keine Tabellenspalten mehr fuehren"))
+    assert(statisticsPanel.headerCells == nil,
+        context("der mehrbaendige Tabellenkopf der Statistikseite muss entfallen sein"))
+    assert(statisticsPanel.bandCount == nil and statisticsPanel.bandWidths == nil,
+        context("die Statistikseite darf keine Bandgeometrie mehr tragen"))
+
+    -- -----------------------------------------------------------------------
+    -- Dreizehn Karten in drei Abschnitten: 5 Inhalte, 5 Ueberleben, 3 Quests
+    -- -----------------------------------------------------------------------
+
     local directCount = #WAT.Data.STATISTICS
     local derivedCount = #WAT.Data.DERIVED_STATISTICS
     assert(directCount + derivedCount == 13,
         context("die Statistikseite muss 13 Werte fuehren, hat aber "
             .. (directCount + derivedCount)))
-    assert(#statisticColumns == directCount + derivedCount + 1,
-        context("Statistik-Panel muss Charakterspalte plus alle 13 Werte zeigen, hat aber "
-            .. #statisticColumns .. " Spalten"))
-    assert(statisticColumns[1].key == "character",
-        context("erste Statistik-Spalte ist nicht der Charakter"))
-    assert(statisticColumns[1].band == "all",
-        context("die Charakterspalte muss ueber alle Baender laufen"))
 
-    local columnByKey = {}
-    for _, column in ipairs(statisticColumns) do
-        assert(not columnByKey[column.key],
-            context("Statistik-Spalte doppelt vergeben: " .. tostring(column.key)))
-        columnByKey[column.key] = column
-        assert(not string.find(column.label, "[", 1, true),
-            context("unaufgeloester Roh-Schluessel im Spaltenkopf: " .. tostring(column.label)))
+    local groups = statisticsPanel.groups
+    assert(type(groups) == "table" and #groups == 3,
+        context("die Statistikseite braucht genau drei Abschnitte, hat "
+            .. tostring(groups and #groups)))
+
+    -- Alle drei Abschnitte sind GLEICHZEITIG sichtbar. Sie sind Karten, keine
+    -- Navigationsreiter: ein Abschnitt, der den anderen versteckt, waere genau
+    -- die Navigation, die hier ausdruecklich nicht gewollt ist.
+    for _, group in ipairs(groups) do
+        assert(group.frame and group.frame:IsShown() == true,
+            context("Abschnitt " .. tostring(group.key) .. " ist nicht sichtbar - "
+                .. "alle drei Gruppen muessen gleichzeitig zu sehen sein"))
     end
+
+    local EXPECTED_GROUPS = {
+        { key = "content", count = 5, title = expect.groupContent,
+          keys = { "delvesTotal", "delvesMidnight", "dungeonsEntered",
+                   "midnightDungeons", "playtimeTotal" } },
+        { key = "survival", count = 5, title = expect.groupSurvival,
+          keys = { "deathsTotal", "deathsDungeon", "deathsRaid",
+                   "deathsFalling", "healthstones" } },
+        { key = "quests", count = 3, title = expect.groupQuests,
+          keys = { "questsCompleted", "questsDaily", "questsAbandoned" } },
+    }
+
+    local seenCardKeys = {}
+    for index, expectedGroup in ipairs(EXPECTED_GROUPS) do
+        local group = groups[index]
+        assert(group.key == expectedGroup.key,
+            context("Abschnitt " .. index .. " ist '" .. tostring(group.key)
+                .. "' statt '" .. expectedGroup.key .. "'"))
+        assert(string.find(group.title.text or "", expectedGroup.title, 1, true),
+            context("Abschnittstitel " .. expectedGroup.key .. " nicht lokalisiert, erhalten: "
+                .. tostring(group.title.text)))
+        assert(#group.cards == expectedGroup.count,
+            context("Abschnitt " .. expectedGroup.key .. " muss " .. expectedGroup.count
+                .. " Karten haben, hat " .. #group.cards))
+        for cardIndex, statKey in ipairs(expectedGroup.keys) do
+            local card = group.cards[cardIndex]
+            assert(card.statKey == statKey,
+                context("Karte " .. cardIndex .. " in " .. expectedGroup.key .. " ist '"
+                    .. tostring(card.statKey) .. "' statt '" .. statKey .. "'"))
+            assert(not seenCardKeys[statKey],
+                context("Statistik doppelt als Karte vergeben: " .. statKey))
+            seenCardKeys[statKey] = true
+            -- Die Karte muss ihrem Abschnitt gehoeren, sonst bleibt sie beim
+            -- Panelwechsel als Geisterelement stehen.
+            assert(card.frame.parent == group.frame,
+                context("Karte " .. statKey .. " haengt nicht in ihrem Abschnittsrahmen"))
+        end
+    end
+
+    -- Jede der 13 Statistiken aus Data.lua hat genau eine Karte. Keine zweite
+    -- Wahrheit ueber Menge oder Schluessel.
     for _, source in ipairs({ WAT.Data.STATISTICS, WAT.Data.DERIVED_STATISTICS }) do
         for _, definition in ipairs(source) do
-            local column = columnByKey[definition.key]
-            assert(column, context("Statistik ohne Spalte: " .. tostring(definition.key)))
-            assert(column.label == WAT.L(definition.labelKey),
-                context("Statistik-Spaltenkopf nicht lokalisiert: " .. tostring(column.label)))
-            assert(type(column.band) == "number",
-                context("Statistik-Spalte ohne Bandzuordnung: " .. tostring(definition.key)))
+            assert(seenCardKeys[definition.key],
+                context("Statistik ohne Karte: " .. tostring(definition.key)))
         end
     end
 
-    -- Bandgeometrie aus der ECHTEN Platzierung, nicht aus einer zweiten
-    -- Rechnung: kein Band darf ueber die Inhaltsbreite hinauslaufen.
-    assert(statisticsPanel.bandCount == 3,
-        context("Statistikseite muss genau drei Baender haben, hat "
-            .. tostring(statisticsPanel.bandCount)))
-    assert(type(statisticsPanel.bandWidths) == "table"
-            and #statisticsPanel.bandWidths == 3,
-        context("Bandbreiten der Statistikseite fehlen"))
-    for band, width in ipairs(statisticsPanel.bandWidths) do
-        assert(width <= 920,
-            context("Statistik-Band " .. band .. " ist mit " .. width
-                .. "px breiter als CONTENT_WIDTH=920"))
+    local cards = statisticsPanel.cards
+    assert(type(cards) == "table", context("Kartenregister der Statistikseite fehlt"))
+
+    -- Jede Karte bindet sichtbar eine knappe Beschriftung an einen prominenten
+    -- Wert. Beides muss existieren, aufgeloest sein und sich unterscheiden -
+    -- eine Karte, die nur eine Zahl zeigt, ist nicht lesbar.
+    for statKey, card in pairs(cards) do
+        assert(card.label and type(card.label.text) == "string" and card.label.text ~= "",
+            context("Karte " .. statKey .. " hat keine Beschriftung"))
+        assert(card.value and type(card.value.text) == "string" and card.value.text ~= "",
+            context("Karte " .. statKey .. " hat keinen Wert"))
+        assert(not string.find(card.label.text, "[", 1, true),
+            context("unaufgeloester Roh-Schluessel auf Karte " .. statKey .. ": " .. card.label.text))
+        -- Eine Kartenbeschriftung ist einzeilig: das alte "\n" der Spaltenkoepfe
+        -- wuerde die Karte sprengen.
+        assert(not string.find(card.label.text, "\n", 1, true),
+            context("Kartenbeschriftung " .. statKey .. " ist mehrzeilig: " .. card.label.text))
+        -- Harte Begrenzung: SetWordWrap allein laesst Text weiterlaufen.
+        assert(card.frame.clipsChildren == true,
+            context("Karte " .. statKey .. " schneidet nicht ab (SetClipsChildren fehlt)"))
+        assert(card.value.wordWrap == false and card.value.maxLines == 1,
+            context("Kartenwert " .. statKey .. " ist nicht auf eine Zeile begrenzt"))
     end
 
-    -- Die thematische Gruppierung ist der Zweck der drei Baender, nicht ein
-    -- Nebeneffekt. Sie wird deshalb festgeschrieben: Inhalte, Ueberleben,
-    -- Quests. Eine Statistik in ein fremdes Band zu schieben ist eine
-    -- inhaltliche Aenderung und soll den Test brechen.
-    local EXPECTED_BANDS = {
-        delvesTotal = 1, delvesMidnight = 1, dungeonsEntered = 1,
-        midnightDungeons = 1, playtimeTotal = 1,
-        deathsTotal = 2, deathsDungeon = 2, deathsRaid = 2,
-        deathsFalling = 2, healthstones = 2,
-        questsCompleted = 3, questsDaily = 3, questsAbandoned = 3,
-    }
-    for key, band in pairs(EXPECTED_BANDS) do
-        local column = columnByKey[key]
-        assert(column and column.band == band,
-            context("Statistik " .. key .. " gehoert in Band " .. band .. ", liegt aber in Band "
-                .. tostring(column and column.band)))
+    -- -----------------------------------------------------------------------
+    -- Geometrie: drei Abschnitte plus Registerleiste passen in das Panel
+    -- -----------------------------------------------------------------------
+
+    -- Gemessen wird die ECHTE Platzierung, nicht eine zweite Rechnung.
+    for _, group in ipairs(groups) do
+        local height = group.frame:GetHeight() or 0
+        assert(height >= 90 and height <= 100,
+            context("Abschnitt " .. group.key .. " ist " .. height
+                .. "px hoch, erwartet 90-100px"))
+        for _, card in ipairs(group.cards) do
+            local point = card.frame.points[1]
+            assert(point, context("Karte " .. card.statKey .. " ohne Ankerpunkt"))
+            local left = point[2] or 0
+            local right = left + (card.frame:GetWidth() or 0)
+            assert(right <= 920,
+                context("Karte " .. card.statKey .. " endet bei " .. right
+                    .. "px und damit ausserhalb von CONTENT_WIDTH=920"))
+        end
+        -- Gleich breite Karten je Abschnitt: ungleiche Breiten lesen sich als
+        -- Rangfolge, die es hier nicht gibt.
+        local firstWidth = group.cards[1].frame:GetWidth()
+        for _, card in ipairs(group.cards) do
+            assert(card.frame:GetWidth() == firstWidth,
+                context("Karten in " .. group.key .. " sind unterschiedlich breit: "
+                    .. tostring(card.statKey)))
+        end
     end
 
-    -- Breite Spalten sind der zweite Zweck der Umstellung: ein Spaltenkopf wie
-    -- "TODE SCHLACHTZUG" braucht Platz. 85px waren zu wenig.
-    for key in pairs(EXPECTED_BANDS) do
-        assert(columnByKey[key].width >= 115,
-            context("Statistik-Spalte " .. key .. " ist mit " .. columnByKey[key].width
-                .. "px zu schmal fuer einen lesbaren Spaltenkopf"))
+    local tabBar = statisticsPanel.tabBar
+    assert(tabBar, context("die Registerleiste am unteren Rand fehlt"))
+    local barHeight = tabBar:GetHeight() or 0
+    assert(barHeight >= 30 and barHeight <= 34,
+        context("die Registerleiste ist " .. barHeight .. "px hoch, erwartet 30-34px"))
+
+    -- Drei Abschnitte plus Leiste plus Abstaende muessen in die Panelhoehe
+    -- passen. Das Panel ist FRAME_HEIGHT - 150 (Kopf) - 48 (Fuss) hoch.
+    local panelHeight = 600 - 150 - 48
+    local usedHeight = barHeight
+    for _, group in ipairs(groups) do
+        usedHeight = usedHeight + (group.frame:GetHeight() or 0)
+    end
+    assert(usedHeight <= panelHeight,
+        context("Abschnitte und Registerleiste brauchen " .. usedHeight
+            .. "px, das Panel hat nur " .. panelHeight .. "px"))
+
+    -- -----------------------------------------------------------------------
+    -- Registerleiste: GESAMT fest links, danach je ein Charakter
+    -- -----------------------------------------------------------------------
+
+    local totalTab = statisticsPanel.totalTab
+    assert(totalTab, context("der feste GESAMT-Reiter fehlt"))
+    assert(string.find(totalTab.label.text or "", expect.scopeTotal, 1, true),
+        context("GESAMT-Reiter nicht lokalisiert, erhalten: " .. tostring(totalTab.label.text)))
+    -- Fest verankert: der GESAMT-Reiter haengt in der Leiste selbst, NICHT im
+    -- scrollenden Ausschnitt. Nur so kann er beim Blaettern nicht wegwandern.
+    assert(totalTab.parent == tabBar,
+        context("der GESAMT-Reiter darf nicht im blaetternden Ausschnitt haengen"))
+    assert(totalTab.parent ~= statisticsPanel.tabViewport,
+        context("der GESAMT-Reiter ist nicht fest angeheftet"))
+    assert(totalTab:IsShown() == true, context("der GESAMT-Reiter muss immer sichtbar sein"))
+    -- Ganz links: linker Rand des GESAMT-Reiters vor allen Charakterreitern.
+    local totalLeft = totalTab.points[1] and totalTab.points[1][2] or 0
+    local viewportLeft = statisticsPanel.tabViewport.points[1]
+        and statisticsPanel.tabViewport.points[1][2] or 0
+    assert(totalLeft < viewportLeft,
+        context("der GESAMT-Reiter steht nicht ganz links (GESAMT bei " .. totalLeft
+            .. ", Ausschnitt bei " .. viewportLeft .. ")"))
+
+    -- Genau ein Reiter je bekanntem Charakter, in derselben deterministischen
+    -- Reihenfolge wie bisher, und jeder genau einmal.
+    local characterTabs = statisticsPanel.characterTabs
+    assert(type(characterTabs) == "table", context("die Charakterreiter fehlen"))
+    local activeTabs = {}
+    local seenScopes = {}
+    for _, tab in ipairs(characterTabs) do
+        if tab:IsShown() then
+            activeTabs[#activeTabs + 1] = tab
+        end
+        if tab.scopeKey ~= nil and tab:IsShown() then
+            assert(not seenScopes[tab.scopeKey],
+                context("Charakterreiter doppelt vergeben: " .. tostring(tab.scopeKey)))
+            seenScopes[tab.scopeKey] = true
+        end
+    end
+    assert(#activeTabs == 2,
+        context("es muss genau ein Reiter je Charakter sichtbar sein (2), sichtbar sind "
+            .. #activeTabs))
+    assert(seenScopes.test and seenScopes.alt,
+        context("die Reiter tragen nicht die stabilen Charakterschluessel"))
+    -- Der GESAMT-Reiter traegt einen eigenen, von keinem Charakter belegbaren
+    -- Schluessel.
+    assert(totalTab.scopeKey ~= nil and seenScopes[totalTab.scopeKey] == nil,
+        context("der GESAMT-Schluessel kollidiert mit einem Charakterschluessel"))
+    -- Dieselbe deterministische Sortierung wie im Rest der UI (Name+Realm,
+    -- kleingeschrieben): Testheld-Testreich vor Zweitheld-Zweitreich.
+    assert(string.find(activeTabs[1].label.text or "", "Testheld", 1, true),
+        context("Reiterreihenfolge weicht von der bisherigen Sortierung ab, erster: "
+            .. tostring(activeTabs[1].label.text)))
+    assert(string.find(activeTabs[2].label.text or "", "Zweitheld", 1, true),
+        context("Reiterreihenfolge weicht von der bisherigen Sortierung ab, zweiter: "
+            .. tostring(activeTabs[2].label.text)))
+
+    -- Beschriftungen werden hart beschnitten, die volle Identitaet steht im
+    -- Tooltip. Ein abgeschnittener Name ohne Tooltip waere nicht auflösbar.
+    for _, tab in ipairs(activeTabs) do
+        assert(tab.clipsChildren == true,
+            context("Charakterreiter schneidet die Beschriftung nicht ab: "
+                .. tostring(tab.scopeKey)))
+        assert(type(tab.scripts.OnEnter) == "function",
+            context("Charakterreiter ohne Tooltip: " .. tostring(tab.scopeKey)))
+    end
+    activeTabs[1].scripts.OnEnter(activeTabs[1])
+    local tabTooltip = GameTooltip:TooltipText()
+    assert(string.find(tabTooltip, "Testheld", 1, true)
+            and string.find(tabTooltip, "Testreich", 1, true),
+        context("der Reiter-Tooltip nennt nicht die volle Identitaet, erhalten: " .. tabTooltip))
+
+    -- -----------------------------------------------------------------------
+    -- Standardbereich GESAMT und die aktiven Zustaende
+    -- -----------------------------------------------------------------------
+
+    assert(statisticsPanel.scopeKey == totalTab.scopeKey,
+        context("der Standardbereich muss GESAMT sein, ist aber "
+            .. tostring(statisticsPanel.scopeKey)))
+    assert(totalTab.active == true, context("GESAMT ist nicht als aktiv markiert"))
+
+    -- Aktives GESAMT ist tuerkis.
+    local TURQUOISE = { 0.050, 0.820, 0.620 }
+    local function ColorMatches(color, expected)
+        if type(color) ~= "table" then return false end
+        for index = 1, 3 do
+            if math.abs((color[index] or -1) - expected[index]) > 0.02 then return false end
+        end
+        return true
+    end
+    assert(ColorMatches(totalTab.label.textColor, TURQUOISE),
+        context("der aktive GESAMT-Reiter ist nicht tuerkis, erhalten: "
+            .. tostring(totalTab.label.textColor and totalTab.label.textColor[1])))
+    -- Inaktive Reiter bleiben im neutralen Midnight-Dunkel: nicht tuerkis und
+    -- nicht klassenfarbig.
+    for _, tab in ipairs(activeTabs) do
+        assert(tab.active ~= true,
+            context("ein Charakterreiter ist faelschlich aktiv: " .. tostring(tab.scopeKey)))
+        assert(not ColorMatches(tab.label.textColor, TURQUOISE),
+            context("ein inaktiver Reiter traegt die Aktivfarbe: " .. tostring(tab.scopeKey)))
     end
 
-    -- Zeile 1 ist die Accountsumme, danach die sortierten Charakterzeilen.
-    local totalRow = statisticsPanel.rows[1]
-    local mainRow = statisticsPanel.rows[2]
-    local altRow = statisticsPanel.rows[3]
-    assert(totalRow and totalRow.shown == true, context("Accountsummenzeile fehlt"))
-    assert(mainRow and mainRow.shown == true, context("erste Charakterzeile der Statistiken fehlt"))
-    assert(altRow and altRow.shown == true, context("zweite Charakterzeile der Statistiken fehlt"))
-    assert(totalRow.isAccountTotal == true, context("Summenzeile ist nicht als solche markiert"))
-    assert(totalRow.character == nil, context("Summenzeile darf keinem Charakter gehoeren"))
-    assert(string.find(totalRow.values.character.text or "", expect.accountTotal, 1, true),
-        context("Accountsummenzeile nicht lokalisiert, erhalten: "
-            .. tostring(totalRow.values.character.text)))
-    -- Optisch abgesetzt: die Summenzeile traegt eine eigene Zeilenfarbe.
-    assert(totalRow.rowColor ~= mainRow.rowColor,
-        context("Summenzeile ist optisch nicht von den Charakterzeilen abgesetzt"))
-
-    assert(string.find(mainRow.values.character.text or "", "Testheld", 1, true),
-        context("Charakterzeile 1 ist nicht Testheld: " .. tostring(mainRow.values.character.text)))
-    assert(string.find(altRow.values.character.text or "", "Zweitheld", 1, true),
-        context("Charakterzeile 2 ist nicht Zweitheld: " .. tostring(altRow.values.character.text)))
-
-    -- Echte Aggregation, nicht Durchreichen: 120 + 80 = 200.
-    assert(string.find(totalRow.values.delvesTotal.text or "", "200", 1, true),
-        context("Accountsumme addiert die bekannten Werte nicht (erwartet 200), erhalten: "
-            .. tostring(totalRow.values.delvesTotal.text)))
-    assert(string.find(totalRow.values.deathsTotal.text or "", "50", 1, true),
-        context("Accountsumme der Tode falsch (erwartet 50), erhalten: "
-            .. tostring(totalRow.values.deathsTotal.text)))
+    -- GESAMT zeigt die Accountsumme: echte Aggregation, nicht Durchreichen.
+    assert(string.find(cards.delvesTotal.value.text or "", "200", 1, true),
+        context("GESAMT addiert die bekannten Werte nicht (erwartet 200), erhalten: "
+            .. tostring(cards.delvesTotal.value.text)))
+    assert(string.find(cards.deathsTotal.value.text or "", "50", 1, true),
+        context("GESAMT-Summe der Tode falsch (erwartet 50), erhalten: "
+            .. tostring(cards.deathsTotal.value.text)))
     -- Nur ein Charakter kennt den Wert: die Summe ist dieser eine Wert.
-    assert(string.find(totalRow.values.delvesMidnight.text or "", "7", 1, true),
-        context("Accountsumme mit nur einem bekannten Wert falsch (erwartet 7), erhalten: "
-            .. tostring(totalRow.values.delvesMidnight.text)))
-    assert(string.find(totalRow.values.questsCompleted.text or "", "1000", 1, true),
-        context("Accountsumme der Quests falsch (erwartet 1000), erhalten: "
-            .. tostring(totalRow.values.questsCompleted.text)))
+    assert(string.find(cards.delvesMidnight.value.text or "", "7", 1, true),
+        context("GESAMT-Summe mit nur einem bekannten Wert falsch (erwartet 7), erhalten: "
+            .. tostring(cards.delvesMidnight.value.text)))
+    assert(string.find(cards.questsCompleted.value.text or "", "1000", 1, true),
+        context("GESAMT-Summe der Quests falsch (erwartet 1000), erhalten: "
+            .. tostring(cards.questsCompleted.value.text)))
+    assert(string.find(cards.healthstones.value.text or "", "42", 1, true),
+        context("GESAMT-Summe der Heilsteine falsch (erwartet 42), erhalten: "
+            .. tostring(cards.healthstones.value.text)))
+    assert(string.find(cards.midnightDungeons.value.text or "", "60", 1, true),
+        context("GESAMT-Summe der Midnight-Dungeons falsch (erwartet 60), erhalten: "
+            .. tostring(cards.midnightDungeons.value.text)))
+    assert(string.find(cards.playtimeTotal.value.text or "", expect.playtimeMain, 1, true),
+        context("GESAMT-Summe der Spielzeit falsch (erwartet " .. expect.playtimeMain
+            .. "), erhalten: " .. tostring(cards.playtimeTotal.value.text)))
 
     -- Kennt kein Charakter den Wert, bleibt die Summe unbekannt - niemals 0.
-    for _, key in ipairs({ "deathsDungeon", "deathsRaid", "deathsFalling",
-                           "questsDaily", "questsAbandoned" }) do
-        local text = totalRow.values[key].text or ""
-        assert(string.find(text, "-", 1, true),
-            context("unbekannte Accountsumme muss ein Strich sein, erhalten fuer " .. key .. ": " .. text))
-        assert(not string.find(text, "0", 1, true),
-            context("unbekannte Accountsumme darf niemals 0 anzeigen, erhalten fuer " .. key .. ": " .. text))
-    end
-
-    -- Charakterwerte einzeln, Luecken bleiben Luecken.
-    assert(string.find(mainRow.values.delvesTotal.text or "", "120", 1, true),
-        context("eigener Charakterwert fehlt, erhalten: " .. tostring(mainRow.values.delvesTotal.text)))
-    assert(string.find(altRow.values.delvesTotal.text or "", "80", 1, true),
-        context("Charakterwert des zweiten Charakters fehlt, erhalten: "
-            .. tostring(altRow.values.delvesTotal.text)))
-    local missing = mainRow.values.delvesMidnight.text or ""
-    assert(string.find(missing, "-", 1, true) and not string.find(missing, "0", 1, true),
-        context("fehlender Charakterwert muss ein Strich sein und darf nie 0 werden, erhalten: " .. missing))
-
-    -- -----------------------------------------------------------------------
-    -- Bandlayout: echte Platzierung, echte Kanten, echtes Zeilenrecycling
-    -- -----------------------------------------------------------------------
-
-    -- Jede Zelle wird dort gemessen, wo sie tatsaechlich sitzt. Nichts darf
-    -- ueber die Inhaltsbreite hinausragen - Abschneiden ist keine Loesung.
-    -- Gemessen wird der Clipping-Rahmen: er ist seit 0.4.1 die geometrische
-    -- Wahrheit der Zelle. Die FontString darin fuellt ihn per SetAllPoints und
-    -- kann per Definition nicht darueber hinausragen.
-    local bandOffsets = {}
-    for _, column in ipairs(statisticColumns) do
-        assert(mainRow.values[column.key], context("Statistikwert fehlt: " .. tostring(column.key)))
-        local widget = mainRow.cells[column.key]
-        assert(widget, context("Statistikzelle fehlt: " .. tostring(column.key)))
-        local point = widget.points[1]
-        assert(point, context("Statistikzelle ohne Ankerpunkt: " .. tostring(column.key)))
-        local left = point[2]
-        local right = left + (widget.width or 0)
-        assert(right <= 920,
-            context("Statistikzelle " .. tostring(column.key) .. " endet bei " .. right
-                .. "px und damit ausserhalb von CONTENT_WIDTH=920"))
-        assert((widget.width or 0) <= column.width,
-            context("Statistikzelle " .. tostring(column.key) .. " ist breiter als ihre Spalte"))
-        if type(column.band) == "number" then
-            local offset = point[3] or 0
-            if bandOffsets[column.band] == nil then bandOffsets[column.band] = offset end
-            assert(bandOffsets[column.band] == offset,
-                context("Zellen desselben Bandes liegen auf verschiedenen Hoehen: "
-                    .. tostring(column.key)))
-        end
-    end
-    assert(bandOffsets[1] ~= bandOffsets[2] and bandOffsets[2] ~= bandOffsets[3]
-            and bandOffsets[1] ~= bandOffsets[3],
-        context("die drei Statistik-Baender liegen uebereinander statt untereinander"))
-
-    -- -----------------------------------------------------------------------
-    -- Harte Begrenzung: echte Clipping-Rahmen statt blossem SetWordWrap
-    -- -----------------------------------------------------------------------
-
-    -- SetWordWrap(false) verhindert nur den Umbruch. Ein zu langer Text laeuft
-    -- damit weiterhin ueber die Spaltengrenze hinaus in den Nachbarn. Erst ein
-    -- Rahmen mit SetClipsChildren(true), in dem die FontString sitzt, schneidet
-    -- wirklich ab. Geprueft wird deshalb der Rahmen, nicht die Absicht.
-    for _, column in ipairs(statisticColumns) do
-        local cell = mainRow.cells and mainRow.cells[column.key]
-        assert(cell, context("Statistikzelle ohne Clipping-Rahmen: " .. tostring(column.key)))
-        assert(cell.clipsChildren == true,
-            context("Clipping-Rahmen der Statistikzelle " .. tostring(column.key)
-                .. " schneidet nicht ab (SetClipsChildren fehlt)"))
-        assert((cell.width or 0) <= column.width,
-            context("Clipping-Rahmen von " .. tostring(column.key) .. " ist breiter als seine Spalte"))
-        -- Ein Datenwert ist immer einzeilig: eine zweite Zeile waere in einer
-        -- kompakten Bandhoehe halb abgeschnitten und damit unlesbar.
-        local value = mainRow.values[column.key]
-        assert(value.wordWrap == false,
-            context("Statistikwert " .. tostring(column.key) .. " darf nicht umbrechen"))
-        assert(value.maxLines == 1,
-            context("Statistikwert " .. tostring(column.key) .. " ist nicht auf eine Zeile begrenzt"))
-    end
-    assert(totalRow.cells and totalRow.cells.delvesTotal
-            and totalRow.cells.delvesTotal.clipsChildren == true,
-        context("auch die Accountsummenzeile braucht Clipping-Rahmen"))
-
-    -- Die Spaltenkoepfe tragen bewusst zweizeilige Labels ("TODE\nDUNGEON").
-    -- Sie duerfen zwei Zeilen nutzen, aber ebenfalls nicht ueber ihre Spalte
-    -- hinauslaufen.
-    for _, column in ipairs(statisticColumns) do
-        local headerCell = statisticsPanel.headerCells and statisticsPanel.headerCells[column.key]
-        assert(headerCell, context("Spaltenkopf ohne Clipping-Rahmen: " .. tostring(column.key)))
-        assert(headerCell.clipsChildren == true,
-            context("Spaltenkopf " .. tostring(column.key) .. " schneidet nicht ab"))
-        assert((headerCell.height or 0) >= 28,
-            context("Spaltenkopf " .. tostring(column.key)
-                .. " ist mit " .. tostring(headerCell.height)
-                .. "px zu niedrig fuer zwei lesbare Zeilen"))
-        local point = headerCell.points[1]
-        assert(point, context("Spaltenkopf ohne Ankerpunkt: " .. tostring(column.key)))
-        assert(point[2] + (headerCell.width or 0) <= 920,
-            context("Spaltenkopf " .. tostring(column.key) .. " endet ausserhalb von CONTENT_WIDTH=920"))
-        local label = statisticsPanel.headerLabels and statisticsPanel.headerLabels[column.key]
-        assert(label and (label.maxLines or 0) <= 2 and (label.maxLines or 0) >= 1,
-            context("Spaltenkopf " .. tostring(column.key) .. " ist nicht auf hoechstens zwei Zeilen begrenzt"))
-    end
-
-    -- -----------------------------------------------------------------------
-    -- Kompaktdarstellung: 15 Stellen muessen in eine Zelle passen
-    -- -----------------------------------------------------------------------
-
     local function PlainText(widget)
         local text = (widget and widget.text) or ""
         text = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
         text = string.gsub(text, "|r", "")
         return text
     end
-
-    -- Der Parser akzeptiert 15-stellige Werte, also muss die Zelle sie tragen
-    -- koennen. Ausgeschrieben passt das in keine Spalte - abgekuerzt schon.
-    local hugeCell = PlainText(altRow.values.dungeonsEntered)
-    assert(not string.find(hugeCell, "123456789012345", 1, true),
-        context("ein 15-stelliger Wert darf nicht ausgeschrieben in der Zelle stehen, erhalten: "
-            .. hugeCell))
-    assert(string.find(hugeCell, expect.compactHuge, 1, true),
-        context("15-stelliger Wert nicht als '" .. expect.compactHuge .. "' abgekuerzt, erhalten: "
-            .. hugeCell))
-    assert(#hugeCell <= 8,
-        context("abgekuerzter Wert ist mit " .. #hugeCell
-            .. " Zeichen immer noch zu lang fuer die Zelle: " .. hugeCell))
-
-    -- Auch die drei kleineren Einheiten laufen durch die echte Produktions-UI.
-    -- Sonst koennte ein vertauschter Divisor in K/M/Mrd unbemerkt bleiben,
-    -- solange nur der 15-stellige Bio/T-Extremwert getestet wird.
-    local mainStatistics = WAT.db.characters.test.statistics
-    local savedDeaths = mainStatistics[60].value
-    local savedDelves = mainStatistics[40734].value
-    local savedHealthstones = mainStatistics[812].value
-    mainStatistics[60].value = 123456
-    mainStatistics[40734].value = 123456789
-    mainStatistics[812].value = 123456789012
-    WAT:RefreshUI()
-    assert(PlainText(mainRow.values.deathsTotal) == expect.compactThousand,
-        context("Tausenderstufe falsch, erwartet " .. expect.compactThousand
-            .. ", erhalten: " .. PlainText(mainRow.values.deathsTotal)))
-    assert(PlainText(mainRow.values.delvesTotal) == expect.compactMillion,
-        context("Millionenstufe falsch, erwartet " .. expect.compactMillion
-            .. ", erhalten: " .. PlainText(mainRow.values.delvesTotal)))
-    assert(PlainText(mainRow.values.healthstones) == expect.compactBillion,
-        context("Milliardenstufe falsch, erwartet " .. expect.compactBillion
-            .. ", erhalten: " .. PlainText(mainRow.values.healthstones)))
-    mainStatistics[60].value = savedDeaths
-    mainStatistics[40734].value = savedDelves
-    mainStatistics[812].value = savedHealthstones
-    WAT:RefreshUI()
-
-    -- Kleine Werte bleiben exakt: eine Abkuerzung dort waere ein Informations-
-    -- verlust ohne jeden Platzgewinn.
-    assert(PlainText(mainRow.values.dungeonsEntered) == "400",
-        context("kleiner Wert muss exakt bleiben, erhalten: "
-            .. PlainText(mainRow.values.dungeonsEntered)))
-    assert(PlainText(mainRow.values.questsCompleted) == "1000",
-        context("vierstelliger Wert muss exakt bleiben, erhalten: "
-            .. PlainText(mainRow.values.questsCompleted)))
-
-    -- Die Spielzeit ist eine Dauer, keine Stueckzahl. Sie wird nie abgekuerzt.
-    assert(string.find(PlainText(mainRow.values.playtimeTotal), expect.playtimeMain, 1, true),
-        context("die Spielzeit darf nicht kompaktiert werden, erhalten: "
-            .. PlainText(mainRow.values.playtimeTotal)))
-
-    -- Unbekannt bleibt ein Strich, nie eine abgekuerzte Null.
-    assert(PlainText(mainRow.values.deathsRaid) == "-",
-        context("unbekannter Wert muss ein Strich bleiben, erhalten: "
-            .. PlainText(mainRow.values.deathsRaid)))
-
-    -- Der Tooltip ist die Stelle fuer den vollen Wert. Die Kompaktdarstellung
-    -- gilt ausschliesslich fuer die Zelle - sonst waere die Zahl unwiederbring-
-    -- lich verloren.
-    altRow.scripts.OnEnter(altRow)
-    local hugeTooltip = GameTooltip:TooltipText()
-    assert(string.find(hugeTooltip, "123456789012345", 1, true),
-        context("der Tooltip muss den vollen 15-stelligen Wert nennen, erhalten: " .. hugeTooltip))
-
-    -- Die hoehere Statistikzeile darf die uebrigen Seiten nicht veraendern.
-    assert(statisticsPanel.rowHeight > WAT.panels.overview.rowHeight,
-        context("die zweibaendige Statistikzeile muss hoeher sein als eine einbaendige"))
-    assert(WAT.panels.overview.rowHeight == 38,
-        context("Zeilenhoehe der einbaendigen Seiten wurde veraendert: "
-            .. tostring(WAT.panels.overview.rowHeight)))
-    assert(WAT.panels.overview.bandCount == 1,
-        context("die Uebersicht darf kein Bandlayout bekommen"))
-
-    -- Zeilen werden weiterhin recycelt, nicht neu erzeugt.
-    local pooledTotal, pooledMain = statisticsPanel.rows[1], statisticsPanel.rows[2]
-    local pooledCount = #statisticsPanel.rows
-    WAT:RefreshUI()
-    WAT:RefreshUI()
-    assert(statisticsPanel.rows[1] == pooledTotal and statisticsPanel.rows[2] == pooledMain,
-        context("Statistikzeilen werden bei jedem Refresh neu erzeugt statt recycelt"))
-    assert(#statisticsPanel.rows == pooledCount,
-        context("der Zeilenpool waechst bei jedem Refresh: " .. #statisticsPanel.rows
-            .. " statt " .. pooledCount))
-    totalRow = statisticsPanel.rows[1]
-    mainRow = statisticsPanel.rows[2]
-    altRow = statisticsPanel.rows[3]
-
-    -- -----------------------------------------------------------------------
-    -- Die vier neuen Werte
-    -- -----------------------------------------------------------------------
-
-    assert(string.find(mainRow.values.healthstones.text or "", "30", 1, true),
-        context("Heilsteine (812) fehlen, erhalten: " .. tostring(mainRow.values.healthstones.text)))
-    assert(string.find(mainRow.values.dungeonsEntered.text or "", "400", 1, true),
-        context("betretene Dungeons (932) fehlen, erhalten: "
-            .. tostring(mainRow.values.dungeonsEntered.text)))
-    assert(string.find(mainRow.values.midnightDungeons.text or "", "60", 1, true),
-        context("Midnight-Dungeon-Summe fehlt, erhalten: "
-            .. tostring(mainRow.values.midnightDungeons.text)))
-
-    -- Unbekannt bleibt ein Strich, auch bei den abgeleiteten Werten. 932 traegt
-    -- beim Zweithelden inzwischen den 15-stelligen Extremwert und ist deshalb
-    -- kein Strich mehr; die Strich-Deckung fuer direkte Statistiken leistet
-    -- weiterhin die Schleife ueber 14787/14784/114/97/94 weiter oben.
-    for _, key in ipairs({ "midnightDungeons" }) do
-        local text = altRow.values[key].text or ""
-        assert(string.find(text, "-", 1, true) and not string.find(text, "0", 1, true),
-            context("unbekannter abgeleiteter Wert muss ein Strich sein, erhalten fuer "
+    for _, key in ipairs({ "deathsDungeon", "deathsRaid", "deathsFalling",
+                           "questsDaily", "questsAbandoned" }) do
+        local text = PlainText(cards[key].value)
+        assert(text == "-",
+            context("unbekannter GESAMT-Wert muss genau ein Strich sein, erhalten fuer "
                 .. key .. ": " .. text))
     end
 
-    -- Spielzeit: kompakt lokalisiert, echte Null bleibt eine Null.
-    local playtimeText = mainRow.values.playtimeTotal.text or ""
-    assert(string.find(playtimeText, expect.playtimeMain, 1, true),
-        context("Spielzeit nicht kompakt lokalisiert, erwartet " .. expect.playtimeMain
-            .. ", erhalten: " .. playtimeText))
-    local zeroText = altRow.values.playtimeTotal.text or ""
-    assert(string.find(zeroText, "0", 1, true) and not string.find(zeroText, "-", 1, true),
-        context("echte Spielzeit-Null muss als 0 erscheinen, erhalten: " .. zeroText))
+    -- -----------------------------------------------------------------------
+    -- Kompaktdarstellung in der Karte, exakter Wert im Tooltip
+    -- -----------------------------------------------------------------------
 
-    -- Accountsummen der neuen Werte, inklusive Summe ueber Sekunden.
-    assert(string.find(totalRow.values.healthstones.text or "", "42", 1, true),
-        context("Accountsumme der Heilsteine falsch (erwartet 42), erhalten: "
-            .. tostring(totalRow.values.healthstones.text)))
-    -- 400 + 123456789012345 = 123456789012745. Die Summe wird in der Zelle
-    -- ebenso kompaktiert wie ein Einzelwert - auch die Summenzeile hat nur
-    -- Spaltenbreite zur Verfuegung.
-    assert(string.find(totalRow.values.dungeonsEntered.text or "", expect.compactHuge, 1, true),
-        context("Accountsumme der betretenen Dungeons nicht kompaktiert (erwartet "
-            .. expect.compactHuge .. "), erhalten: "
-            .. tostring(totalRow.values.dungeonsEntered.text)))
-    -- Der Tooltip der Summenzeile fuehrt weiterhin den vollen Wert.
-    totalRow.scripts.OnEnter(totalRow)
-    assert(string.find(GameTooltip:TooltipText(), "123456789012745", 1, true),
-        context("der Summen-Tooltip muss den vollen Wert nennen, erhalten: "
+    -- 400 + 123456789012345 = 123456789012745.
+    local hugeCard = PlainText(cards.dungeonsEntered.value)
+    assert(not string.find(hugeCard, "123456789012745", 1, true),
+        context("ein 15-stelliger Wert darf nicht ausgeschrieben auf der Karte stehen, erhalten: "
+            .. hugeCard))
+    assert(string.find(hugeCard, expect.compactHuge, 1, true),
+        context("15-stelliger Wert nicht als '" .. expect.compactHuge .. "' abgekuerzt, erhalten: "
+            .. hugeCard))
+    assert(type(cards.dungeonsEntered.frame.scripts.OnEnter) == "function",
+        context("Karte ohne Tooltip: dungeonsEntered"))
+    cards.dungeonsEntered.frame.scripts.OnEnter(cards.dungeonsEntered.frame)
+    local cardTooltip = GameTooltip:TooltipText()
+    assert(string.find(cardTooltip, "123456789012745", 1, true),
+        context("der Karten-Tooltip muss den vollen Wert nennen, erhalten: " .. cardTooltip))
+    assert(string.find(cardTooltip, expect.accountTooltip, 1, true),
+        context("der Karten-Tooltip im GESAMT-Bereich nennt die Accountsumme nicht, erhalten: "
+            .. cardTooltip))
+    -- Die Erklaerung, dass 932 BETRETENE Dungeons zaehlt, gehoert an den Wert.
+    assert(string.find(cardTooltip, expect.dungeonsEnteredNote, 1, true),
+        context("Karten-Tooltip erklaert 'betreten statt abgeschlossen' nicht, erhalten: "
+            .. cardTooltip))
+
+    -- -----------------------------------------------------------------------
+    -- Bereichswechsel per Klick auf einen Charakterreiter
+    -- -----------------------------------------------------------------------
+
+    local testheldTab = activeTabs[1]
+    assert(type(testheldTab.scripts.OnClick) == "function",
+        context("Charakterreiter ohne Klickziel"))
+    testheldTab.scripts.OnClick(testheldTab)
+    assert(statisticsPanel.scopeKey == "test",
+        context("Klick auf den Charakterreiter wechselt den Bereich nicht, aktuell: "
+            .. tostring(statisticsPanel.scopeKey)))
+    assert(testheldTab.active == true, context("der gewaehlte Charakterreiter ist nicht aktiv"))
+    assert(totalTab.active ~= true, context("GESAMT bleibt aktiv, obwohl ein Charakter gewaehlt ist"))
+
+    -- Der aktive Charakterreiter traegt seine KLASSENFARBE, nicht das Tuerkis
+    -- des GESAMT-Reiters.
+    local MAGE_COLOR = { 0.25, 0.78, 0.92 }
+    assert(ColorMatches(testheldTab.label.textColor, MAGE_COLOR),
+        context("der aktive Charakterreiter traegt nicht seine Klassenfarbe"))
+    assert(not ColorMatches(testheldTab.label.textColor, TURQUOISE),
+        context("der aktive Charakterreiter darf nicht tuerkis sein"))
+
+    -- Jetzt zeigen die Karten die Werte DIESES Charakters, nicht die Summe.
+    assert(PlainText(cards.delvesTotal.value) == "120",
+        context("Charakterbereich zeigt nicht den eigenen Wert (erwartet 120), erhalten: "
+            .. PlainText(cards.delvesTotal.value)))
+    assert(PlainText(cards.deathsTotal.value) == "45",
+        context("Charakterbereich zeigt nicht die eigenen Tode (erwartet 45), erhalten: "
+            .. PlainText(cards.deathsTotal.value)))
+    assert(PlainText(cards.dungeonsEntered.value) == "400",
+        context("kleiner Wert muss exakt bleiben, erhalten: "
+            .. PlainText(cards.dungeonsEntered.value)))
+    -- Luecken bleiben Luecken: nie 0.
+    assert(PlainText(cards.delvesMidnight.value) == "-",
+        context("fehlender Charakterwert muss ein Strich sein, erhalten: "
+            .. PlainText(cards.delvesMidnight.value)))
+    -- Die Spielzeit ist eine Dauer und wird nie abgekuerzt.
+    assert(string.find(PlainText(cards.playtimeTotal.value), expect.playtimeMain, 1, true),
+        context("die Spielzeit darf nicht kompaktiert werden, erhalten: "
+            .. PlainText(cards.playtimeTotal.value)))
+
+    -- Der Karten-Tooltip nennt im Charakterbereich Name, exakten Wert und den
+    -- Zeitstempel der Erfassung.
+    cards.delvesTotal.frame.scripts.OnEnter(cards.delvesTotal.frame)
+    local characterCardTooltip = GameTooltip:TooltipText()
+    assert(string.find(characterCardTooltip, "Client-Statistik-40734", 1, true),
+        context("Karten-Tooltip zeigt nicht den clientlokalisierten Namen, erhalten: "
+            .. characterCardTooltip))
+    assert(string.find(characterCardTooltip, "120", 1, true),
+        context("Karten-Tooltip nennt den Wert nicht, erhalten: " .. characterCardTooltip))
+    assert(string.find(characterCardTooltip, expect.recorded, 1, true),
+        context("Karten-Tooltip nennt den Erfassungszeitpunkt nicht, erhalten: "
+            .. characterCardTooltip))
+    assert(string.find(characterCardTooltip, expect.statisticsOfflineHint, 1, true),
+        context("Offline-Hinweis der Statistiken fehlt, erhalten: " .. characterCardTooltip))
+
+    -- Ohne lesbaren Clientnamen greift der eigene, uebersetzte Ersatzname.
+    local savedInfo = GetAchievementInfo
+    GetAchievementInfo = function() error("kein Erfolg lesbar") end
+    cards.delvesTotal.frame.scripts.OnEnter(cards.delvesTotal.frame)
+    assert(string.find(GameTooltip:TooltipText(), expect.statisticFallbackName, 1, true),
+        context("ohne Clientnamen fehlt der lokalisierte Ersatzname, erhalten: "
             .. GameTooltip:TooltipText()))
-    assert(string.find(totalRow.values.midnightDungeons.text or "", "60", 1, true),
-        context("Accountsumme der Midnight-Dungeons falsch (erwartet 60), erhalten: "
-            .. tostring(totalRow.values.midnightDungeons.text)))
-    -- 90000 + 0 Sekunden: die Null zaehlt mit, ein fehlender Charakter nicht.
-    assert(string.find(totalRow.values.playtimeTotal.text or "", expect.playtimeMain, 1, true),
-        context("Accountsumme der Spielzeit falsch (erwartet " .. expect.playtimeMain
-            .. "), erhalten: " .. tostring(totalRow.values.playtimeTotal.text)))
+    GetAchievementInfo = savedInfo
+
+    -- Die abgeleiteten Werte haben keine Statistik-ID; Name UND Erklaerung
+    -- muessen aus dem eigenen Woerterbuch kommen.
+    cards.midnightDungeons.frame.scripts.OnEnter(cards.midnightDungeons.frame)
+    local derivedTooltip = GameTooltip:TooltipText()
+    assert(string.find(derivedTooltip, expect.midnightDungeonsName, 1, true),
+        context("Tooltip nennt die Midnight-Dungeon-Summe nicht mit eigenem Namen, erhalten: "
+            .. derivedTooltip))
+    assert(string.find(derivedTooltip, expect.compositeNote, 1, true),
+        context("Tooltip erklaert die Endboss-Summe nicht, erhalten: " .. derivedTooltip))
+    cards.playtimeTotal.frame.scripts.OnEnter(cards.playtimeTotal.frame)
+    assert(string.find(GameTooltip:TooltipText(), expect.playtimeName, 1, true),
+        context("Tooltip nennt die Spielzeit nicht mit eigenem Namen, erhalten: "
+            .. GameTooltip:TooltipText()))
+
+    -- -----------------------------------------------------------------------
+    -- Auswahl ueberlebt RefreshUI, fehlende Auswahl faellt auf GESAMT zurueck
+    -- -----------------------------------------------------------------------
+
+    WAT:RefreshUI()
+    assert(statisticsPanel.scopeKey == "test",
+        context("die Auswahl ueberlebt RefreshUI nicht, aktuell: "
+            .. tostring(statisticsPanel.scopeKey)))
+    assert(PlainText(cards.delvesTotal.value) == "120",
+        context("nach RefreshUI zeigt die Karte nicht mehr den gewaehlten Charakter"))
 
     -- Lebenslange Werte veralten nicht mit der Woche.
     local savedIsStale = WAT.IsStale
     WAT.IsStale = function() return true end
     WAT:RefreshUI()
-    local staleText = WAT.panels.statistics.rows[2].values.delvesTotal.text or ""
-    assert(string.find(staleText, "120", 1, true),
+    local staleText = PlainText(cards.delvesTotal.value)
+    assert(staleText == "120",
         context("lebenslange Statistiken duerfen nicht als alte Woche ausgegraut werden, erhalten: "
             .. staleText))
     assert(not string.find(staleText, expect.staleWeek, 1, true),
-        context("Statistikzelle zeigt faelschlich den Wochen-Veraltet-Text: " .. staleText))
+        context("Statistikkarte zeigt faelschlich den Wochen-Veraltet-Text: " .. staleText))
     WAT.IsStale = savedIsStale
+
+    -- Verschwindet der gewaehlte Charakter aus der Datenbank, faellt die Seite
+    -- auf GESAMT zurueck statt eine leere oder falsche Karte zu zeigen.
+    local savedCharacter = WAT.db.characters.test
+    WAT.db.characters.test = nil
+    WAT:RefreshUI()
+    assert(statisticsPanel.scopeKey == totalTab.scopeKey,
+        context("ein fehlender Charakter muss auf GESAMT zurueckfallen, aktuell: "
+            .. tostring(statisticsPanel.scopeKey)))
+    assert(totalTab.active == true,
+        context("nach dem Rueckfall ist GESAMT nicht als aktiv markiert"))
+    -- Jetzt kennt nur noch der Zweitheld Werte: die Summe ist dessen Wert.
+    assert(PlainText(cards.delvesTotal.value) == "80",
+        context("nach dem Rueckfall stimmt die Accountsumme nicht, erhalten: "
+            .. PlainText(cards.delvesTotal.value)))
+    WAT.db.characters.test = savedCharacter
     WAT:RefreshUI()
 
-    -- Tooltip: clientlokalisierter Statistikname gewinnt vor dem Ersatztext.
-    local statisticsTooltipRow = WAT.panels.statistics.rows[2]
-    statisticsTooltipRow.scripts.OnEnter(statisticsTooltipRow)
-    local statisticsTooltip = GameTooltip:TooltipText()
-    assert(string.find(statisticsTooltip, "Client-Statistik-40734", 1, true),
-        context("Statistik-Tooltip zeigt nicht den clientlokalisierten Namen, erhalten: "
-            .. statisticsTooltip))
-    assert(string.find(statisticsTooltip, "120", 1, true),
-        context("Statistik-Tooltip nennt den Wert nicht, erhalten: " .. statisticsTooltip))
-    assert(string.find(statisticsTooltip, expect.statisticsOfflineHint, 1, true),
-        context("Offline-Hinweis der Statistiken nicht lokalisiert, erhalten: " .. statisticsTooltip))
+    -- -----------------------------------------------------------------------
+    -- Kein Objektwachstum: Karten und Reiter werden wiederverwendet
+    -- -----------------------------------------------------------------------
 
-    -- Die synthetischen Werte haben keine Statistik-ID; GetAchievementInfo
-    -- kann fuer sie nichts liefern. Name UND Erklaerung muessen deshalb aus
-    -- dem eigenen Woerterbuch kommen.
-    assert(string.find(statisticsTooltip, expect.midnightDungeonsName, 1, true),
-        context("Tooltip nennt die Midnight-Dungeon-Summe nicht mit eigenem Namen, erhalten: "
-            .. statisticsTooltip))
-    assert(string.find(statisticsTooltip, expect.playtimeName, 1, true),
-        context("Tooltip nennt die Spielzeit nicht mit eigenem Namen, erhalten: "
-            .. statisticsTooltip))
-    assert(string.find(statisticsTooltip, expect.playtimeMain, 1, true),
-        context("Tooltip zeigt die Spielzeit nicht kompakt lokalisiert, erhalten: "
-            .. statisticsTooltip))
-    -- Der Tooltip muss sagen, dass 932 BETRETENE und keine abgeschlossenen
-    -- Dungeons zaehlt, und woraus die Summe entsteht.
-    assert(string.find(statisticsTooltip, expect.dungeonsEnteredNote, 1, true),
-        context("Tooltip erklaert 'betreten statt abgeschlossen' nicht, erhalten: "
-            .. statisticsTooltip))
-    assert(string.find(statisticsTooltip, expect.compositeNote, 1, true),
-        context("Tooltip erklaert die Endboss-Summe nicht, erhalten: " .. statisticsTooltip))
+    local pooledTotalTab = statisticsPanel.totalTab
+    local pooledCard = cards.delvesTotal
+    local pooledTabCount = #statisticsPanel.characterTabs
+    local widgetsBefore = WidgetsCreated()
+    WAT:RefreshUI()
+    WAT:RefreshUI()
+    WAT:RefreshUI()
+    assert(WidgetsCreated() == widgetsBefore,
+        context("wiederholtes RefreshUI erzeugt neue Objekte: " .. WidgetsCreated()
+            .. " statt " .. widgetsBefore .. " - der Statistikbereich leckt Rahmen"))
+    assert(statisticsPanel.totalTab == pooledTotalTab,
+        context("der GESAMT-Reiter wird bei jedem Refresh neu erzeugt"))
+    assert(statisticsPanel.cards.delvesTotal == pooledCard,
+        context("die Karten werden bei jedem Refresh neu erzeugt"))
+    assert(#statisticsPanel.characterTabs == pooledTabCount,
+        context("der Reiterpool waechst bei jedem Refresh: "
+            .. #statisticsPanel.characterTabs .. " statt " .. pooledTabCount))
 
-    -- Ohne lesbaren Clientnamen greift der eigene, uebersetzte Ersatzname.
-    local savedInfo = GetAchievementInfo
-    GetAchievementInfo = function() error("kein Erfolg lesbar") end
-    statisticsTooltipRow.scripts.OnEnter(statisticsTooltipRow)
-    local fallbackTooltip = GameTooltip:TooltipText()
-    assert(string.find(fallbackTooltip, expect.statisticFallbackName, 1, true),
-        context("ohne Clientnamen fehlt der lokalisierte Ersatzname, erhalten: " .. fallbackTooltip))
-    GetAchievementInfo = savedInfo
+    -- -----------------------------------------------------------------------
+    -- Blaetterpfeile: bei zwei Charakteren gibt es nichts zu blaettern
+    -- -----------------------------------------------------------------------
 
-    -- Die Summenzeile erklaert sich selbst und gehoert keinem Charakter.
-    totalRow.scripts.OnEnter(totalRow)
-    local totalTooltip = GameTooltip:TooltipText()
-    assert(string.find(totalTooltip, expect.accountTooltip, 1, true),
-        context("Tooltip der Summenzeile nicht lokalisiert, erhalten: " .. totalTooltip))
-
+    assert(statisticsPanel.prevArrow and statisticsPanel.nextArrow,
+        context("die Blaetterpfeile der Registerleiste fehlen"))
+    assert(statisticsPanel.prevArrow:IsShown() == false
+            and statisticsPanel.nextArrow:IsShown() == false,
+        context("bei zwei Charakteren duerfen keine Blaetterpfeile sichtbar sein"))
+    assert(statisticsPanel.tabOffset == 0,
+        context("ohne Blaetterbedarf muss der Versatz 0 sein, ist "
+            .. tostring(statisticsPanel.tabOffset)))
     -- -----------------------------------------------------------------------
     -- Einstellungen: Formularseite statt Charakterzeilen
     -- -----------------------------------------------------------------------
@@ -1267,6 +1355,11 @@ RunSuite("deDE", {
     accountTooltip = "Accountsumme",
     statisticsOfflineHint = "Lebenslange Werte",
     statisticFallbackName = "Abgeschlossene Tiefen",
+    recorded = "Erfasst",
+    scopeTotal = "GESAMT",
+    groupContent = "INHALTE",
+    groupSurvival = "ÜBERLEBEN",
+    groupQuests = "QUESTS",
     -- 90000 Sekunden = 1 Tag 1 Stunde.
     playtimeMain = "1T 1Std",
     -- 123456789012345 abgerundet auf Billionen.
@@ -1310,6 +1403,11 @@ RunSuite("enUS", {
     accountTooltip = "Account total",
     statisticsOfflineHint = "Lifetime values",
     statisticFallbackName = "Delves completed",
+    recorded = "Recorded",
+    scopeTotal = "TOTAL",
+    groupContent = "CONTENT",
+    groupSurvival = "SURVIVAL",
+    groupQuests = "QUESTS",
     -- 90000 seconds = 1 day 1 hour.
     playtimeMain = "1d 1h",
     -- 123456789012345 rounded down to trillions.
@@ -1354,6 +1452,11 @@ RunSuite("frFR", {
     accountTooltip = "Account total",
     statisticsOfflineHint = "Lifetime values",
     statisticFallbackName = "Delves completed",
+    recorded = "Recorded",
+    scopeTotal = "TOTAL",
+    groupContent = "CONTENT",
+    groupSurvival = "SURVIVAL",
+    groupQuests = "QUESTS",
     -- 90000 seconds = 1 day 1 hour.
     playtimeMain = "1d 1h",
     -- 123456789012345 rounded down to trillions.
@@ -1392,36 +1495,241 @@ local function RunDerivedOnlyStatisticsSuite()
     LoadInto(WAT, "UI.lua")
     WAT:CreateUI()
 
-    -- Die Panelgeometrie bleibt absichtlich statisch bei Charakter + 13 Werten;
-    -- getestet wird der relevante Vertrag: StatisticDefinitions darf die beiden
+    -- Die Kartengeometrie bleibt absichtlich statisch bei 13 Werten; getestet
+    -- wird der relevante Vertrag: StatisticDefinitions darf die beiden
     -- abgeleiteten Werte trotz nil-Direktquelle nicht beim Befüllen verlieren.
-    local columns = WAT.panels.statistics.columns
-    assert(#columns == 14,
-        "[derived-only] die stabile 13-Werte-Geometrie wurde verändert: " .. tostring(#columns))
+    local panel = WAT.panels.statistics
+    local cardCount = 0
+    for _ in pairs(panel.cards) do cardCount = cardCount + 1 end
+    assert(cardCount == 13,
+        "[derived-only] die stabile 13-Werte-Geometrie wurde verändert: " .. tostring(cardCount))
     WAT:RefreshUI()
-    local totalRow = WAT.panels.statistics.rows[1]
-    assert(totalRow and totalRow.isAccountTotal,
-        "[derived-only] Account-Summenzeile fehlt")
-    assert(string.find(totalRow.values.midnightDungeons.text or "", "60", 1, true),
+    assert(panel.scopeKey == panel.totalTab.scopeKey,
+        "[derived-only] der Standardbereich muss GESAMT sein")
+    assert(string.find(panel.cards.midnightDungeons.value.text or "", "60", 1, true),
         "[derived-only] Midnight-Summe wurde bei fehlender Direktquelle nicht befüllt: "
-            .. tostring(totalRow.values.midnightDungeons.text))
-    assert(string.find(totalRow.values.playtimeTotal.text or "", "1d 1h", 1, true),
+            .. tostring(panel.cards.midnightDungeons.value.text))
+    assert(string.find(panel.cards.playtimeTotal.value.text or "", "1d 1h", 1, true),
         "[derived-only] Spielzeit wurde bei fehlender Direktquelle nicht befüllt: "
-            .. tostring(totalRow.values.playtimeTotal.text))
+            .. tostring(panel.cards.playtimeTotal.value.text))
 end
 
 RunDerivedOnlyStatisticsSuite()
+
+-- ---------------------------------------------------------------------------
+-- Viele Charaktere: geblaetterter Ausschnitt bei fest angeheftetem GESAMT
+--
+-- Ab dem achten Charakter passen die Reiter nicht mehr nebeneinander. Sie wandern
+-- dann in einen horizontal blaetternden Ausschnitt mit ausdruecklichen Pfeilen.
+-- GESAMT bleibt dabei IMMER links angeheftet und blaettert nie mit weg - sonst
+-- waere der wichtigste Bereich zeitweise unerreichbar.
+-- ---------------------------------------------------------------------------
+
+local function RunPaginationSuite()
+    C_CurrencyInfo = RealCurrencyInfo()
+    local WAT = MakeWAT()
+    GetLocale = function() return "enUS" end
+
+    -- 14 zusaetzliche Charaktere mit sortierstabilen Namen. Zusammen mit den
+    -- beiden Bestandscharakteren sind das 16.
+    local CHARACTER_COUNT = 14
+    for index = 1, CHARACTER_COUNT do
+        local key = string.format("page%02d", index)
+        WAT.db.characters[key] = {
+            name = string.format("Paged%02d", index),
+            realm = "Testreich",
+            classFile = "MAGE",
+            lastSeen = 900 + index,
+            statistics = { scanned = 900, [40734] = { value = index, updated = 900 } },
+            weekly = {},
+        }
+    end
+
+    LoadInto(WAT, "Localization.lua")
+    LoadInto(WAT, "Data.lua")
+    LoadInto(WAT, "UI.lua")
+    WAT:CreateUI()
+    WAT:SetActiveTab("statistics")
+    WAT:RefreshUI()
+
+    local panel = WAT.panels.statistics
+    local totalCharacters = 0
+    for _ in pairs(WAT.db.characters) do totalCharacters = totalCharacters + 1 end
+    assert(totalCharacters == CHARACTER_COUNT + 2,
+        "[pagination] Testvoraussetzung: " .. (CHARACTER_COUNT + 2) .. " Charaktere, gefunden "
+            .. totalCharacters)
+    assert(panel.tabsVisible == 7,
+        "[pagination] bei aktueller Geometrie muessen genau sieben Charakterreiter passen, erhalten "
+            .. tostring(panel.tabsVisible))
+
+    -- Exakter Uebergang statt nur eines weit entfernten Viel-Charakter-Falls:
+    -- Sieben Charaktere passen ohne Pfeile; der achte aktiviert das Blaettern.
+    -- Die entfernten Tabellen bleiben erhalten und werden danach wieder eingesetzt,
+    -- damit der folgende 16-Charakter-Test unveraendert weiterlaufen kann.
+    local removedCharacters = {}
+    for index = 6, CHARACTER_COUNT do
+        local key = string.format("page%02d", index)
+        removedCharacters[key] = WAT.db.characters[key]
+        WAT.db.characters[key] = nil
+    end
+    WAT:RefreshUI()
+    assert(panel.prevArrow:IsShown() ~= true and panel.nextArrow:IsShown() ~= true,
+        "[pagination] bei exakt sieben Charakteren duerfen keine Blaetterpfeile sichtbar sein")
+
+    WAT.db.characters.page06 = removedCharacters.page06
+    WAT:RefreshUI()
+    assert(panel.prevArrow:IsShown() == true and panel.nextArrow:IsShown() == true,
+        "[pagination] ab dem achten Charakter muessen beide Blaetterpfeile sichtbar sein")
+
+    for key, character in pairs(removedCharacters) do
+        WAT.db.characters[key] = character
+    end
+    WAT:RefreshUI()
+
+    -- Genau ein Reiter je Charakter im Pool - kein Charakter doppelt, keiner
+    -- verloren. Sichtbar ist davon nur ein Ausschnitt.
+    local scopes = {}
+    for _, tab in ipairs(panel.characterTabs) do
+        if tab.scopeKey ~= nil then
+            assert(not scopes[tab.scopeKey],
+                "[pagination] Charakterreiter doppelt vergeben: " .. tostring(tab.scopeKey))
+            scopes[tab.scopeKey] = true
+        end
+    end
+    local scopeCount = 0
+    for _ in pairs(scopes) do scopeCount = scopeCount + 1 end
+    assert(scopeCount == totalCharacters,
+        "[pagination] es muss genau ein Reiter je Charakter geben, gefunden " .. scopeCount)
+
+    local function VisibleTabs()
+        local visible = {}
+        for _, tab in ipairs(panel.characterTabs) do
+            if tab:IsShown() then visible[#visible + 1] = tab end
+        end
+        return visible
+    end
+
+    local visible = VisibleTabs()
+    assert(#visible < totalCharacters,
+        "[pagination] bei " .. totalCharacters .. " Charakteren darf nicht alles gleichzeitig "
+            .. "sichtbar sein, sichtbar sind " .. #visible)
+    assert(#visible > 0, "[pagination] es ist gar kein Charakterreiter sichtbar")
+
+    -- GESAMT bleibt angeheftet und sichtbar - auch bei vollem Ausschnitt.
+    assert(panel.totalTab:IsShown() == true,
+        "[pagination] der GESAMT-Reiter muss auch bei vielen Charakteren sichtbar bleiben")
+    assert(panel.totalTab.parent == panel.tabBar,
+        "[pagination] der GESAMT-Reiter darf nicht im blaetternden Ausschnitt haengen")
+
+    -- Kein sichtbarer Reiter ragt aus dem Ausschnitt.
+    local viewportWidth = panel.tabViewport:GetWidth() or 0
+    assert(panel.tabViewport.clipsChildren == true,
+        "[pagination] der Reiter-Ausschnitt schneidet nicht ab")
+    for _, tab in ipairs(visible) do
+        local point = tab.points[1]
+        assert(point, "[pagination] sichtbarer Reiter ohne Ankerpunkt")
+        local left = point[2] or 0
+        assert(left >= 0 and left + (tab:GetWidth() or 0) <= viewportWidth + 0.01,
+            "[pagination] sichtbarer Reiter ragt aus dem Ausschnitt: " .. tostring(tab.scopeKey))
+    end
+
+    -- Jetzt sind die Pfeile noetig und muessen da sein.
+    assert(panel.prevArrow:IsShown() == true and panel.nextArrow:IsShown() == true,
+        "[pagination] bei zu vielen Charakteren muessen beide Blaetterpfeile sichtbar sein")
+
+    -- Untere Grenze: am Anfang ist der Zurueck-Pfeil gesperrt, der Vor-Pfeil nicht.
+    assert(panel.tabOffset == 0, "[pagination] der Startversatz muss 0 sein")
+    assert(panel.prevArrow.disabled == true,
+        "[pagination] am linken Rand muss der Zurueck-Pfeil gesperrt sein")
+    assert(panel.nextArrow.disabled ~= true,
+        "[pagination] am linken Rand darf der Vor-Pfeil nicht gesperrt sein")
+
+    -- Ein gesperrter Pfeil tut nichts.
+    panel.prevArrow.scripts.OnClick(panel.prevArrow)
+    assert(panel.tabOffset == 0,
+        "[pagination] ein gesperrter Zurueck-Pfeil darf den Versatz nicht veraendern, ist "
+            .. tostring(panel.tabOffset))
+
+    -- Vorblaettern bewegt den Ausschnitt und zeigt andere Charaktere.
+    local firstBefore = visible[1].scopeKey
+    panel.nextArrow.scripts.OnClick(panel.nextArrow)
+    assert(panel.tabOffset > 0,
+        "[pagination] Vorblaettern erhoeht den Versatz nicht, ist " .. tostring(panel.tabOffset))
+    local afterNext = VisibleTabs()
+    assert(afterNext[1].scopeKey ~= firstBefore,
+        "[pagination] Vorblaettern zeigt denselben ersten Reiter")
+    assert(panel.prevArrow.disabled ~= true,
+        "[pagination] nach dem Vorblaettern muss der Zurueck-Pfeil wieder frei sein")
+
+    -- Obere Grenze: bis ans Ende blaettern, dort sperrt der Vor-Pfeil.
+    for _ = 1, totalCharacters do
+        panel.nextArrow.scripts.OnClick(panel.nextArrow)
+    end
+    local maxOffset = panel.tabOffset
+    assert(panel.nextArrow.disabled == true,
+        "[pagination] am rechten Rand muss der Vor-Pfeil gesperrt sein")
+    panel.nextArrow.scripts.OnClick(panel.nextArrow)
+    assert(panel.tabOffset == maxOffset,
+        "[pagination] der Versatz laeuft ueber das Ende hinaus: " .. tostring(panel.tabOffset)
+            .. " statt " .. tostring(maxOffset))
+    local lastVisible = VisibleTabs()
+    assert(#lastVisible > 0, "[pagination] am rechten Rand ist kein Reiter sichtbar")
+
+    -- Zurueckblaettern bis an den Anfang, dort sperrt der Zurueck-Pfeil wieder.
+    for _ = 1, totalCharacters do
+        panel.prevArrow.scripts.OnClick(panel.prevArrow)
+    end
+    assert(panel.tabOffset == 0,
+        "[pagination] Zurueckblaettern erreicht den Anfang nicht, Versatz "
+            .. tostring(panel.tabOffset))
+    assert(panel.prevArrow.disabled == true,
+        "[pagination] am linken Rand muss der Zurueck-Pfeil wieder gesperrt sein")
+
+    -- Die Auswahl eines Charakters holt seinen Reiter in den sichtbaren
+    -- Ausschnitt - auch wenn er weit hinten liegt.
+    local lastKey = string.format("page%02d", CHARACTER_COUNT)
+    WAT:SetStatisticsScope(lastKey)
+    assert(panel.scopeKey == lastKey,
+        "[pagination] die Auswahl ueber den stabilen Schluessel greift nicht, aktuell: "
+            .. tostring(panel.scopeKey))
+    local selectedVisible = false
+    for _, tab in ipairs(VisibleTabs()) do
+        if tab.scopeKey == lastKey then selectedVisible = true end
+    end
+    assert(selectedVisible,
+        "[pagination] der gewaehlte Charakter muss in den sichtbaren Ausschnitt geholt werden")
+    assert(string.find(panel.cards.delvesTotal.value.text or "",
+        tostring(CHARACTER_COUNT), 1, true),
+        "[pagination] die Karten zeigen nicht den gewaehlten Charakter, erhalten: "
+            .. tostring(panel.cards.delvesTotal.value.text))
+
+    -- Auch bei vielen Charakteren waechst nichts nach.
+    local widgetsBefore = WidgetsCreated()
+    WAT:RefreshUI()
+    WAT:RefreshUI()
+    assert(WidgetsCreated() == widgetsBefore,
+        "[pagination] wiederholtes RefreshUI erzeugt neue Objekte: " .. WidgetsCreated()
+            .. " statt " .. widgetsBefore)
+end
+
+RunPaginationSuite()
 
 print("LUA UI RUNTIME OK: 7/7 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10,"
     .. " offene Berufs-Wochenquest, gesperrter Wappentausch und Wappensymbole"
     .. " (3343/3345/3347) inklusive 8 Fehlerfälle, short aus Data.CRESTS,"
     .. " keine iconFileID und kein Locale-Text in der DB, questID schlägt Legacy-Label,"
-    .. " Dungeon-ID statt fremdsprachigem Namen, Statistiken mit echter Accountsumme"
-    .. " (200/50/7/1000/42) und Strich statt 0, 13 Werte in drei thematisch"
-    .. " gruppierten Baendern (Inhalte/Ueberleben/Quests) innerhalb von CONTENT_WIDTH"
-    .. " mit gemessenen Zellkanten, hart abschneidenden Clipping-Rahmen fuer Kopf und"
-    .. " Wert, einzeiligen Werten, zweizeilig begrenzten Spaltenkoepfen,"
-    .. " kompaktiertem 15-stelligen Extremwert bei exaktem Tooltip und Zeilenrecycling,"
-    .. " kompakt lokalisierte Spielzeit mit echter Null und Derived-only-Quellfallback,"
-    .. " Einstellungsformular mit 6 Skalierungsstufen,"
+    .. " Dungeon-ID statt fremdsprachigem Namen, Statistiken als Bereichs-Dashboard"
+    .. " statt Vergleichstabelle: 13 Kennzahlkarten in drei gleichzeitig sichtbaren"
+    .. " Abschnitten (Inhalte 5 / Ueberleben 5 / Quests 3) mit gemessenen Kartenkanten"
+    .. " innerhalb von CONTENT_WIDTH, harten Clipping-Rahmen und einzeiligen Werten,"
+    .. " darunter eine feste Registerleiste mit links angeheftetem GESAMT und je einem"
+    .. " Charakterreiter, echte Accountsumme (200/50/7/1000/42) und Strich statt 0,"
+    .. " Bereichswechsel per Klick ueber den stabilen Charakterschluessel, tuerkis"
+    .. " aktiv fuer GESAMT und Klassenfarbe fuer den aktiven Charakter,"
+    .. " kompaktiertem 15-stelligen Extremwert bei exaktem Karten-Tooltip,"
+    .. " kompakt lokalisierte Spielzeit mit echter Null, Auswahlerhalt ueber RefreshUI,"
+    .. " Rueckfall auf GESAMT bei fehlendem Charakter, nachweislich objektfreiem"
+    .. " Mehrfach-Refresh und Derived-only-Quellfallback, dazu ein 16-Charakter-Lauf"
+    .. " mit geblaettertem Reiter-Ausschnitt, Pfeilgrenzen und Sichtbarmachen der"
+    .. " Auswahl, Einstellungsformular mit 6 Skalierungsstufen,"
     .. " Minimap-Sichtbarkeit und Positions-Reset - je einmal in deDE, enUS und frFR")

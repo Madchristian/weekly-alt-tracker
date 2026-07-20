@@ -7,8 +7,10 @@ Ordnernamen aus package-as und schreibt ein ZIP mit festen Zeitstempeln.
 
 Feste Zeitstempel und sortierte Eintraege sind der Punkt: nur so ist der
 SHA-256 des Archivs reproduzierbar und ein unbeabsichtigt mitgepacktes File
-faellt als Hashaenderung auf. Der Hash ist NICHT mit dem Wago-CDN-Artefakt
-vergleichbar - der Packager fuegt eine generierte CHANGELOG.md hinzu.
+HASHaenderung auf. CHANGELOG.md ist als kumulativer manueller Changelog in
+.pkgmeta konfiguriert und wird deshalb unveraendert mit ausgeliefert. Der Hash
+ist trotzdem erst nach einem direkten Download mit dem Wago-CDN-Artefakt zu
+vergleichen, weil der Packager Metadaten und Zeilenenden normalisieren kann.
 
 Aufruf:
     python tools/package_preview.py            # Manifest + Hash ausgeben

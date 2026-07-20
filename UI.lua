@@ -4,17 +4,39 @@ local FRAME_WIDTH = 1154
 local FRAME_HEIGHT = 600
 local CONTENT_WIDTH = 920
 local ROW_HEIGHT = 38
--- Hoehe eines einzelnen Wertebandes innerhalb einer Zeile. Nur Seiten, deren
--- Spalten eine Bandnummer tragen, werden mehrbaendig; alle uebrigen behalten
--- exakt die bisherige einzeilige Geometrie.
-local BAND_HEIGHT = 24
--- Zweizeilige Spaltenkoepfe brauchen etwas mehr vertikalen Raum als die
--- einzeiligen Datenwerte; getrennte Hoehen halten beides lesbar und kompakt.
-local HEADER_BAND_HEIGHT = 28
 local HEADER_HEIGHT = 36
 local SIDEBAR_WIDTH = 176
 local CONTENT_LEFT = 196
 local SCROLLBAR_GUTTER = 18
+
+-- ---------------------------------------------------------------------------
+-- Geometrie der Statistikseite
+--
+-- Die Seite ist kein Tabellenpanel, sondern ein Dashboard: sie zeigt genau
+-- EINEN Bereich (die Accountsumme oder einen Charakter) und dafuer alle
+-- dreizehn Werte gleichzeitig. Drei Abschnitte uebereinander, darunter eine
+-- feste Registerleiste fuer die Bereichswahl.
+--
+-- Die Zahlen sind gegen die Panelhoehe gerechnet, nicht geschaetzt:
+-- Das Panel ist FRAME_HEIGHT - 150 (Kopf) - 48 (Fuss) = 402px hoch.
+-- Verbraucht werden 3*96 (Abschnitte) + 2*22 (Abstaende dazwischen)
+-- + 22 (Abstand zur Leiste) + 32 (Leiste) = 386px. Die verbleibenden 16px
+-- sind Reserve, damit eine groessere Clientschrift nichts abschneidet.
+-- ---------------------------------------------------------------------------
+local DASHBOARD_SECTION_HEIGHT = 96
+local DASHBOARD_BAR_HEIGHT = 32
+local DASHBOARD_GAP = 22
+local CARD_GAP = 10
+-- Ein Abschnitt traegt seinen Titel oben und darunter die Karten.
+local CARD_TOP = 22
+local CARD_HEIGHT = DASHBOARD_SECTION_HEIGHT - CARD_TOP - 8
+-- Registerleiste: GESAMT ist fest angeheftet, die Charakterreiter liegen in
+-- einem blaetternden Ausschnitt zwischen den beiden Pfeilen.
+local TOTAL_TAB_WIDTH = 96
+local TAB_WIDTH = 104
+local TAB_GAP = 4
+local TAB_HEIGHT = 26
+local ARROW_WIDTH = 22
 
 local COLORS = {
     frame = { 0.050, 0.070, 0.090, 0.99 },
@@ -23,7 +45,6 @@ local COLORS = {
     surface = { 0.043, 0.058, 0.075, 0.98 },
     alternate = { 0.035, 0.048, 0.063, 0.98 },
     hover = { 0.072, 0.112, 0.120, 1 },
-    total = { 0.055, 0.105, 0.115, 0.99 },
     line = { 1, 1, 1, 0.07 },
     turquoise = { 0.050, 0.820, 0.620, 1 },
     violet = { 0.655, 0.482, 1, 1 },
@@ -111,51 +132,12 @@ local PANELS = {
             { key = "updated", label = L("COL_DATA_AGE"), width = 120 },
         },
     },
-    -- Die Spaltenschluessel sind identisch mit Data.STATISTICS[i].key bzw.
-    -- Data.DERIVED_STATISTICS[i].key; der Runtime-Harness prueft das
-    -- gegeneinander, damit es ueber Menge und Schluessel keine zweite
-    -- Wahrheit gibt.
-    --
-    -- Dreizehn Werte passen nicht nebeneinander in 920px: bei lesbarer
-    -- Spaltenbreite waeren es rund 1200px. Statt Spalten abzuschneiden oder
-    -- Spaltenkoepfe unleserlich zu quetschen, liegen die Werte in drei
-    -- uebereinanderliegenden Baendern innerhalb DERSELBEN Zeile. Die Zeile
-    -- bleibt damit eine Zeile pro Charakter - Sortierung, Zeilenfarben,
-    -- Tooltip und Zeilenrecycling bleiben unveraendert.
-    --
-    -- Drei Baender statt zwei: mit zwei Baendern trug das untere acht Spalten
-    -- zu 85px. Ein zweizeiliger Kopf wie "TODE\nSCHLACHTZUG" passt dort nicht,
-    -- Die kompakte dritte Bandzeile schafft durchgehend lesbare Spaltenbreiten;
-    -- 30px zusaetzliche Fensterhoehe erhalten vier voll sichtbare Zeilen.
-    --
-    -- Die Baender sind thematisch gruppiert, nicht bloss aufgefuellt:
-    --   Band 1 Inhalte    - Tiefen, Dungeons, Spielzeit
-    --   Band 2 Ueberleben - Tode und Heilsteine
-    --   Band 3 Quests
-    -- Die Charakterspalte laeuft ueber alle drei Baender.
+    -- Dashboard statt Vergleichstabelle: die Seite fuehrt bewusst KEINE
+    -- Spalten. Ihr Aufbau steht in STATISTIC_GROUPS.
     statistics = {
         label = L("PANEL_STATISTICS"),
         shortLabel = L("PANEL_STATISTICS_SHORT"),
         description = L("PANEL_STATISTICS_DESC"),
-        columns = {
-            { key = "character", label = L("COL_CHARACTER"), width = 160, left = true, band = "all" },
-            -- Band 1 Inhalte:    164 + 145 + 150 + 150 + 150 + 150 = 909
-            { key = "delvesTotal", label = L("STAT_COL_DELVES"), width = 145, band = 1 },
-            { key = "delvesMidnight", label = L("STAT_COL_DELVES_MIDNIGHT"), width = 150, band = 1 },
-            { key = "dungeonsEntered", label = L("STAT_COL_DUNGEONS"), width = 150, band = 1 },
-            { key = "midnightDungeons", label = L("STAT_COL_DUNGEONS_MIDNIGHT"), width = 150, band = 1 },
-            { key = "playtimeTotal", label = L("STAT_COL_PLAYTIME"), width = 150, band = 1 },
-            -- Band 2 Ueberleben: 164 + 130 + 135 + 130 + 135 + 135 = 829
-            { key = "deathsTotal", label = L("STAT_COL_DEATHS"), width = 130, band = 2 },
-            { key = "deathsDungeon", label = L("STAT_COL_DEATHS_DUNGEON"), width = 135, band = 2 },
-            { key = "deathsRaid", label = L("STAT_COL_DEATHS_RAID"), width = 130, band = 2 },
-            { key = "deathsFalling", label = L("STAT_COL_DEATHS_FALLING"), width = 135, band = 2 },
-            { key = "healthstones", label = L("STAT_COL_HEALTHSTONES"), width = 135, band = 2 },
-            -- Band 3 Quests:     164 + 175 + 175 + 180 = 694
-            { key = "questsCompleted", label = L("STAT_COL_QUESTS"), width = 175, band = 3 },
-            { key = "questsDaily", label = L("STAT_COL_QUESTS_DAILY"), width = 175, band = 3 },
-            { key = "questsAbandoned", label = L("STAT_COL_QUESTS_ABANDONED"), width = 180, band = 3 },
-        },
     },
     -- Formularseite ohne Spalten und ohne Charakterzeilen.
     settings = {
@@ -171,64 +153,63 @@ local PANELS = {
 local SCALE_PRESETS = { 0.70, 0.85, 1.00, 1.15, 1.30, 1.50 }
 
 -- ---------------------------------------------------------------------------
+-- Aufbau der Statistikseite
+--
+-- Dreizehn Werte nebeneinander waeren rund 1200px breit und in 920px nicht
+-- lesbar unterzubringen. Statt Spalten zu quetschen zeigt die Seite deshalb
+-- immer nur EINEN Bereich und dafuer alle dreizehn Werte gleichzeitig - in
+-- drei thematischen Abschnitten mit je gleich breiten Kennzahlkarten.
+--
+-- Die Zuordnung ist inhaltlich, nicht bloss aufgefuellt. Einen Wert in einen
+-- fremden Abschnitt zu schieben ist eine inhaltliche Aenderung und soll den
+-- Test brechen. Die Schluessel sind identisch mit Data.STATISTICS[i].key bzw.
+-- Data.DERIVED_STATISTICS[i].key; es gibt darueber keine zweite Wahrheit.
+-- ---------------------------------------------------------------------------
+local STATISTIC_GROUPS = {
+    {
+        key = "content",
+        titleKey = "STAT_GROUP_CONTENT",
+        keys = { "delvesTotal", "delvesMidnight", "dungeonsEntered",
+                 "midnightDungeons", "playtimeTotal" },
+    },
+    {
+        key = "survival",
+        titleKey = "STAT_GROUP_SURVIVAL",
+        keys = { "deathsTotal", "deathsDungeon", "deathsRaid",
+                 "deathsFalling", "healthstones" },
+    },
+    {
+        key = "quests",
+        titleKey = "STAT_GROUP_QUESTS",
+        keys = { "questsCompleted", "questsDaily", "questsAbandoned" },
+    },
+}
+
+-- Der Bereichsschluessel der Accountsumme. Er kann mit keinem Charakter-
+-- schluessel kollidieren: eine GUID ist nie leer und beginnt nie mit "*".
+local TOTAL_SCOPE = "*total*"
+
+-- ---------------------------------------------------------------------------
 -- Spaltenlayout
 --
--- Eine Seite ohne Bandnummern bleibt exakt das, was sie vorher war: eine
--- einzige Reihe von Spalten in einer 38px-Zeile. Traegt mindestens eine Spalte
--- eine Bandnummer, entstehen mehrere uebereinanderliegende Baender innerhalb
--- derselben Zeile. band = "all" laeuft ueber alle Baender (die Charakterspalte).
+-- Jede Tabellenseite ist einbaendig: eine einzige Reihe von Spalten in einer
+-- 38px-Zeile. Header und Datenzeile durchlaufen DIESELBE Funktion, damit es
+-- keine zweite Rechnung gibt, die auseinanderlaufen koennte; die gelieferte
+-- Kante ist die tatsaechliche rechte Kante.
 --
--- Header und Datenzeile durchlaufen DIESELBE Funktion. Es gibt damit keine
--- zweite Rechnung, die auseinanderlaufen koennte, und die gemessenen
--- Bandbreiten sind die tatsaechlichen rechten Kanten.
+-- Das frueher hier stehende Mehrband-Layout ist mit der Statistiktabelle
+-- entfallen. Es war ihr einziger Nutzer; generischer Code ohne Nutzer ist
+-- toter Code und wird nicht auf Vorrat gehalten.
 -- ---------------------------------------------------------------------------
 
-local function BandCount(columns)
-    local count = 1
-    for _, column in ipairs(columns) do
-        if type(column.band) == "number" and column.band > count then count = column.band end
-    end
-    return count
-end
-
--- Ruft place(column, left, band) je Spalte auf. band ist nil, wenn die Spalte
--- die volle Zeilenhoehe einnimmt (einbaendige Seite oder band = "all").
--- Liefert die rechte Kante je Band zurueck.
+-- Ruft place(column, left) je Spalte auf und liefert die rechte Kante zurueck.
 local function LayoutColumns(columns, place)
-    local bands = BandCount(columns)
-    local edges = {}
-    for band = 1, bands do edges[band] = 4 end
+    local edge = 4
     for _, column in ipairs(columns) do
-        local width = column.width
-        if bands == 1 then
-            place(column, edges[1], nil)
-            edges[1] = edges[1] + width
-        elseif column.band == "all" then
-            -- Eine ueberspannende Spalte muss in jedem Band denselben Platz
-            -- belegen, sonst verrutschen die Baender gegeneinander.
-            local left = 0
-            for band = 1, bands do
-                if edges[band] > left then left = edges[band] end
-            end
-            place(column, left, nil)
-            for band = 1, bands do edges[band] = left + width end
-        else
-            local band = type(column.band) == "number" and column.band or 1
-            place(column, edges[band], band)
-            edges[band] = edges[band] + width
-        end
+        place(column, edge)
+        edge = edge + column.width
     end
-    return edges, bands
-end
-
-local function PanelRowHeight(bands)
-    if bands <= 1 then return ROW_HEIGHT end
-    return bands * BAND_HEIGHT + 2
-end
-
-local function PanelHeaderHeight(bands)
-    if bands <= 1 then return HEADER_HEIGHT end
-    return bands * HEADER_BAND_HEIGHT + 4
+    return edge
 end
 
 local function SetBackdrop(frame, background, border)
@@ -906,53 +887,60 @@ local function StatisticDisplayName(definition)
     return type(definition.nameKey) == "string" and L(definition.nameKey) or L("STATUS_UNKNOWN")
 end
 
--- Erklaerungen, die ein kurzer Spaltenkopf nicht tragen kann: dass 932
--- betretene und keine abgeschlossenen Dungeons zaehlt, und woraus die
--- Midnight-Summe entsteht.
-local function AddStatisticNotes()
-    for _, definition in ipairs(StatisticDefinitions()) do
-        if type(definition.tooltipKey) == "string" then
-            GameTooltip:AddLine(L(definition.tooltipKey), 0.56, 0.6, 0.66, true)
-        end
+-- Die Kartenbeschriftung. Die Spaltenkoepfe der alten Tabelle trugen ein
+-- bewusstes "\n" ("TODE\nSCHLACHTZUG"); auf einer Karte steht die Beschriftung
+-- einzeilig ueber dem Wert, deshalb wird der Umbruch hier zum Leerzeichen.
+-- Das haelt Data.lua und die Woerterbuecher unveraendert - eine zweite
+-- Beschriftungsquelle waere genau die zweite Wahrheit, die es nicht geben soll.
+local function StatisticCardLabel(definition)
+    if type(definition) ~= "table" or type(definition.labelKey) ~= "string" then
+        return L("STATUS_UNKNOWN")
     end
+    return (string.gsub(L(definition.labelKey), "\n", " "))
 end
 
-local function ShowStatisticsTooltip(character)
-    for _, definition in ipairs(StatisticDefinitions()) do
-        local value = StatisticValue(character, StatisticStorageKey(definition))
-        AddTooltipLine(StatisticDisplayName(definition),
-            StatisticDisplayValue(definition, value) or L("STAT_NOT_RECORDED"))
-    end
-    local store = type(character) == "table" and type(character.statistics) == "table"
-        and character.statistics or {}
-    AddTooltipLine(L("STAT_RECORDED"), FormatAge(store.scanned))
-    GameTooltip:AddLine(" ")
-    AddStatisticNotes()
-end
+-- Der Tooltip einer Kennzahlkarte. Er traegt das, was die Karte selbst nicht
+-- tragen kann: den vollen, NICHT abgekuerzten Wert, den Statistiknamen und die
+-- Erklaerung des Werts. Die Kompaktdarstellung gilt ausschliesslich fuer die
+-- Karte - sonst waere die Zahl unwiederbringlich verloren.
+local function ShowStatisticCardTooltip(card, scope)
+    local definition = card.definition
+    if type(definition) ~= "table" then return end
+    GameTooltip:SetOwner(card.frame, "ANCHOR_RIGHT")
+    GameTooltip:ClearLines()
+    GameTooltip:AddLine(StatisticDisplayName(definition),
+        COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
 
-local function ShowAccountTotalTooltip(characters)
-    for _, definition in ipairs(StatisticDefinitions()) do
-        local total = AccountStatisticTotal(characters, StatisticStorageKey(definition))
-        AddTooltipLine(StatisticDisplayName(definition),
+    local key = StatisticStorageKey(definition)
+    if scope.isTotal then
+        local total = AccountStatisticTotal(scope.characters, key)
+        AddTooltipLine(L("STAT_ACCOUNT_TOOLTIP"),
             StatisticDisplayValue(definition, total) or L("STAT_NOT_RECORDED"))
+        GameTooltip:AddLine(L("STAT_ACCOUNT_HINT"), 0.56, 0.6, 0.66, true)
+    else
+        local character = scope.character
+        local value = StatisticValue(character, key)
+        AddTooltipLine(StatisticCardLabel(definition),
+            StatisticDisplayValue(definition, value) or L("STAT_NOT_RECORDED"))
+        local store = type(character) == "table" and type(character.statistics) == "table"
+            and character.statistics or {}
+        AddTooltipLine(L("STAT_RECORDED"), FormatAge(store.scanned))
+    end
+
+    -- Erklaerungen, die eine kurze Kartenbeschriftung nicht tragen kann: dass
+    -- 932 betretene und keine abgeschlossenen Dungeons zaehlt, und woraus die
+    -- Midnight-Summe entsteht.
+    if type(definition.tooltipKey) == "string" then
+        GameTooltip:AddLine(L(definition.tooltipKey), 0.56, 0.6, 0.66, true)
     end
     GameTooltip:AddLine(" ")
-    AddStatisticNotes()
+    -- Statistiken sind lebenslang, nicht woechentlich: der Hinweis erklaert
+    -- deshalb den Offline-Stand, nicht den Wochenstand.
+    GameTooltip:AddLine(L("STAT_OFFLINE_HINT"), 0.56, 0.6, 0.66, true)
+    GameTooltip:Show()
 end
 
 function WAT:ShowCharacterTooltip(row)
-    -- Die Summenzeile gehoert keinem Charakter und hat einen eigenen Tooltip.
-    if row.isAccountTotal then
-        GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-        GameTooltip:ClearLines()
-        GameTooltip:AddLine(L("STAT_ACCOUNT_TOOLTIP"),
-            COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
-        ShowAccountTotalTooltip(row.characters)
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(L("STAT_ACCOUNT_HINT"), 0.56, 0.6, 0.66, true)
-        GameTooltip:Show()
-        return
-    end
     local character = row.character
     if not character then return end
     local weekly = type(character.weekly) == "table" and character.weekly or {}
@@ -970,16 +958,11 @@ function WAT:ShowCharacterTooltip(row)
         ShowSourcesTooltip(character, weekly)
     elseif row.panelKey == "keystones" then
         ShowKeystoneTooltip(weekly, stale)
-    elseif row.panelKey == "statistics" then
-        ShowStatisticsTooltip(character)
     else
         ShowOverviewTooltip(character, weekly, stale)
     end
     GameTooltip:AddLine(" ")
-    -- Statistiken sind lebenslang, nicht woechentlich: der Hinweis erklaert
-    -- deshalb den Offline-Stand, nicht den Wochenstand.
-    local hint = row.panelKey == "statistics" and L("STAT_OFFLINE_HINT") or L("TOOLTIP_OFFLINE_HINT")
-    GameTooltip:AddLine(hint, 0.56, 0.6, 0.66, true)
+    GameTooltip:AddLine(L("TOOLTIP_OFFLINE_HINT"), 0.56, 0.6, 0.66, true)
     GameTooltip:Show()
 end
 
@@ -1037,12 +1020,15 @@ local function CreatePanel(parent, key, definition)
     panel:SetPoint("TOPLEFT", CONTENT_LEFT, -150)
     panel:SetPoint("BOTTOMRIGHT", -20, 48)
     panel.key = key
-    panel.columns = definition.columns
+    -- Eine Seite ohne Spaltendefinition ist kein Fehlerfall, sondern eine
+    -- Seite, die ihren Inhalt selbst aufbaut (Formular, Dashboard). Die
+    -- generische Tabellenerstellung darf daran nicht scheitern: ohne diesen
+    -- Fallback liefe LayoutColumns in ein nil und risse CreateUI mit sich.
+    local columns = type(definition.columns) == "table" and definition.columns or {}
+    panel.columns = columns
 
-    local bands = BandCount(definition.columns)
-    local headerHeight = PanelHeaderHeight(bands)
-    panel.bandCount = bands
-    panel.rowHeight = PanelRowHeight(bands)
+    local headerHeight = HEADER_HEIGHT
+    panel.rowHeight = ROW_HEIGHT
 
     local header = CreateFrame("Frame", nil, panel, "BackdropTemplate")
     header:SetPoint("TOPLEFT")
@@ -1055,17 +1041,12 @@ local function CreatePanel(parent, key, definition)
     topLine:SetColorTexture(1, 1, 1, 0.08)
     panel.headerCells = {}
     panel.headerLabels = {}
-    local edges = LayoutColumns(definition.columns, function(column, left, band)
+    LayoutColumns(columns, function(column, left)
         -- Derselbe Clipping-Rahmen wie in der Datenzeile: ein Spaltenkopf darf
         -- ebenso wenig in den Nachbarn laufen wie ein Wert.
         local cell = CreateFrame("Frame", nil, header)
-        if band then
-            cell:SetPoint("TOPLEFT", left, -((band - 1) * HEADER_BAND_HEIGHT + 2))
-            cell:SetSize(column.width - 6, HEADER_BAND_HEIGHT)
-        else
-            cell:SetPoint("LEFT", left, 0)
-            cell:SetSize(column.width - 6, headerHeight - 6)
-        end
+        cell:SetPoint("LEFT", left, 0)
+        cell:SetSize(column.width - 6, headerHeight - 6)
         cell:SetClipsChildren(true)
         local label = cell:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         label:SetAllPoints(cell)
@@ -1080,8 +1061,6 @@ local function CreatePanel(parent, key, definition)
         panel.headerCells[column.key] = cell
         panel.headerLabels[column.key] = label
     end)
-    -- Die gemessenen rechten Kanten, nicht eine parallele Rechnung.
-    panel.bandWidths = edges
 
     local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -2)
@@ -1092,6 +1071,382 @@ local function CreatePanel(parent, key, definition)
     panel.child = child
     panel.rows = {}
     return panel
+end
+
+-- ---------------------------------------------------------------------------
+-- Statistikseite: Bereichs-Dashboard mit fester Registerleiste
+--
+-- Aufbau von oben nach unten: drei Abschnitte mit Kennzahlkarten, darunter die
+-- Registerleiste. Links in der Leiste steht fest die Accountsumme, rechts
+-- daneben je ein Reiter pro Charakter in einem blaetternden Ausschnitt.
+--
+-- Die Geometrie ist statisch: es gibt IMMER dreizehn Karten, auch wenn eine
+-- Definition zur Ladezeit fehlt. Eine Karte ohne Definition zeigt einen Strich,
+-- statt die Seite umzubauen - so bleibt das Bild ueber alle Zustaende stabil.
+-- ---------------------------------------------------------------------------
+
+local function StatisticDefinitionsByKey()
+    local map = {}
+    for _, definition in ipairs(StatisticDefinitions()) do
+        if type(definition.key) == "string" then map[definition.key] = definition end
+    end
+    return map
+end
+
+-- Farbe des aktiven Charakterreiters. Sie kommt aus der Klasse des Charakters;
+-- ohne lesbare Klassenfarbe bleibt ein neutrales Hell.
+local function ScopeTabColor(character)
+    local classFile = type(character) == "table" and character.classFile or nil
+    local color = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
+    if type(color) == "table" and type(color.r) == "number"
+            and type(color.g) == "number" and type(color.b) == "number" then
+        return { color.r, color.g, color.b }
+    end
+    return { 0.85, 0.88, 0.92 }
+end
+
+local function StyleScopeTab(tab, active, color)
+    tab.active = active
+    if active then
+        tab:SetBackdropColor(color[1] * 0.20, color[2] * 0.20, color[3] * 0.20, 0.95)
+        tab:SetBackdropBorderColor(color[1], color[2], color[3], 0.75)
+        tab.label:SetTextColor(color[1], color[2], color[3], 1)
+        return
+    end
+    -- Inaktiv bleibt im neutralen Midnight-Dunkel: weder tuerkis noch
+    -- klassenfarbig, damit der aktive Reiter der einzige farbige Punkt ist.
+    tab:SetBackdropColor(0.043, 0.058, 0.075, 0.90)
+    tab:SetBackdropBorderColor(1, 1, 1, 0.10)
+    tab.label:SetTextColor(1, 1, 1, 0.55)
+end
+
+local function CreateScopeTab(parent, width)
+    local tab = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    tab:SetSize(width, TAB_HEIGHT)
+    SetBackdrop(tab, { 0.043, 0.058, 0.075, 0.90 }, { 1, 1, 1, 0.10 })
+    -- Ein zu langer Charaktername darf nicht in den Nachbarreiter laufen.
+    -- SetWordWrap allein reicht dafuer nicht - erst dieser Rahmen schneidet ab.
+    tab:SetClipsChildren(true)
+    local label = tab:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("LEFT", 8, 0)
+    label:SetPoint("RIGHT", -8, 0)
+    label:SetJustifyH("CENTER")
+    label:SetJustifyV("MIDDLE")
+    label:SetWordWrap(false)
+    label:SetMaxLines(1)
+    tab.label = label
+    return tab
+end
+
+local function CreateStatisticCard(section, width, left)
+    local card = { frame = CreateFrame("Frame", nil, section, "BackdropTemplate") }
+    card.frame:SetSize(width, CARD_HEIGHT)
+    card.frame:SetPoint("TOPLEFT", left, -CARD_TOP)
+    SetBackdrop(card.frame, { 0.043, 0.058, 0.075, 0.98 }, { 1, 1, 1, 0.055 })
+    card.frame:SetClipsChildren(true)
+    card.frame:EnableMouse(true)
+
+    -- Knappe Beschriftung oben, prominenter Wert darunter. Die feste
+    -- Zuordnung im selben Rahmen ist die sichtbare Bindung von Label und Wert.
+    card.label = card.frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    card.label:SetPoint("TOPLEFT", 10, -9)
+    card.label:SetPoint("TOPRIGHT", -10, -9)
+    card.label:SetJustifyH("LEFT")
+    card.label:SetWordWrap(false)
+    card.label:SetMaxLines(1)
+    card.label:SetTextColor(1, 1, 1, 0.40)
+
+    card.value = card.frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    card.value:SetPoint("BOTTOMLEFT", 10, 11)
+    card.value:SetPoint("BOTTOMRIGHT", -10, 11)
+    card.value:SetJustifyH("LEFT")
+    card.value:SetWordWrap(false)
+    card.value:SetMaxLines(1)
+    local valueFont, _, valueFlags = GameFontNormalLarge:GetFont()
+    if valueFont then card.value:SetFont(valueFont, 20, valueFlags) end
+    return card
+end
+
+local function CreateStatisticSection(panel, group, index)
+    local section = CreateFrame("Frame", nil, panel)
+    section:SetSize(CONTENT_WIDTH, DASHBOARD_SECTION_HEIGHT)
+    section:SetPoint("TOPLEFT", 0,
+        -((index - 1) * (DASHBOARD_SECTION_HEIGHT + DASHBOARD_GAP)))
+
+    local title = section:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    title:SetPoint("TOPLEFT", 0, 0)
+    title:SetTextColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.85)
+    title:SetText(L(group.titleKey))
+
+    local entry = { key = group.key, frame = section, title = title, cards = {} }
+    -- Gleich breite Karten: eine ungleiche Breite laese sich als Rangfolge,
+    -- die es hier nicht gibt. Die letzte Karte endet exakt auf CONTENT_WIDTH.
+    local count = #group.keys
+    local width = math.floor((CONTENT_WIDTH - (count - 1) * CARD_GAP) / count)
+    for cardIndex, statKey in ipairs(group.keys) do
+        local card = CreateStatisticCard(section, width, (cardIndex - 1) * (width + CARD_GAP))
+        card.statKey = statKey
+        entry.cards[cardIndex] = card
+    end
+    return entry
+end
+
+-- Definition und Beschriftung je Karte. Bewusst nicht nur beim Erstellen:
+-- Data.lua kann zur Erstellungszeit unvollstaendig sein, und eine Karte ohne
+-- Definition soll sich erholen, sobald die Quelle da ist.
+local function BindStatisticCards(panel)
+    local byKey = StatisticDefinitionsByKey()
+    for _, group in ipairs(panel.groups) do
+        for _, card in ipairs(group.cards) do
+            local definition = byKey[card.statKey]
+            card.definition = definition
+            card.label:SetText(StatisticCardLabel(definition))
+        end
+    end
+end
+
+local function CreateStatisticsPanel(parent, definition)
+    local panel = CreateFrame("Frame", nil, parent)
+    panel:SetPoint("TOPLEFT", CONTENT_LEFT, -150)
+    panel:SetPoint("BOTTOMRIGHT", -20, 48)
+    panel.key = "statistics"
+    -- Der Schalter, an dem RefreshUI erkennt, dass hier keine Charakterzeilen
+    -- entstehen. rows bleibt leer und existiert nur, damit gemeinsame
+    -- Hilfspfade nicht auf ein nil treffen.
+    panel.isDashboard = true
+    panel.rows = {}
+    panel.groups = {}
+    panel.cards = {}
+    panel.scopeKey = TOTAL_SCOPE
+    panel.tabOffset = 0
+    panel.scope = {}
+
+    for index, group in ipairs(STATISTIC_GROUPS) do
+        local entry = CreateStatisticSection(panel, group, index)
+        panel.groups[index] = entry
+        for _, card in ipairs(entry.cards) do
+            panel.cards[card.statKey] = card
+            card.frame:SetScript("OnEnter", function()
+                ShowStatisticCardTooltip(card, panel.scope)
+            end)
+            card.frame:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        end
+    end
+    BindStatisticCards(panel)
+
+    -- -----------------------------------------------------------------------
+    -- Registerleiste
+    -- -----------------------------------------------------------------------
+
+    local bar = CreateFrame("Frame", nil, panel)
+    bar:SetSize(CONTENT_WIDTH, DASHBOARD_BAR_HEIGHT)
+    bar:SetPoint("TOPLEFT", 0,
+        -(3 * DASHBOARD_SECTION_HEIGHT + 3 * DASHBOARD_GAP))
+    panel.tabBar = bar
+
+    local barLine = bar:CreateTexture(nil, "ARTWORK")
+    barLine:SetPoint("TOPLEFT", 0, 1)
+    barLine:SetPoint("TOPRIGHT", 0, 1)
+    barLine:SetHeight(1)
+    barLine:SetColorTexture(1, 1, 1, 0.06)
+
+    -- GESAMT haengt in der Leiste selbst, NICHT im blaetternden Ausschnitt.
+    -- Nur so kann der wichtigste Bereich beim Blaettern nicht wegwandern.
+    local totalTab = CreateScopeTab(bar, TOTAL_TAB_WIDTH)
+    totalTab:SetPoint("TOPLEFT", 0, -3)
+    totalTab.scopeKey = TOTAL_SCOPE
+    totalTab.label:SetText(L("STAT_SCOPE_TOTAL"))
+    totalTab:SetScript("OnClick", function() WAT:SetStatisticsScope(TOTAL_SCOPE) end)
+    totalTab:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:ClearLines()
+        GameTooltip:AddLine(L("STAT_ACCOUNT_TOOLTIP"),
+            COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
+        GameTooltip:AddLine(L("STAT_ACCOUNT_HINT"), 0.56, 0.6, 0.66, true)
+        GameTooltip:Show()
+    end)
+    totalTab:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    panel.totalTab = totalTab
+
+    local function CreateArrow(label, direction, left)
+        local arrow = CreateFrame("Button", nil, bar, "BackdropTemplate")
+        arrow:SetSize(ARROW_WIDTH, TAB_HEIGHT)
+        arrow:SetPoint("TOPLEFT", left, -3)
+        SetBackdrop(arrow, { 0.043, 0.058, 0.075, 0.90 }, { 1, 1, 1, 0.10 })
+        local text = arrow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        text:SetPoint("CENTER")
+        text:SetText(label)
+        arrow.label = text
+        arrow.direction = direction
+        arrow:SetScript("OnClick", function(self)
+            -- Ein gesperrter Pfeil tut nichts. Ohne diese Sperre liefe der
+            -- Versatz ueber den Rand und die Leiste waere zeitweise leer.
+            if self.disabled then return end
+            WAT:ShiftStatisticsTabs(self.direction)
+        end)
+        return arrow
+    end
+
+    local arrowLeft = TOTAL_TAB_WIDTH + 8
+    panel.prevArrow = CreateArrow("<", -1, arrowLeft)
+    panel.nextArrow = CreateArrow(">", 1, CONTENT_WIDTH - ARROW_WIDTH)
+
+    -- Der blaetternde Ausschnitt. Er schneidet hart ab, damit ein teilweise
+    -- sichtbarer Reiter nicht ueber den Pfeil hinauslaeuft.
+    local viewport = CreateFrame("Frame", nil, bar)
+    viewport:SetPoint("TOPLEFT", arrowLeft + ARROW_WIDTH + 4, -3)
+    viewport:SetSize(CONTENT_WIDTH - (arrowLeft + ARROW_WIDTH + 4) - ARROW_WIDTH - 4,
+        TAB_HEIGHT)
+    viewport:SetClipsChildren(true)
+    panel.tabViewport = viewport
+    panel.characterTabs = {}
+    -- Wie viele Reiter nebeneinander vollstaendig in den Ausschnitt passen.
+    panel.tabsVisible = math.max(1,
+        math.floor((viewport:GetWidth() + TAB_GAP) / (TAB_WIDTH + TAB_GAP)))
+
+    panel.definition = definition
+    return panel
+end
+
+-- Waehlt einen Bereich ueber seinen stabilen Schluessel (GUID bzw. der
+-- Datenbankschluessel des Charakters). Der gewaehlte Reiter wird beim naechsten
+-- Refresh in den sichtbaren Ausschnitt geholt.
+function WAT:SetStatisticsScope(scopeKey)
+    local panel = self.panels and self.panels.statistics
+    if not panel then return end
+    panel.scopeKey = scopeKey
+    panel.pendingReveal = scopeKey ~= TOTAL_SCOPE
+    self:RefreshUI()
+end
+
+function WAT:ShiftStatisticsTabs(direction)
+    local panel = self.panels and self.panels.statistics
+    if not panel then return end
+    -- Seitenweise blaettern: ein Reiter auf einmal waere bei sechzehn
+    -- Charakteren eine Klickorgie.
+    panel.tabOffset = panel.tabOffset + direction * panel.tabsVisible
+    self:RefreshUI()
+end
+
+local function SetArrowDisabled(arrow, disabled)
+    arrow.disabled = disabled and true or false
+    arrow:SetAlpha(disabled and 0.35 or 1)
+end
+
+function WAT:RefreshStatisticsDashboard(panel, characters, characterKeys)
+    BindStatisticCards(panel)
+
+    -- Die Auswahl haengt am stabilen Schluessel, nicht an einer Position.
+    -- Verschwindet der Charakter, faellt die Seite auf GESAMT zurueck, statt
+    -- eine leere oder - schlimmer - eine fremde Karte zu zeigen.
+    local selectedIndex, selectedCharacter
+    if panel.scopeKey ~= TOTAL_SCOPE then
+        for index, key in ipairs(characterKeys) do
+            if key == panel.scopeKey then
+                selectedIndex, selectedCharacter = index, characters[index]
+                break
+            end
+        end
+        if not selectedIndex then panel.scopeKey = TOTAL_SCOPE end
+    end
+
+    local count = #characters
+    local visible = panel.tabsVisible
+    local maxOffset = math.max(0, count - visible)
+
+    -- Eine frische Auswahl muss sichtbar werden, auch wenn sie weit hinten liegt.
+    if panel.pendingReveal and selectedIndex then
+        if selectedIndex <= panel.tabOffset then
+            panel.tabOffset = selectedIndex - 1
+        elseif selectedIndex > panel.tabOffset + visible then
+            panel.tabOffset = selectedIndex - visible
+        end
+    end
+    panel.pendingReveal = nil
+    if panel.tabOffset > maxOffset then panel.tabOffset = maxOffset end
+    if panel.tabOffset < 0 then panel.tabOffset = 0 end
+
+    local isTotal = panel.scopeKey == TOTAL_SCOPE
+    panel.scope.isTotal = isTotal
+    panel.scope.character = selectedCharacter
+    panel.scope.characters = characters
+
+    -- Karten befuellen. Lebenslange Werte veralten nicht mit der Woche und
+    -- werden deshalb nie als "alte Woche" ausgegraut.
+    for _, group in ipairs(panel.groups) do
+        for _, card in ipairs(group.cards) do
+            local text
+            if card.definition then
+                local key = StatisticStorageKey(card.definition)
+                local value
+                if isTotal then
+                    value = AccountStatisticTotal(characters, key)
+                else
+                    value = StatisticValue(selectedCharacter, key)
+                end
+                text = StatisticCellValue(card.definition, value)
+            end
+            card.value:SetText(StatisticCellText(text))
+        end
+    end
+
+    StyleScopeTab(panel.totalTab, isTotal, COLORS.turquoise)
+
+    -- Reiter werden gepoolt und wiederverwendet. Nur ein wirklich neuer
+    -- Charakter legt einen neuen an; ueberzaehlige werden verborgen und
+    -- verlieren ihren Schluessel, damit sie keinen Bereich mehr beanspruchen.
+    for index = 1, count do
+        local tab = panel.characterTabs[index]
+        if not tab then
+            tab = CreateScopeTab(panel.tabViewport, TAB_WIDTH)
+            tab:SetScript("OnClick", function(self)
+                if self.scopeKey then WAT:SetStatisticsScope(self.scopeKey) end
+            end)
+            tab:SetScript("OnEnter", function(self)
+                local character = self.character
+                if not character then return end
+                local unknown = L("CHARACTER_UNKNOWN")
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:ClearLines()
+                -- Der Reiter zeigt einen beschnittenen Namen; die volle
+                -- Identitaet steht deshalb hier.
+                GameTooltip:AddLine((character.name or unknown) .. " - "
+                    .. (character.realm or unknown),
+                    COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
+                AddTooltipLine(L("TOOLTIP_CLASS"), character.className or "-")
+                GameTooltip:Show()
+            end)
+            tab:SetScript("OnLeave", function() GameTooltip:Hide() end)
+            panel.characterTabs[index] = tab
+        end
+        local character = characters[index]
+        tab.scopeKey = characterKeys[index]
+        tab.character = character
+        local unknown = L("CHARACTER_UNKNOWN")
+        tab.label:SetText((character.name or unknown) .. "-" .. (character.realm or unknown))
+        StyleScopeTab(tab, tab.scopeKey == panel.scopeKey, ScopeTabColor(character))
+
+        local slot = index - panel.tabOffset
+        if slot >= 1 and slot <= visible then
+            tab:ClearAllPoints()
+            tab:SetPoint("TOPLEFT", (slot - 1) * (TAB_WIDTH + TAB_GAP), 0)
+            tab:Show()
+        else
+            tab:Hide()
+        end
+    end
+    for index = count + 1, #panel.characterTabs do
+        local tab = panel.characterTabs[index]
+        tab.scopeKey = nil
+        tab.character = nil
+        tab:Hide()
+    end
+
+    local needsPaging = count > visible
+    panel.prevArrow:SetShown(needsPaging)
+    panel.nextArrow:SetShown(needsPaging)
+    SetArrowDisabled(panel.prevArrow, panel.tabOffset <= 0)
+    SetArrowDisabled(panel.nextArrow, panel.tabOffset >= maxOffset)
 end
 
 -- ---------------------------------------------------------------------------
@@ -1428,6 +1783,8 @@ function WAT:CreateUI()
         self.tabButtons[targetKey] = button
         if targetKey == "settings" then
             self.panels[targetKey] = CreateSettingsPanel(frame, definition)
+        elseif targetKey == "statistics" then
+            self.panels[targetKey] = CreateStatisticsPanel(frame, definition)
         else
             self.panels[targetKey] = CreatePanel(frame, targetKey, definition)
         end
@@ -1520,17 +1877,28 @@ function WAT:CreateUI()
     if self.db.settings.seenIntro then frame:Hide() else self.db.settings.seenIntro = true end
 end
 
+-- Liefert die sortierten Charaktere UND ihre stabilen Datenbankschluessel in
+-- derselben Reihenfolge. Die Statistikseite haengt ihre Auswahl an diesen
+-- Schluessel (die GUID), nicht an einer Position: eine Position verschiebt
+-- sich, sobald ein Charakter dazukommt oder umbenannt wird.
 local function GetCharacters()
-    local characters = {}
-    for _, character in pairs(WAT.db.characters) do
-        if type(character) == "table" then characters[#characters + 1] = character end
+    local entries = {}
+    for key, character in pairs(WAT.db.characters) do
+        if type(character) == "table" then
+            entries[#entries + 1] = { key = key, character = character }
+        end
     end
-    table.sort(characters, function(a, b)
-        local an = string.lower((a.name or "") .. (a.realm or ""))
-        local bn = string.lower((b.name or "") .. (b.realm or ""))
+    table.sort(entries, function(a, b)
+        local an = string.lower((a.character.name or "") .. (a.character.realm or ""))
+        local bn = string.lower((b.character.name or "") .. (b.character.realm or ""))
         return an < bn
     end)
-    return characters
+    local characters, keys = {}, {}
+    for index, entry in ipairs(entries) do
+        characters[index] = entry.character
+        keys[index] = entry.key
+    end
+    return characters, keys
 end
 
 local function CreateRow(panel, index)
@@ -1542,19 +1910,14 @@ local function CreateRow(panel, index)
     row.values = {}
     row.cells = {}
     row.panelKey = panel.key
-    LayoutColumns(panel.columns, function(column, left, band)
+    LayoutColumns(panel.columns, function(column, left)
         -- SetWordWrap(false) verhindert nur den Umbruch, nicht das Hinausragen
         -- ueber die Spaltengrenze: ein zu langer Text laeuft weiter in den
         -- Nachbarn. Die harte Grenze zieht erst dieser Rahmen mit
         -- SetClipsChildren - die FontString sitzt darin und wird beschnitten.
         local cell = CreateFrame("Frame", nil, row)
-        if band then
-            cell:SetPoint("TOPLEFT", left, -((band - 1) * BAND_HEIGHT + 1))
-            cell:SetSize(column.width - 6, BAND_HEIGHT)
-        else
-            cell:SetPoint("LEFT", left, 0)
-            cell:SetSize(column.width - 6, rowHeight - 2)
-        end
+        cell:SetPoint("LEFT", left, 0)
+        cell:SetSize(column.width - 6, rowHeight - 2)
         cell:SetClipsChildren(true)
         local value = cell:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         value:SetAllPoints(cell)
@@ -1562,21 +1925,11 @@ local function CreateRow(panel, index)
         value:SetJustifyV("MIDDLE")
         value:SetWordWrap(false)
         -- Ein Datenwert ist immer einzeilig: eine zweite Zeile waere in der
-        -- kompakten Bandhoehe halb abgeschnitten und damit unlesbar.
+        -- kompakten Zeilenhoehe halb abgeschnitten und damit unlesbar.
         value:SetMaxLines(1)
         row.cells[column.key] = cell
         row.values[column.key] = value
     end)
-    -- Dezente Bandtrennung: eine 1px-Linie sehr niedriger Deckkraft je
-    -- Bandgrenze. Sie gliedert die Wertegruppen im dunklen Grundton der UI,
-    -- ohne wie eine zweite Tabelle oder eine aufgesetzte Karte zu wirken.
-    for band = 1, (panel.bandCount or 1) - 1 do
-        local separator = row:CreateTexture(nil, "ARTWORK")
-        separator:SetPoint("TOPLEFT", 4, -(band * BAND_HEIGHT))
-        separator:SetPoint("TOPRIGHT", -4, -(band * BAND_HEIGHT))
-        separator:SetHeight(1)
-        separator:SetColorTexture(1, 1, 1, 0.035)
-    end
     row:SetScript("OnEnter", function(r)
         r:SetBackdropColor(COLORS.hover[1], COLORS.hover[2], COLORS.hover[3], COLORS.hover[4])
         WAT:ShowCharacterTooltip(r)
@@ -1691,29 +2044,6 @@ local function FillKeystones(row, character, weekly, stale)
         .. FormatAge(keystone.updated) .. "|r")
 end
 
-local function FillStatistics(row, character)
-    -- Lebenslange Werte veralten nicht mit der Woche: bewusst ohne stale.
-    row.values.character:SetText(ClassColoredName(character, false))
-    for _, definition in ipairs(StatisticDefinitions()) do
-        local cell = row.values[definition.key]
-        if cell then
-            local value = StatisticValue(character, StatisticStorageKey(definition))
-            cell:SetText(StatisticCellText(StatisticCellValue(definition, value)))
-        end
-    end
-end
-
-local function FillStatisticsTotal(row, characters)
-    row.values.character:SetText("|cff32e6c4" .. L("STAT_ACCOUNT_TOTAL") .. "|r")
-    for _, definition in ipairs(StatisticDefinitions()) do
-        local cell = row.values[definition.key]
-        if cell then
-            local total = AccountStatisticTotal(characters, StatisticStorageKey(definition))
-            cell:SetText(StatisticCellText(StatisticCellValue(definition, total)))
-        end
-    end
-end
-
 local function PlaceRow(panel, index)
     local row = panel.rows[index] or CreateRow(panel, index)
     row:ClearAllPoints()
@@ -1728,7 +2058,7 @@ end
 
 function WAT:RefreshUI()
     if not self.frame or not self.panels then return end
-    local characters = GetCharacters()
+    local characters, characterKeys = GetCharacters()
     if self.activeTab == "settings" then
         self.toolbar:SetText(L("CHROME_TOOLBAR_SETTINGS"))
     else
@@ -1737,28 +2067,17 @@ function WAT:RefreshUI()
     self:UpdateSettingsState()
 
     for panelKey, panel in pairs(self.panels) do
-        -- Das Einstellungspanel ist ein Formular ohne Charakterzeilen.
-        if not panel.isForm then
+        -- Das Einstellungspanel ist ein Formular, die Statistikseite ein
+        -- Dashboard. Beide erzeugen bewusst keine Charakterzeilen.
+        if panel.isDashboard then
+            self:RefreshStatisticsDashboard(panel, characters, characterKeys)
+        elseif not panel.isForm then
             for _, row in ipairs(panel.rows) do row:Hide() end
             local index = 0
-            -- Die Accountsumme steht als eigene, optisch abgesetzte Zeile ganz
-            -- oben und gehoert keinem Charakter.
-            if panelKey == "statistics" then
-                index = index + 1
-                local row = PlaceRow(panel, index)
-                row.character = nil
-                row.isAccountTotal = true
-                row.characters = characters
-                PaintRow(row, COLORS.total)
-                FillStatisticsTotal(row, characters)
-                row:Show()
-            end
             for _, character in ipairs(characters) do
                 index = index + 1
                 local row = PlaceRow(panel, index)
                 row.character = character
-                row.isAccountTotal = nil
-                row.characters = nil
                 PaintRow(row, index % 2 == 0 and COLORS.alternate or COLORS.surface)
                 local weekly = type(character.weekly) == "table" and character.weekly or {}
                 local stale = self:IsStale(character)
@@ -1770,8 +2089,6 @@ function WAT:RefreshUI()
                     FillSources(row, character, weekly, stale)
                 elseif panelKey == "keystones" then
                     FillKeystones(row, character, weekly, stale)
-                elseif panelKey == "statistics" then
-                    FillStatistics(row, character)
                 else
                     FillOverview(row, character, weekly, stale)
                 end

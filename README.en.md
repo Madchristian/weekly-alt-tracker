@@ -79,7 +79,7 @@ The dungeon name is resolved at display time from the map ID via the WoW API. If
 
 ### Statistics
 
-New in 0.3.0, extended from nine to thirteen values in 0.4.0. This section shows thirteen lifetime values per character plus a visually distinct account total above them:
+New in 0.3.0, extended from nine to thirteen values in 0.4.0. This section records thirteen lifetime values for every known character and additionally forms an account total from them:
 
 - Delves completed in total and Midnight delves completed
 - 5-player dungeons entered and Midnight dungeons (final boss kills)
@@ -88,13 +88,17 @@ New in 0.3.0, extended from nine to thirteen values in 0.4.0. This section shows
 - Healthstones used
 - Quests completed, daily quests completed and quests abandoned
 
-Thirteen values do not fit side by side across the table width. They are therefore laid out in three thematically grouped stacked bands inside the same character row: **content** (delves, Midnight delves, dungeons entered, Midnight dungeons, playtime), **survival** (deaths total, in dungeons, in raids, from falling, healthstones) and **quests** (completed, daily, abandoned). It remains one row per character.
+Thirteen values do not fit side by side across the table width. Since 0.4.2 the page therefore no longer compares all characters at once but always shows exactly **one scope** – and for that scope all thirteen values simultaneously.
 
-Since 0.4.1 there are three bands instead of two: in the two-band layout the lower band carried eight columns at 85 pixels each, which left two-line column heads such as "DEATHS RAID" unreadable. Every cell now also sits in its own container that clips hard, so a value can no longer bleed into its neighbour at any scale preset. Very large lifetime values are abbreviated inside the cell (`123T`) instead of being written out in full; the tooltip still states the exact full value, and the stored number is always the precise one anyway. Small values stay exact and playtime is never abbreviated.
+The scope is selected by a fixed register bar along the bottom: pinned at the far left is **TOTAL** (the account total), and to its right one tab per known character in the existing deterministic order. From the eighth character onwards the character tabs live in a horizontally paged viewport with explicit arrow buttons; **TOTAL** always stays pinned and never pages away. The selection is bound to the stable character key (the GUID), not to a position: it survives every refresh, and if the character disappears from the database the scope falls back to **TOTAL** rather than showing someone else's number. The active TOTAL tab is turquoise, the active character tab carries its class colour; inactive tabs stay in the neutral dark.
 
-Two values deserve an explicit explanation, because a short column head cannot carry it and the tooltip therefore spells it out:
+Above the bar the thirteen values of the selected scope appear as metric cards in three simultaneously visible sections – never as navigation tabs and never as stacked table rows: **content** (delves, Midnight delves, dungeons entered, Midnight dungeons, playtime), **survival** (deaths total, in dungeons, in raids, from falling, healthstones) and **quests** (completed, daily, abandoned). Every card visibly binds a concise label to a prominent value.
 
-- **5-player dungeons entered** counts *entering*, not completing. Blizzard keeps the statistic that way; the column is headed `DUNGEONS ENTERED` and the tooltip says `entered` explicitly.
+Every card clips hard, so a value can no longer bleed into its neighbour at any scale preset. Very large lifetime values are abbreviated on the card (`123T`) instead of being written out in full; the tooltip still states the exact full value, and the stored number is always the precise one anyway. Small values stay exact and playtime is never abbreviated.
+
+Two values deserve an explicit explanation, because a short card label cannot carry it and the tooltip therefore spells it out:
+
+- **5-player dungeons entered** counts *entering*, not completing. Blizzard keeps the statistic that way; the card is labelled `DUNGEONS ENTERED` and the tooltip says `entered` explicitly.
 - **Midnight dungeons** is not a single Blizzard statistic but the sum of the 24 final boss statistics of the eight Midnight dungeons across Normal, Heroic and Mythic. It is only formed when *all* 24 components are safely readable. If even one is unreadable the whole sum stays unknown and any earlier safe value is preserved - a partial sum would look like a genuine but merely smaller value and would therefore be a silent falsehood.
 
 The statistics are read through `GetStatistic` for the logged-in character only. Total playtime cannot be read through any synchronous call: it is requested with `RequestTimePlayed()` and arrives asynchronously as `TIME_PLAYED_MSG`. It is requested only on full paths such as login, world change and manual refresh, and throttled even there - not on every background event, and explicitly not on death, because the client answers every request with a visible chat line. It is displayed compactly (`1d 1h`).
@@ -216,9 +220,9 @@ Releases are produced by [BigWigsMods/packager](https://github.com/BigWigsMods/p
 
 The workflow runs only for tags matching `v*`, for example `v0.3.0`. Normal pushes to `main` do not create a release. There is also `workflow_dispatch` for a manual dry run; it only packages and uploads nothing (packager option `-d`).
 
-Before every tag, the fixed version in `WeeklyAltTracker.toc` and `Core.lua` as well as the guides and changelog must be updated to the same release state. The packager names the release after the tag but deliberately does not replace the fixed addon version automatically.
+Before every tag, the fixed version in `WeeklyAltTracker.toc` and `Core.lua` as well as the guides and changelog must be updated to the same release state. The packager names the release after the tag but deliberately does not replace the fixed addon version automatically. The canonical [`CHANGELOG.md`](CHANGELOG.md) is a cumulative, newest-first history of every public version since 0.2.4; older entries remain as a factual record of what was released at the time.
 
-The package contents are controlled by `.pkgmeta`. The ZIP contains the folder `WeeklyAltTracker` with the six Lua files (`Localization.lua`, `Core.lua`, `Data.lua`, `Scanner.lua`, `Activities.lua`, `UI.lua`), the TOC, `README.md`, `README.en.md`, `Anleitung.html`, `Guide.en.html`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, the texture `Media/WeeklyAltTrackerIcon.tga` and a `CHANGELOG.md` generated by the packager. Not included are `.github`, `.gitignore`, `.pkgmeta`, `.claude`, `artwork/`, `design/`, `tools/`, `wago/`, `curseforge/`, `Media/README.md` and all local working folders.
+The package contents are controlled by `.pkgmeta`. The ZIP contains the folder `WeeklyAltTracker` with the six Lua files (`Localization.lua`, `Core.lua`, `Data.lua`, `Scanner.lua`, `Activities.lua`, `UI.lua`), the TOC, `README.md`, `README.en.md`, `Anleitung.html`, `Guide.en.html`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, the texture `Media/WeeklyAltTrackerIcon.tga` and the manually maintained complete `CHANGELOG.md`. `.pkgmeta` also declares it as the public Markdown changelog for GitHub and Wago, so the packager cannot replace the full history with only the latest commit list. Not included are `.github`, `.gitignore`, `.pkgmeta`, `.claude`, `artwork/`, `design/`, `tools/`, `wago/`, `curseforge/`, `Media/README.md` and all local working folders.
 
 The versioned original master of the logo is a vector graphic at `artwork/WeeklyAltTracker-Logo.svg` and is deliberately **not** shipped. Only the raster export `Media/WeeklyAltTrackerIcon.tga` derived from it is shipped, which `UI.lua` references as the minimap icon.
 
@@ -228,7 +232,7 @@ The GitHub release is created with the automatically provided `GITHUB_TOKEN`; no
 
 The addon is published on Wago Addons: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). The project ID `ZKxZJkNk` is declared as `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` and is also visible on the project page.
 
-Version 0.3.0 was published through the tag-based BigWigs Packager as a stable release for Retail patch 12.0.7 and its public artifact was verified byte-for-byte. Version 0.3.1 fixes the minimap button position so it sits tangentially outside rather than inside the minimap edge. Version 0.4.0 extends the statistics page from nine to thirteen lifetime values and lays them out in two bands. Version 0.4.1 is a pure UI hotfix on top of it: three thematically grouped bands instead of two, hard-clipping cell containers against overlapping values, and a compact cell display for very large numbers with tooltip and stored values left exact.
+Version 0.3.0 was published through the tag-based BigWigs Packager as a stable release for Retail patch 12.0.7 and its public artifact was verified byte-for-byte. Version 0.3.1 fixes the minimap button position so it sits tangentially outside rather than inside the minimap edge. Version 0.4.0 extends the statistics page from nine to thirteen lifetime values and lays them out in two bands. Version 0.4.1 is a pure UI hotfix on top of it: three thematically grouped bands instead of two and hard-clipping cell containers. Version 0.4.2 replaces the comparison table entirely with a per-scope dashboard: a fixed register bar with pinned TOTAL and one tab per character, and above it all thirteen values at once as metric cards in three sections.
 
 The secret `WAGO_API_TOKEN` is stored in the repository under *Settings → Secrets and variables → Actions*. The token value belongs exclusively in that secret and never in the repository.
 
@@ -238,7 +242,7 @@ The project-side CurseForge texts are versioned under `curseforge/`:
 
 - `PROJECT-en.md` – English title, summary and description. CurseForge requires English as the project language.
 - `PROJECT-de.md` – German additional version of the same description.
-- `CHANGELOG-0.4.1-en.md` and `CHANGELOG-0.4.1-de.md` – change log for the current release. The logs of the previous versions (`CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
+- `CHANGELOG-0.4.2-en.md` and `CHANGELOG-0.4.2-de.md` – change log for the current release. The logs of the previous versions (`CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
 
 The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 
@@ -253,7 +257,7 @@ The separate workflow `.github/workflows/curseforge-package.yml` (**Build CurseF
 
 The workflow runs the full `tools/check.py` first and then verifies the built ZIP with `tools/verify_package.py` (14 expected files under `WeeklyAltTracker/`, byte-identical to the repository, TOC fields, no secret assignments). The bundled `SHA256SUMS.txt` is there to check the downloaded file.
 
-The addon is listed on CurseForge at [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker). The project uses Project ID `1616769` under the **All Rights Reserved** licence; the ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.4.1 is uploaded manually through the CurseForge project page just like 0.2.6, 0.3.1 and 0.4.0, which does not require an API key. Automated CurseForge uploads are deliberately not configured without `CF_API_KEY`.
+The addon is listed on CurseForge at [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker). The project uses Project ID `1616769` under the **All Rights Reserved** licence; the ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.4.2 is uploaded manually through the CurseForge project page just like 0.2.6, 0.3.1, 0.4.0 and 0.4.1, which does not require an API key. Automated CurseForge uploads are deliberately not configured without `CF_API_KEY`.
 
 ## Data provenance and third parties
 

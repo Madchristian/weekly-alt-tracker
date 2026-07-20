@@ -34,7 +34,7 @@ def check_toc() -> list[Path]:
     text = TOC.read_text(encoding="utf-8")
     required = {
         "## Interface: 120007",
-        "## Version: 0.4.1",
+        "## Version: 0.4.2",
         "## X-License: All Rights Reserved",
         "## X-Wago-ID: ZKxZJkNk",
         "## X-Curse-Project-ID: 1616769",
@@ -265,9 +265,20 @@ def check_icon_wiring() -> None:
     if not pkgmeta.exists():
         error(".pkgmeta fehlt")
     else:
+        pkgmeta_text = pkgmeta.read_text(encoding="utf-8")
+        manual_changelog = (
+            "manual-changelog:\n"
+            "  filename: CHANGELOG.md\n"
+            "  markup-type: markdown"
+        )
+        if manual_changelog not in pkgmeta_text:
+            error(
+                ".pkgmeta muss CHANGELOG.md als manuellen Markdown-Changelog verwenden; "
+                "sonst zeigt der Packager nur die Änderungen seit dem letzten Tag"
+            )
         entries = set()
         in_ignore = False
-        for raw in pkgmeta.read_text(encoding="utf-8").splitlines():
+        for raw in pkgmeta_text.splitlines():
             if not raw.startswith((" ", "\t", "-")) and raw.strip():
                 in_ignore = raw.strip().rstrip(":") == "ignore"
                 continue
@@ -284,6 +295,47 @@ def check_icon_wiring() -> None:
     readme = ROOT / "README.md"
     if readme.exists() and "Media/WeeklyAltTrackerIcon.tga" not in readme.read_text(encoding="utf-8"):
         error("README dokumentiert Media/WeeklyAltTrackerIcon.tga nicht als Paketinhalt")
+
+    changelog = ROOT / "CHANGELOG.md"
+    if not changelog.is_file():
+        error("CHANGELOG.md mit der vollständigen öffentlichen Release-Historie fehlt")
+    else:
+        expected_versions = [
+            "0.4.2", "0.4.1", "0.4.0", "0.3.1",
+            "0.3.0", "0.2.6", "0.2.5", "0.2.4",
+        ]
+        parts = [
+            "# WeeklyAltTracker – vollständiger Änderungsverlauf",
+            "",
+            "Dieser Changelog enthält die vollständige öffentliche Release-Historie. "
+            "Frühere Einträge beschreiben den Stand der jeweils genannten Version und "
+            "werden bei späteren Änderungen nicht rückwirkend umgeschrieben.",
+            "",
+        ]
+        for index, version in enumerate(expected_versions):
+            source = ROOT / "wago" / f"CHANGELOG-{version}.md"
+            if not source.is_file():
+                error(f"Historische Release-Notiz fehlt: {source.relative_to(ROOT)}")
+                continue
+            lines = source.read_text(encoding="utf-8").strip().splitlines()
+            expected_title = f"# WeeklyAltTracker {version}"
+            if not lines or lines[0] != expected_title:
+                error(
+                    f"{source.relative_to(ROOT)} beginnt nicht mit {expected_title!r}"
+                )
+                continue
+            parts.append(f"## {version}")
+            for line in lines[1:]:
+                parts.append("#" + line if line.startswith("## ") else line)
+            if index != len(expected_versions) - 1:
+                parts.extend(["", "---", ""])
+        expected_changelog = "\n".join(parts).rstrip() + "\n"
+        actual_changelog = changelog.read_text(encoding="utf-8")
+        if actual_changelog != expected_changelog:
+            error(
+                "CHANGELOG.md ist keine exakte kumulative Historie der vollständigen "
+                "versionierten Release-Notizen von 0.4.2 bis 0.2.4"
+            )
 
 
 def pkgmeta_ignores() -> set[str]:
@@ -308,6 +360,7 @@ def pkgmeta_ignores() -> set[str]:
 EXPECTED_PACKAGE = {
     "Activities.lua",
     "Anleitung.html",
+    "CHANGELOG.md",
     "Core.lua",
     "Data.lua",
     "Guide.en.html",

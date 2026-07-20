@@ -2,6 +2,12 @@ package-as: WeeklyAltTracker
 
 enable-nolib-creation: no
 
+# Kanonische kumulative Release-Historie statt automatisch erzeugter Notizen,
+# die nur die Commits seit dem vorherigen Tag enthalten würden.
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
 ignore:
   - .github
   - .gitignore

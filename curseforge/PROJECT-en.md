@@ -68,16 +68,21 @@ Hero-to-Myth exchange potential.
 **Keystones** - the currently owned Mythic+ keystone per character with dungeon
 name and level as an offline snapshot.
 
-**Statistics** - thirteen lifetime values per character in three thematically
-grouped stacked bands of the same row (content, survival, quests): completed
+**Statistics** - a per-scope dashboard instead of a comparison table. A fixed
+register bar along the bottom selects the scope: pinned at the far left is
+TOTAL (the account total), and to its right one tab per character. With many
+characters the character tabs page horizontally via explicit arrow buttons
+while TOTAL always stays pinned. Above it all thirteen lifetime values of the
+selected scope appear simultaneously as metric cards in three sections
+(content, survival, quests): completed
 delves, deaths, quests, healthstones used, 5-player
 dungeons entered (entered, not completed), the Midnight dungeons as a sum of
 final boss kills across eight dungeons and three difficulties, and total
 playtime. Logged-out characters keep their last
 snapshot; the account total adds only safely known values and shows `-` rather
-than an invented zero when every value is unknown. Every cell clips hard so no
-value can bleed into its neighbour; very large numbers are abbreviated inside
-the cell and stated exactly in the tooltip.
+than an invented zero when every value is unknown. Every card clips hard so no
+value can bleed into its neighbour; very large numbers are abbreviated on the
+card and stated exactly in the tooltip.
 
 **Settings** - refresh data, reset the window position, show or hide the
 minimap button, and change the UI scale directly inside the addon.
