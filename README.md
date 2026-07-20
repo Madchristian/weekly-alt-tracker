@@ -58,6 +58,7 @@ Unterstützt werden Alchemie, Schmiedekunst, Ingenieurskunst, Inschriftenkunde, 
 
 ### Wappenquellen
 
+- Splitter von Dundun pro Charakter als Offline-Ressourcen-Snapshot, mit dynamischem Maximum wie `5/8`
 - Goldene Truhe: wöchentlich, vier Abschlüsse mit je 5 Mythischen Dämmerwappen
 - Rissiger Schlüsselstein, Quest 92600: einmalig 20 Mythische und 20 Heldendämmerwappen
 - Nullaeus auf Tier 11, Erfolg 61798: einmalig 30 Mythische Dämmerwappen
@@ -66,6 +67,8 @@ Unterstützt werden Alchemie, Schmiedekunst, Ingenieurskunst, Inschriftenkunde, 
 - Helden-zu-Mythisch-Tausch nach Erfolg 42769: 30 Heldendämmerwappen ergeben 10 Mythische Dämmerwappen; angezeigt wird nur das tauschbare Potential
 
 Die wiederholbaren Quellen besitzen keinen rückwirkenden quellenspezifischen Wochenzähler. Das Addon erfindet daher keine Anzahl für Läufe, die außerhalb seiner Beobachtung stattfanden.
+
+Der Dundun-Bestand liegt bewusst außerhalb des Wochenresets. Ein unlesbarer oder geschützter API-Wert überschreibt keinen bekannten Bestand. Der Tooltip nennt Datenstand und API-Reichweite; accountweite Werte werden nicht über Charaktere summiert.
 
 ### Schlüsselsteine
 
@@ -240,13 +243,13 @@ Die projektseitigen CurseForge-Texte liegen versioniert unter `curseforge/`:
 
 - `PROJECT-en.md` – englischer Titel, Kurzbeschreibung und Beschreibung. CurseForge verlangt Englisch als Projektsprache.
 - `PROJECT-de.md` – deutsche Zusatzfassung derselben Beschreibung.
-- `CHANGELOG-0.5.0-en.md` und `CHANGELOG-0.5.0-de.md` – Änderungsprotokoll zum aktuellen Preview-Stand. Die Protokolle der Vorversionen (`CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) bleiben als Historie erhalten.
+- `CHANGELOG-0.6.0-en.md` und `CHANGELOG-0.6.0-de.md` – Änderungsprotokoll zum aktuellen Preview-Stand. Die Protokolle der Vorversionen (`CHANGELOG-0.5.0-*`, `CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) bleiben als Historie erhalten.
 
 Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mit ausgeliefert.
 
 #### Automatische Paketierung und manueller Fallback
 
-CurseForge Automatic Packaging ist über den Repository-Webhook mit dem öffentlichen GitHub-Repository verbunden. `Package all commits` bleibt deaktiviert; normale Tags wie `v0.5.0` erzeugen Releases, Tags mit `beta` beziehungsweise `alpha` die entsprechenden Vorabkanäle. Es gibt bewusst keinen parallelen automatischen Upload per `CF_API_KEY`, damit ein Tag nicht doppelt veröffentlicht wird.
+CurseForge Automatic Packaging ist über den Repository-Webhook mit dem öffentlichen GitHub-Repository verbunden. `Package all commits` bleibt deaktiviert; normale Tags wie `v0.6.0` erzeugen Releases, Tags mit `beta` beziehungsweise `alpha` die entsprechenden Vorabkanäle. Es gibt bewusst keinen parallelen automatischen Upload per `CF_API_KEY`, damit ein Tag nicht doppelt veröffentlicht wird.
 
 Der separate Workflow `.github/workflows/curseforge-package.yml` (**Build CurseForge ZIP**) bleibt ausschließlich als manueller Fallback. Er erzeugt ein hochladbares ZIP als Actions-Artefakt, hat nur Leserechte, kennt kein `CF_API_KEY` und lädt nirgendwohin hoch.
 

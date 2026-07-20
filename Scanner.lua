@@ -22,6 +22,11 @@ local function CopyString(value)
     return value
 end
 
+local function CopyBoolean(value)
+    if not IsSafeValue(value) or type(value) ~= "boolean" then return nil end
+    return value
+end
+
 -- Zählt Mehrfachrückgaben explizit. Ein nil zwischen zwei Werten macht # unzuverlässig
 -- und würde spätere Rückgaben abschneiden.
 local function PackResults(...)
@@ -96,6 +101,60 @@ local function ReadCrests(previous, legacyMyth)
     if next(result) == nil then return nil end
     result.updated = time()
     return result
+end
+
+-- Dundun-Splitter (Currency 3376): ein Offline-Ressourcen-Snapshot, kein
+-- Wochenwert. Anders als ReadCrest darf ein API-Ausfall NICHT einfach nil
+-- liefern - das wuerde ScanCharacter dazu bringen, gar nichts zu schreiben,
+-- was fuer einen bereits vorhandenen Snapshot richtig waere, einen frischen
+-- Charakter aber niemals veraendert (kein Unterschied noetig). Stattdessen
+-- gibt ReadDundun bei jedem Fehlerfall explizit den Vorwert zurueck: so bleibt
+-- ein vorhandener sicherer Snapshot unveraendert erhalten, ohne dass der
+-- Aufrufer selbst zwischen "nichts Neues" und "loeschen" unterscheiden muss.
+-- Ein sicher gelesenes Maximum <= 0 entfernt einen alten Deckel bewusst. Ein
+-- fehlendes/geschuetztes optionales Feld behaelt dagegen den sicheren Vorwert.
+-- Wochenfelder duerfen nur innerhalb desselben weekEnd nachgetragen werden.
+local function ReadDundun(previous, weekEnd)
+    local getter = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
+    local id = WAT.Data and CopyNumber(WAT.Data.DUNDUN_CURRENCY_ID)
+    if not getter or not id then return previous end
+    local ok, info = pcall(getter, id)
+    if not ok or not IsSafeValue(info) or type(info) ~= "table" then return previous end
+    local quantity = CopyNumber(info.quantity)
+    if quantity == nil then return previous end
+
+    local old = IsSafeValue(previous) and type(previous) == "table" and previous or {}
+    local currentWeekEnd = CopyNumber(weekEnd)
+    local sameWeek = currentWeekEnd ~= nil and CopyNumber(old.weekEnd) == currentWeekEnd
+
+    local function MergeNumber(raw, oldValue, clearNonPositive)
+        local value = CopyNumber(raw)
+        if value ~= nil then
+            if clearNonPositive and value <= 0 then return nil end
+            return value
+        end
+        return CopyNumber(oldValue)
+    end
+
+    local function MergeBoolean(raw, oldValue)
+        local value = CopyBoolean(raw)
+        if value ~= nil then return value end
+        return CopyBoolean(oldValue)
+    end
+
+    return {
+        currencyID = id,
+        quantity = quantity,
+        maxQuantity = MergeNumber(info.maxQuantity, old.maxQuantity, true),
+        quantityEarnedThisWeek = MergeNumber(info.quantityEarnedThisWeek,
+            sameWeek and old.quantityEarnedThisWeek or nil, false),
+        maxWeeklyQuantity = MergeNumber(info.maxWeeklyQuantity,
+            sameWeek and old.maxWeeklyQuantity or nil, true),
+        isAccountWide = MergeBoolean(info.isAccountWide, old.isAccountWide),
+        isAccountTransferable = MergeBoolean(info.isAccountTransferable, old.isAccountTransferable),
+        weekEnd = currentWeekEnd,
+        updated = time(),
+    }
 end
 
 local function ReadOwnedKeystone(previous, allowClear)
@@ -276,6 +335,12 @@ end
 function WAT:ScanCharacter(character, reason)
     character.weekly = character.weekly or {}
     local weekly = character.weekly
+    -- Offline-Ressourcen-Snapshot: kein Wochenwert, deshalb Geschwister von
+    -- weekly statt darunter, und niemals vom Wochenreset geleert.
+    character.resources = type(character.resources) == "table" and character.resources or {}
+    local resources = character.resources
+    local dundun = ReadDundun(resources.dundun, character.weekEnd)
+    if dundun then resources.dundun = dundun end
 
     local current, maximum, widgetID = ReadGildedStash()
     if current and maximum then

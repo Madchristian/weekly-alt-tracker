@@ -66,6 +66,7 @@ local enUS = {
     COL_RITUAL_FARM = "RITUAL T6\nREPEATABLE",
     COL_MYTHIC_FARM = "M+\nREPEATABLE",
     COL_EXCHANGE = "HERO to MYTH\nEXCHANGEABLE",
+    COL_DUNDUN = "DUNDUN",
     COL_DUNGEON = "DUNGEON",
     COL_KEYSTONE_LEVEL = "LEVEL",
 
@@ -240,6 +241,13 @@ local enUS = {
     SRC_EXCHANGE_POTENTIAL = "%d Myth exchangeable from current Hero stock",
     SRC_EXCHANGE_UNLOCKED_UNKNOWN = "unlocked / stock unknown",
     SRC_FOOTNOTE = "Repeatable sources are not a retroactive weekly counter. Only safely observable data is shown.",
+    -- Dundun-Splitter: ein Offline-Ressourcen-Snapshot, kein Wochenwert.
+    DUNDUN_NAME_FALLBACK = "Shard of Dundun",
+    DUNDUN_SCOPE = "Scope",
+    DUNDUN_SCOPE_ACCOUNT = "account-wide",
+    DUNDUN_SCOPE_CHARACTER = "character-specific",
+    DUNDUN_OFFLINE_NOTE = "Offline resource snapshot - not a completed weekly source.",
+    EASTER_EGG_DUNDUN = "Panra holds the line, Cataline keeps him in the Light - Dundun doesn't stand a chance.",
     CELL_RITUAL_FARM = "%d M per T6",
     CELL_MYTHIC_FARMABLE = "+%d / farmable",
     CELL_MYTHIC_MIN = "+%d / from +9",
@@ -344,6 +352,7 @@ local deDE = {
     COL_RITUAL_FARM = "RITUAL T6\nWIEDERHOLBAR",
     COL_MYTHIC_FARM = "M+\nWIEDERHOLBAR",
     COL_EXCHANGE = "HELD zu MYTHISCH\nTAUSCHBAR",
+    COL_DUNDUN = "DUNDUN",
     COL_DUNGEON = "DUNGEON",
     COL_KEYSTONE_LEVEL = "STUFE",
 
@@ -515,6 +524,13 @@ local deDE = {
     SRC_EXCHANGE_POTENTIAL = "%d Mythische aus aktuellem Helden-Bestand tauschbar",
     SRC_EXCHANGE_UNLOCKED_UNKNOWN = "freigeschaltet / Bestand unbekannt",
     SRC_FOOTNOTE = "Wiederholbare Quellen sind kein rückwirkender Wochenzähler. Angezeigt werden nur sicher beobachtbare Daten.",
+    -- Dundun-Splitter: ein Offline-Ressourcen-Snapshot, kein Wochenwert.
+    DUNDUN_NAME_FALLBACK = "Splitter von Dundun",
+    DUNDUN_SCOPE = "Reichweite",
+    DUNDUN_SCOPE_ACCOUNT = "accountweit",
+    DUNDUN_SCOPE_CHARACTER = "charakterbezogen",
+    DUNDUN_OFFLINE_NOTE = "Offline-Ressourcen-Snapshot - keine abgeschlossene Wochenquelle.",
+    EASTER_EGG_DUNDUN = "Panra hält die Front, Cataline hält ihn im Licht - Dundun hat keine Chance.",
     CELL_RITUAL_FARM = "%d M je T6",
     CELL_MYTHIC_FARMABLE = "+%d / farmbar",
     CELL_MYTHIC_MIN = "+%d / ab +9",

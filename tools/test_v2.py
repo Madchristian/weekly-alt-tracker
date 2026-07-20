@@ -105,6 +105,15 @@ def main() -> int:
 
     for currency_id, label in [(3343, "Champion"), (3345, "Held"), (3347, "Mythisch")]:
         require(str(currency_id) in data, f"Currency-ID {currency_id} ({label}) fehlt")
+    require("DUNDUN_CURRENCY_ID = 3376" in data, "Dundun-Splitter-Currency-ID 3376 fehlt")
+    require("ReadDundun" in scanner and "resources.dundun" in scanner,
+            "Dundun-Splitter-Scan fehlt in Scanner.lua")
+    require("weekly.dundun" not in scanner and "weekly.resources" not in scanner,
+            "der Dundun-Splitter ist kein Wochenwert und darf nicht unter weekly liegen")
+    require("record.resources" in core,
+            "NormalizeCharacter muss den Ressourcen-Container additiv sicherstellen")
+    require("UnitRace" in core and "raceFile" in core and "raceID" in core,
+            "PrepareCurrentCharacter muss Rasse (raceFile/raceID) sicher ueber UnitRace erfassen")
 
     meta = ids(table_body(data, "META_QUESTS"))
     require(len(meta) == 15 and len(set(meta)) == 15, "Meta-Weekly-Pool muss 15 eindeutige IDs enthalten")

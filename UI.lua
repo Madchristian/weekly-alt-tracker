@@ -113,12 +113,16 @@ local PANELS = {
         description = L("PANEL_SOURCES_DESC"),
         columns = {
             { key = "character", label = L("COL_CHARACTER"), width = 150, left = true },
-            { key = "gilded", label = L("COL_GILDED_WEEKLY"), width = 110 },
-            { key = "cracked", label = L("COL_CRACKED"), width = 140 },
-            { key = "nullaeus", label = L("COL_NULLAEUS"), width = 125 },
-            { key = "ritualFarm", label = L("COL_RITUAL_FARM"), width = 120 },
-            { key = "mythicFarm", label = L("COL_MYTHIC_FARM"), width = 100 },
-            { key = "exchange", label = L("COL_EXCHANGE"), width = 175 },
+            -- Kompakter Offline-Ressourcen-Snapshot, kein Wochenwert. Die
+            -- uebrigen Spalten wurden fuer diese Spalte zusammen um 80px
+            -- geschrumpft, damit die Zeile weiterhin genau CONTENT_WIDTH trifft.
+            { key = "dundun", label = L("COL_DUNDUN"), width = 80 },
+            { key = "gilded", label = L("COL_GILDED_WEEKLY"), width = 100 },
+            { key = "cracked", label = L("COL_CRACKED"), width = 125 },
+            { key = "nullaeus", label = L("COL_NULLAEUS"), width = 115 },
+            { key = "ritualFarm", label = L("COL_RITUAL_FARM"), width = 110 },
+            { key = "mythicFarm", label = L("COL_MYTHIC_FARM"), width = 90 },
+            { key = "exchange", label = L("COL_EXCHANGE"), width = 150 },
         },
     },
     keystones = {
@@ -435,8 +439,106 @@ local function GildedSourceText(weekly, stale)
         gilded.current * perStash, gilded.maximum * perStash)
 end
 
+-- Dundun-Splitter (character.resources.dundun): ein Offline-Ressourcen-Snapshot,
+-- kein Wochenwert - deshalb ohne stale-Textersatz wie StatusFraction, nur
+-- gedimmt wie die Spalte "Letztes Update". maxQuantity <= 0 wird bereits im
+-- Scanner als nil gespeichert und bedeutet hier "kein darstellbares Maximum".
+local function DundunCellText(resources, stale)
+    local dundun = type(resources) == "table" and resources.dundun or nil
+    if type(dundun) ~= "table" or type(dundun.quantity) ~= "number" then
+        return COLORS.unknown .. "-|r"
+    end
+    local color = stale and COLORS.stale or "|cffd8e0e7"
+    if type(dundun.maxQuantity) == "number" and dundun.maxQuantity > 0 then
+        return string.format("%s%d/%d|r", color, dundun.quantity, dundun.maxQuantity)
+    end
+    return color .. tostring(dundun.quantity) .. "|r"
+end
+
+-- Der volle, clientlokalisierte Name kommt zur Renderzeit aus C_CurrencyInfo,
+-- wie schon CrestIcon oben - nie aus dem gespeicherten Snapshot, dessen
+-- Sprache aus dem letzten Scan stammen kann. Ohne lesbaren Namen greift der
+-- eigene, uebersetzte Ersatztext DUNDUN_NAME_FALLBACK.
+local function DundunCurrencyName(currencyID)
+    if type(currencyID) ~= "number" then return nil end
+    local getter = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
+    if not getter then return nil end
+    local ok, info = pcall(getter, currencyID)
+    if not ok or (issecretvalue and issecretvalue(info)) or type(info) ~= "table" then return nil end
+    local name = info.name
+    if (issecretvalue and issecretvalue(name)) or type(name) ~= "string" or name == "" then return nil end
+    return name
+end
+
 local function AddTooltipLine(label, value)
     GameTooltip:AddDoubleLine(label, value, 0.65, 0.7, 0.78, 0.93, 0.95, 0.97)
+end
+
+-- Offline-Ressourcen-Snapshot im Wappenquellen-Tooltip: lokalisierter Name,
+-- Wert (mit bekanntem Maximum als Bruch), Reichweite laut API (nie erfunden,
+-- wenn isAccountWide unlesbar ist), Erfassungsalter und der ausdrueckliche
+-- Hinweis, dass dies kein abgeschlossener Wochenwert ist.
+local function ShowDundunTooltip(character)
+    local resources = type(character.resources) == "table" and character.resources or {}
+    local dundun = type(resources.dundun) == "table" and resources.dundun or nil
+    local currencyID = (type(dundun) == "table" and type(dundun.currencyID) == "number" and dundun.currencyID)
+        or (WAT.Data and WAT.Data.DUNDUN_CURRENCY_ID)
+    local name = DundunCurrencyName(currencyID) or L("DUNDUN_NAME_FALLBACK")
+    if type(dundun) ~= "table" or type(dundun.quantity) ~= "number" then
+        AddTooltipLine(name, L("STATUS_UNKNOWN"))
+        return
+    end
+    local valueText = (type(dundun.maxQuantity) == "number" and dundun.maxQuantity > 0)
+        and string.format("%d/%d", dundun.quantity, dundun.maxQuantity)
+        or tostring(dundun.quantity)
+    AddTooltipLine(name, valueText)
+    local scopeText = L("STATUS_UNKNOWN")
+    if dundun.isAccountWide == true then
+        scopeText = L("DUNDUN_SCOPE_ACCOUNT")
+    elseif dundun.isAccountWide == false then
+        scopeText = L("DUNDUN_SCOPE_CHARACTER")
+    end
+    AddTooltipLine(L("DUNDUN_SCOPE"), scopeText)
+    AddTooltipLine(L("KEY_RECORDED"), FormatAge(dundun.updated))
+    GameTooltip:AddLine(L("DUNDUN_OFFLINE_NOTE"), 0.56, 0.6, 0.66, true)
+end
+
+-- Panra/Cataline: ein rein kosmetisches Easter Egg. Es liest ausschliesslich
+-- bereits vorhandene Charakterdaten, schreibt nie in die Datenbank und
+-- aendert weder Layout noch Popup/Chat - nur eine einzelne zusaetzliche
+-- Tooltipzeile im Wappenquellen-Tooltip, wenn BEIDE Bedingungen zugleich
+-- erfuellt sind. Spezialisierung/Rolle werden nirgends gelesen.
+local function LowerSafe(value)
+    if (issecretvalue and issecretvalue(value)) or type(value) ~= "string" then return nil end
+    return string.lower(value)
+end
+
+local function HasEasterEggPair()
+    local characters = WAT.db and WAT.db.characters
+    if type(characters) ~= "table" then return false end
+    local hasPanra, hasCataline = false, false
+    for _, entry in pairs(characters) do
+        if type(entry) == "table" then
+            local name = LowerSafe(entry.name)
+            local classFile = type(entry.classFile) == "string" and entry.classFile or nil
+            if name == "panra" and classFile == "WARRIOR" and LowerSafe(entry.raceFile) == "tauren" then
+                hasPanra = true
+            elseif name == "cataline" and classFile == "PALADIN" then
+                hasCataline = true
+            end
+        end
+    end
+    return hasPanra and hasCataline
+end
+
+local function EasterEggLine(character)
+    local name = LowerSafe(type(character) == "table" and character.name or nil)
+    local isPanra = name == "panra" and character.classFile == "WARRIOR"
+        and LowerSafe(character.raceFile) == "tauren"
+    local isCataline = name == "cataline" and character.classFile == "PALADIN"
+    if not isPanra and not isCataline then return nil end
+    if not HasEasterEggPair() then return nil end
+    return L("EASTER_EGG_DUNDUN")
 end
 
 local function CrestTooltip(weekly)
@@ -724,6 +826,13 @@ local function ShowSourcesTooltip(character, weekly)
             or L("SRC_EXCHANGE_UNLOCKED_UNKNOWN")
     end
     AddTooltipLine(L("SRC_EXCHANGE"), exchangeText)
+    GameTooltip:AddLine(" ")
+    ShowDundunTooltip(character)
+    local easterEgg = EasterEggLine(character)
+    if easterEgg then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(easterEgg, 0.62, 0.82, 0.7, true)
+    end
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(L("SRC_FOOTNOTE"), 0.56, 0.6, 0.66, true)
 end
@@ -2100,6 +2209,7 @@ end
 
 local function FillSources(row, character, weekly, stale)
     row.values.character:SetText(ClassColoredName(character, stale))
+    row.values.dundun:SetText(DundunCellText(character.resources, stale))
     row.values.gilded:SetText(GildedSourceText(weekly, stale))
     local season = type(character.season) == "table" and character.season or {}
     local seasonal = type(season.crestSources) == "table" and season.crestSources or {}

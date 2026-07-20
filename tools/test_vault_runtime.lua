@@ -2,13 +2,20 @@
 -- Läuft außerhalb von WoW mit Fengari und echten Scanner.lua-Funktionen.
 
 local WAT = {
-    Data = { CRESTS = {} },
+    Data = { CRESTS = {}, DUNDUN_CURRENCY_ID = 3376 },
 }
 
 function time() return 123456 end
 
 local SECRET_VALUE = {}
 function issecretvalue(value) return value == SECRET_VALUE end
+
+-- Gestubbte Currency-API fuer den Dundun-Splitter. Ueber alle CRESTS-Aufrufe
+-- hinweg leer (WAT.Data.CRESTS = {}), deshalb ausschliesslich fuer 3376
+-- relevant; jeder Testfall unten setzt neu, was GetCurrencyInfo liefert.
+C_CurrencyInfo = {
+    GetCurrencyInfo = function() return nil end,
+}
 
 Enum = {
     WeeklyRewardChestThresholdType = {
@@ -263,7 +270,190 @@ assert(WAT.Localization.locale == "enUS", "frFR muss auf enUS zurückfallen")
 assert(WAT:GetVaultTooltip(nil, "+") == "No Great Vault data recorded yet.",
     "frFR-Client muss den englischen Vault-Text erhalten")
 
+-- ---------------------------------------------------------------------------
+-- Dundun-Splitter (Currency 3376): Offline-Ressourcen-Snapshot
+--
+-- character.resources.dundun ist KEIN Wochenwert - er lebt neben character.weekly
+-- und darf nie darunter landen. Jeder Fehlerfall muss den zuletzt sicheren
+-- Snapshot unangetastet lassen statt ihn zu loeschen oder eine 0 zu erfinden.
+-- ---------------------------------------------------------------------------
+
+local dundunCharacter = { weekly = {} }
+
+-- 1. Bekannte Menge plus bekanntes Maximum, alle optionalen Felder lesbar.
+C_CurrencyInfo.GetCurrencyInfo = function(currencyID)
+    assert(currencyID == 3376, "ReadDundun fragt die falsche Currency-ID ab")
+    return {
+        quantity = 5, maxQuantity = 8,
+        quantityEarnedThisWeek = 2, maxWeeklyQuantity = 4,
+        isAccountWide = true, isAccountTransferable = false,
+        name = "Shard of Dundun",
+    }
+end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+local dundun = dundunCharacter.resources and dundunCharacter.resources.dundun
+assert(type(dundun) == "table", "Dundun-Snapshot fehlt nach erfolgreichem Scan")
+assert(dundun.quantity == 5, "Dundun-Menge falsch")
+assert(dundun.maxQuantity == 8, "Dundun-Maximum falsch")
+assert(dundun.quantityEarnedThisWeek == 2, "Dundun quantityEarnedThisWeek falsch")
+assert(dundun.maxWeeklyQuantity == 4, "Dundun maxWeeklyQuantity falsch")
+assert(dundun.isAccountWide == true, "Dundun isAccountWide falsch")
+assert(dundun.isAccountTransferable == false, "Dundun isAccountTransferable falsch")
+assert(dundun.currencyID == 3376, "Dundun currencyID falsch")
+assert(type(dundun.updated) == "number", "Dundun updated-Zeitstempel fehlt")
+assert(dundunCharacter.weekly.dundun == nil,
+    "Dundun ist kein Wochenwert und darf nicht unter character.weekly liegen")
+
+-- 2. Eine sicher gelesene Null ist real und darf nicht wie unbekannt aussehen.
+C_CurrencyInfo.GetCurrencyInfo = function() return { quantity = 0, maxQuantity = 8 } end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+assert(dundunCharacter.resources.dundun.quantity == 0,
+    "eine sicher gelesene Dundun-Menge 0 muss erhalten bleiben, nicht wie unbekannt verworfen werden")
+
+-- 3. maxQuantity <= 0 bedeutet kein bekanntes/darstellbares Maximum.
+C_CurrencyInfo.GetCurrencyInfo = function() return { quantity = 12, maxQuantity = 0 } end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+assert(dundunCharacter.resources.dundun.quantity == 12, "Dundun-Menge bei maxQuantity=0 falsch")
+assert(dundunCharacter.resources.dundun.maxQuantity == nil,
+    "maxQuantity <= 0 muss als kein bekanntes Maximum gespeichert werden (nil), nicht als 0")
+
+-- Auch ein Wochenmaximum <= 0 ist laut Currency-API kein darstellbares Limit
+-- und muss bereits beim Scan konsistent zu nil normalisiert werden.
+C_CurrencyInfo.GetCurrencyInfo = function()
+    return { quantity = 13, maxQuantity = 8, maxWeeklyQuantity = 0 }
+end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+assert(dundunCharacter.resources.dundun.maxWeeklyQuantity == nil,
+    "maxWeeklyQuantity <= 0 muss bereits beim Scan als unbekannt gespeichert werden")
+
+-- Fehlendes maxQuantity-Feld ist eine partielle Antwort und behaelt daher ein
+-- zuvor sicher gelesenes Maximum. Nur ein explizit sicher gelesenes <= 0 loescht.
+C_CurrencyInfo.GetCurrencyInfo = function() return { quantity = 13 } end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+assert(dundunCharacter.resources.dundun.maxQuantity == 8,
+    "fehlendes maxQuantity muss das bekannte sichere Maximum erhalten")
+
+-- 4. API-Ausfall (wirft einen Fehler) darf den sicheren Vorwert nicht loeschen.
+local beforeApiFailure = dundunCharacter.resources.dundun
+C_CurrencyInfo.GetCurrencyInfo = function() error("API nicht verfuegbar") end
+local scanOk = pcall(WAT.ScanCharacter, WAT, dundunCharacter, "runtime-test")
+assert(scanOk, "ein API-Ausfall bei GetCurrencyInfo darf ScanCharacter nicht werfen lassen")
+assert(dundunCharacter.resources.dundun == beforeApiFailure,
+    "ein API-Ausfall muss den zuletzt sicheren Dundun-Snapshot unveraendert erhalten")
+
+-- 5. nil-Tabelle (API liefert nichts) darf den Vorwert ebenfalls nicht loeschen.
+C_CurrencyInfo.GetCurrencyInfo = function() return nil end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+assert(dundunCharacter.resources.dundun == beforeApiFailure,
+    "eine nil-Antwort muss den zuletzt sicheren Dundun-Snapshot unveraendert erhalten")
+
+-- 6. Secret-Container: die gesamte Rueckgabe ist ein Secret Value.
+C_CurrencyInfo.GetCurrencyInfo = function() return SECRET_VALUE end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+assert(dundunCharacter.resources.dundun == beforeApiFailure,
+    "ein Secret-Container muss den zuletzt sicheren Dundun-Snapshot unveraendert erhalten")
+
+-- 7. Secret-Menge: der Container ist sicher, aber quantity selbst ist geheim.
+C_CurrencyInfo.GetCurrencyInfo = function() return { quantity = SECRET_VALUE, maxQuantity = 99 } end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+assert(dundunCharacter.resources.dundun == beforeApiFailure,
+    "eine geheime Dundun-Menge muss den zuletzt sicheren Snapshot unveraendert erhalten")
+
+-- 8. Partielle optionale Felder duerfen eine sichere neue Menge nicht
+-- entwerten und bekannte sichere Metadaten nicht loeschen. Wochenfelder duerfen
+-- nur innerhalb desselben weekEnd aus dem Vorwert nachgetragen werden.
+dundunCharacter.weekEnd = 2000
+C_CurrencyInfo.GetCurrencyInfo = function()
+    return {
+        quantity = 19, maxQuantity = 8,
+        quantityEarnedThisWeek = 3, maxWeeklyQuantity = 8,
+        isAccountWide = true, isAccountTransferable = true,
+    }
+end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+
+C_CurrencyInfo.GetCurrencyInfo = function()
+    return {
+        quantity = 20, maxQuantity = SECRET_VALUE,
+        quantityEarnedThisWeek = SECRET_VALUE, maxWeeklyQuantity = SECRET_VALUE,
+        isAccountWide = SECRET_VALUE, isAccountTransferable = SECRET_VALUE,
+    }
+end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+local optionalCase = dundunCharacter.resources.dundun
+assert(optionalCase.quantity == 20,
+    "eine sichere neue Dundun-Menge muss trotz geheimer optionaler Felder aktualisiert werden")
+assert(optionalCase.maxQuantity == 8,
+    "eine geheime maxQuantity muss das bekannte sichere Maximum erhalten")
+assert(optionalCase.isAccountWide == true,
+    "ein geheimes isAccountWide muss das bekannte sichere true erhalten")
+assert(optionalCase.isAccountTransferable == true,
+    "ein geheimes isAccountTransferable muss den bekannten sicheren Wert erhalten")
+assert(optionalCase.quantityEarnedThisWeek == 3 and optionalCase.maxWeeklyQuantity == 8,
+    "geheime Wochenfelder muessen innerhalb desselben weekEnd erhalten bleiben")
+assert(optionalCase.weekEnd == 2000, "Dundun-Snapshot muss sein weekEnd speichern")
+
+-- Sicher gelesene false-/Nullwerte sind echte Aktualisierungen. Ein Maximum 0
+-- entfernt den alten Deckel; boolesches false darf nicht zum alten true werden.
+C_CurrencyInfo.GetCurrencyInfo = function()
+    return {
+        quantity = 21, maxQuantity = 0,
+        quantityEarnedThisWeek = 0, maxWeeklyQuantity = 0,
+        isAccountWide = false, isAccountTransferable = false,
+    }
+end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+local clearingCase = dundunCharacter.resources.dundun
+assert(clearingCase.maxQuantity == nil and clearingCase.maxWeeklyQuantity == nil,
+    "sicher gelesene Maxima <= 0 muessen bekannte Maxima bewusst loeschen")
+assert(clearingCase.quantityEarnedThisWeek == 0,
+    "eine sicher gelesene Wochenmenge 0 muss als echte Null erhalten bleiben")
+assert(clearingCase.isAccountWide == false and clearingCase.isAccountTransferable == false,
+    "sicher gelesene false-Flags muessen bekannte true-Werte ueberschreiben")
+
+-- Ein neues Wochenfenster darf alte Wochenfelder nicht nachtragen. Dauerhafte
+-- Max-/Scope-Metadaten duerfen bei einer partiellen Antwort dagegen bleiben.
+dundunCharacter.weekEnd = 3000
+C_CurrencyInfo.GetCurrencyInfo = function()
+    return {
+        quantity = 22, maxQuantity = 8,
+        quantityEarnedThisWeek = 4, maxWeeklyQuantity = 8,
+        isAccountWide = true, isAccountTransferable = true,
+    }
+end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+dundunCharacter.weekEnd = 4000
+C_CurrencyInfo.GetCurrencyInfo = function()
+    return {
+        quantity = 23, maxQuantity = SECRET_VALUE,
+        quantityEarnedThisWeek = SECRET_VALUE, maxWeeklyQuantity = SECRET_VALUE,
+        isAccountWide = SECRET_VALUE, isAccountTransferable = SECRET_VALUE,
+    }
+end
+WAT:ScanCharacter(dundunCharacter, "runtime-test")
+local newWeekCase = dundunCharacter.resources.dundun
+assert(newWeekCase.maxQuantity == 8 and newWeekCase.isAccountWide == true
+        and newWeekCase.isAccountTransferable == true,
+    "dauerhafte Dundun-Metadaten muessen bei partiellem Scan erhalten bleiben")
+assert(newWeekCase.quantityEarnedThisWeek == nil and newWeekCase.maxWeeklyQuantity == nil,
+    "Wochenfelder duerfen nicht ueber ein neues weekEnd hinweg erhalten bleiben")
+assert(newWeekCase.weekEnd == 4000, "Dundun-Snapshot muss auf das neue weekEnd wechseln")
+
+-- 9. Ganz ohne API duerfen weder ScanCharacter werfen noch eine 0 erfunden werden.
+local freshCharacter = { weekly = {} }
+local savedCurrencyInfo = C_CurrencyInfo
+C_CurrencyInfo = nil
+local okNoApi = pcall(WAT.ScanCharacter, WAT, freshCharacter, "runtime-test")
+assert(okNoApi, "ScanCharacter darf ohne C_CurrencyInfo nicht werfen")
+assert(freshCharacter.resources == nil or freshCharacter.resources.dundun == nil,
+    "ohne jede API darf niemals eine erfundene Dundun-Menge entstehen")
+C_CurrencyInfo = savedCurrencyInfo
+
 print("LUA RUNTIME OK: Vault, Schlüsselstein +12, Secret-Erhalt, kein Schlüsselstein,"
     .. " konservative Vault-Summary und lückensichere Vorschau-Itemlevel,"
     .. " sprachneutraler GetVaultSummary-Vertrag in deDE/enUS"
-    .. " und lokalisierter Vault-Tooltip inklusive frFR-Fallback")
+    .. " und lokalisierter Vault-Tooltip inklusive frFR-Fallback,"
+    .. " Dundun-Splitter (3376) als Offline-Ressourcen-Snapshot: bekannte Menge+Maximum,"
+    .. " echte Null, unbekanntes Maximum, API-Ausfall/nil/Secret-Container/Secret-Menge"
+    .. " erhalten den Vorwert, optionale Secret-Felder entwerten die Menge nicht,"
+    .. " keine erfundene Menge ganz ohne API")

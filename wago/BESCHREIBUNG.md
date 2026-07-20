@@ -32,6 +32,7 @@ WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 1
 
 ### Wappenquellen
 
+- Splitter von Dundun pro Charakter als sicherer Offline-Ressourcen-Snapshot mit dynamischem Maximum
 - wöchentliche, einmalige beziehungsweise saisonale und wiederholbare Quellen
 - Goldene Truhe
 - Rissiger Schlüsselstein
@@ -39,6 +40,8 @@ WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 1
 - Ritualstätten T6
 - Mythic+ ab +9
 - Helden-zu-Mythisch-Tauschpotential
+
+Ein unlesbarer oder geschützter API-Wert überschreibt keinen bekannten Dundun-Bestand. Der Tooltip nennt Datenstand und API-Reichweite; accountweite Werte werden nicht über Charaktere summiert.
 
 ### Schlüsselsteine
 

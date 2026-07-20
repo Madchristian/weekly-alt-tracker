@@ -70,8 +70,11 @@ Tooltip, Berufs-Wochenquest mit Fortschritt und getrenntem Abgabezustand sowie
 Thalassischer Traktat.
 
 **Wappenquellen** - wöchentliche, einmalige/saisonale und wiederholbare Quellen:
-Goldene Truhe, Rissiger Schlüsselstein, Nullaeus T11, Ritualstätten T6, Mythic+
-ab +9 und das Tauschpotential von Helden- zu Mythischen Wappen.
+Splitter von Dundun je Charakter als sicherer Offline-Ressourcen-Snapshot mit
+dynamischem Maximum, Goldene Truhe, Rissiger Schlüsselstein, Nullaeus T11,
+Ritualstätten T6, Mythic+ ab +9 und das Tauschpotential von Helden- zu
+Mythischen Wappen. Unlesbare API-Werte überschreiben keinen bekannten
+Dundun-Bestand; accountweite Werte werden nicht über Charaktere summiert.
 
 **Schlüsselsteine** - der aktuell besessene Mythic+-Schlüsselstein pro Charakter
 mit Dungeonname und Stufe als Offline-Snapshot.

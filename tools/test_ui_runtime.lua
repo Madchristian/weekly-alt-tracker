@@ -222,7 +222,7 @@ local function MakeWAT()
     -- Data.lua wird echt geladen (siehe RunSuite); hier steht bewusst kein
     -- Stub, damit die Ableitung questID -> Labelschluessel wirklich laeuft.
     local WAT = {
-        version = "0.5.0",
+        version = "0.6.0",
         db = {
             settings = {
                 scale = 1,
@@ -2150,8 +2150,315 @@ local function RunWeeklyQuestRenderingSuite()
         "[quest-render] alter Berufs-Snapshot ohne weeklyQuest ist nicht lesbar: " .. professionLegacy)
 end
 
+-- ---------------------------------------------------------------------------
+-- Dundun-Splitter-Spalte (Wappenquellen): character.resources.dundun ist ein
+-- Offline-Ressourcen-Snapshot, kein Wochenwert. Diese Suite beweist, dass die
+-- gepoolte Zeile bekannte Menge+Maximum als Bruch, ein unbekanntes Maximum
+-- als blosse Menge und ein fehlender Snapshot als "-" rendert, dass der
+-- Tooltip den clientlokalisierten Namen, Wert, Reichweite und Erfassungsalter
+-- nennt, und dass ein wiederholtes RefreshUI mit der neuen Spalte keine
+-- zusaetzlichen Objekte erzeugt.
+-- ---------------------------------------------------------------------------
+
+local function RunDundunSuite()
+    C_CurrencyInfo = {
+        GetCurrencyInfo = function(currencyID)
+            if currencyID == 3376 then return { name = "Shard of Dundun" } end
+            return nil
+        end,
+    }
+    local WAT = MakeWAT()
+    GetLocale = function() return "enUS" end
+    WAT.db.characters.dundunKnown = {
+        name = "Dunkun", realm = "Testreich", classFile = "HUNTER",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+        resources = { dundun = { currencyID = 3376, quantity = 5, maxQuantity = 8,
+                                  isAccountWide = true, updated = 900 } },
+    }
+    WAT.db.characters.dundunUnknownMax = {
+        name = "Splitterlos", realm = "Testreich", classFile = "HUNTER",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+        resources = { dundun = { currencyID = 3376, quantity = 12,
+                                  isAccountWide = false, updated = 800 } },
+    }
+    WAT.db.characters.dundunNone = {
+        name = "Ohne", realm = "Testreich", classFile = "HUNTER",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    WAT.db.characters.dundunAccountPeer = {
+        name = "Zweiter", realm = "Testreich", classFile = "HUNTER",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+        resources = { dundun = { currencyID = 3376, quantity = 7, maxQuantity = 8,
+                                  isAccountWide = true, updated = 900 } },
+    }
+    WAT.db.settings.characterOrder = {
+        "dundunKnown", "dundunUnknownMax", "dundunNone", "dundunAccountPeer", "test", "alt",
+    }
+
+    LoadInto(WAT, "Localization.lua")
+    LoadInto(WAT, "Data.lua")
+    LoadInto(WAT, "UI.lua")
+    WAT:CreateUI()
+    WAT:SetActiveTab("sources")
+    WAT:RefreshUI()
+
+    -- Neue Spalte, Gesamtbreite bleibt innerhalb von CONTENT_WIDTH (920).
+    local columns = WAT.panels.sources.columns
+    local dundunColumn
+    for _, column in ipairs(columns) do
+        if column.key == "dundun" then dundunColumn = column end
+    end
+    assert(dundunColumn ~= nil, "[dundun] Spalte fehlt im Wappenquellen-Panel")
+    local total = 0
+    for _, column in ipairs(columns) do total = total + column.width end
+    assert(total <= 920, "[dundun] Spaltenbreiten ueberschreiten CONTENT_WIDTH: " .. total)
+
+    local rows = WAT.panels.sources.rows
+    assert(string.find(rows[1].values.dundun.text or "", "5/8", 1, true),
+        "[dundun] bekannte Menge+Maximum wird nicht als Bruch angezeigt, erhalten: "
+            .. tostring(rows[1].values.dundun.text))
+    assert(string.find(rows[2].values.dundun.text or "", "12", 1, true)
+            and not string.find(rows[2].values.dundun.text or "", "/", 1, true),
+        "[dundun] unbekanntes Maximum darf keinen Bruch anzeigen, erhalten: "
+            .. tostring(rows[2].values.dundun.text))
+    assert(string.find(rows[3].values.dundun.text or "", "%-"),
+        "[dundun] fehlender Snapshot muss '-' anzeigen, erhalten: " .. tostring(rows[3].values.dundun.text))
+    assert(string.find(rows[4].values.dundun.text or "", "7/8", 1, true),
+        "[dundun] zweiter accountweiter Snapshot muss unveraendert je Zeile erscheinen")
+    assert(not string.find(rows[1].values.dundun.text or "", "12", 1, true)
+            and not string.find(rows[4].values.dundun.text or "", "12", 1, true),
+        "[dundun] accountweite Snapshots duerfen nirgends zu 12 addiert werden")
+
+    -- Tooltip: lokalisierter Name, Wert, Reichweite, Erfassungsalter, Offline-Hinweis.
+    rows[1].scripts.OnEnter(rows[1])
+    local tooltipKnown = GameTooltip:TooltipText()
+    assert(string.find(tooltipKnown, "Shard of Dundun", 1, true),
+        "[dundun] Tooltip nennt nicht den clientlokalisierten Namen: " .. tooltipKnown)
+    assert(string.find(tooltipKnown, "5/8", 1, true),
+        "[dundun] Tooltip nennt nicht Menge/Maximum: " .. tooltipKnown)
+    assert(string.find(tooltipKnown, "account-wide", 1, true),
+        "[dundun] Tooltip nennt nicht accountweit: " .. tooltipKnown)
+    assert(string.find(tooltipKnown, "Offline", 1, true),
+        "[dundun] Tooltip nennt nicht den Offline-Snapshot-Hinweis: " .. tooltipKnown)
+
+    rows[2].scripts.OnEnter(rows[2])
+    local tooltipUnknownMax = GameTooltip:TooltipText()
+    assert(string.find(tooltipUnknownMax, "character-specific", 1, true),
+        "[dundun] Tooltip nennt nicht charakterbezogen: " .. tooltipUnknownMax)
+
+    rows[3].scripts.OnEnter(rows[3])
+    local tooltipNone = GameTooltip:TooltipText()
+    assert(string.find(tooltipNone, "unknown", 1, true),
+        "[dundun] Tooltip ohne Snapshot nennt nicht unbekannt: " .. tooltipNone)
+
+    -- Ohne lesbaren API-Namen faellt der Tooltip auf den eigenen Ersatztext zurueck.
+    C_CurrencyInfo.GetCurrencyInfo = function() return nil end
+    rows[1].scripts.OnEnter(rows[1])
+    local tooltipNoApiName = GameTooltip:TooltipText()
+    assert(string.find(tooltipNoApiName, "Shard of Dundun", 1, true),
+        "[dundun] ohne lesbaren API-Namen fehlt der lokalisierte Ersatztext: " .. tooltipNoApiName)
+    C_CurrencyInfo.GetCurrencyInfo = function(currencyID)
+        if currencyID == 3376 then return { name = "Shard of Dundun" } end
+        return nil
+    end
+
+    -- Objektfreier Mehrfach-Refresh: die neue Spalte darf den Pool nicht sprengen.
+    local widgetsBefore = WidgetsCreated()
+    WAT:RefreshUI()
+    WAT:RefreshUI()
+    assert(WidgetsCreated() == widgetsBefore,
+        "[dundun] wiederholtes RefreshUI erzeugt mit der Dundun-Spalte neue Objekte")
+end
+
+-- Die neuen Renderpfade selbst muessen deutsch laufen und bei einer nicht
+-- unterstuetzten Clientsprache vollstaendig auf Englisch zurueckfallen. Dabei
+-- wird der API-Name bewusst unterdrueckt, damit der eigene Fallbacktext getestet
+-- wird; das Easter Egg muss derselben aktiven Sprache folgen.
+local function RunDundunLocaleSuite(locale, expected)
+    C_CurrencyInfo = { GetCurrencyInfo = function() return nil end }
+    local WAT = MakeWAT()
+    GetLocale = function() return locale end
+    WAT.db.characters.panra = {
+        name = "Panra", realm = "Testreich", classFile = "WARRIOR", raceFile = "Tauren",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+        resources = { dundun = { currencyID = 3376, quantity = 5, maxQuantity = 8,
+                                  isAccountWide = true, updated = 900 } },
+    }
+    WAT.db.characters.cataline = {
+        name = "Cataline", realm = "Testreich", classFile = "PALADIN",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    WAT.db.settings.characterOrder = { "panra", "cataline", "test", "alt" }
+    LoadInto(WAT, "Localization.lua")
+    LoadInto(WAT, "Data.lua")
+    LoadInto(WAT, "UI.lua")
+    WAT:CreateUI()
+    WAT:SetActiveTab("sources")
+    WAT:RefreshUI()
+    local row = WAT.panels.sources.rows[1]
+    row.scripts.OnEnter(row)
+    local tooltip = GameTooltip:TooltipText()
+    for _, text in ipairs(expected) do
+        assert(string.find(tooltip, text, 1, true),
+            "[dundun-locale " .. locale .. "] Tooltip fehlt '" .. text .. "': " .. tooltip)
+    end
+end
+
+-- ---------------------------------------------------------------------------
+-- Easter Egg: Panra (Krieger/Tauren) + Cataline (Paladin) muessen BEIDE in
+-- WAT.db.characters bekannt sein, dann erscheint eine einzelne subtile Zeile
+-- ausschliesslich im Wappenquellen-Tooltip des jeweils EIGENEN Charakters.
+-- Kein Popup, kein Chat, keine Breitenaenderung; falsche Klasse/Rasse oder nur
+-- einer der beiden Charaktere darf nie ausloesen; Spezialisierung/Rolle
+-- spielt nirgends eine Rolle, weil sie nie gelesen wird.
+-- ---------------------------------------------------------------------------
+
+local function RunEasterEggSuite()
+    local function FreshWAT()
+        local WAT = MakeWAT()
+        GetLocale = function() return "enUS" end
+        LoadInto(WAT, "Localization.lua")
+        LoadInto(WAT, "Data.lua")
+        LoadInto(WAT, "UI.lua")
+        WAT:CreateUI()
+        return WAT
+    end
+
+    local function TooltipForCharacter(WAT, key)
+        WAT.db.settings.characterOrder = nil
+        WAT:SetActiveTab("sources")
+        WAT:RefreshUI()
+        local order = WAT:NormalizeCharacterOrder()
+        local index
+        for position, characterKey in ipairs(order) do
+            if characterKey == key then index = position end
+        end
+        assert(index, "[easter-egg] Charakter " .. key .. " nicht in der Reihenfolge")
+        local row = WAT.panels.sources.rows[index]
+        row.scripts.OnEnter(row)
+        return GameTooltip:TooltipText()
+    end
+
+    -- a) beide passenden Charaktere: die Zeile erscheint in BEIDEN eigenen
+    -- Tooltips, aber nicht bei einem unbeteiligten Dritten und nicht ausserhalb
+    -- des Wappenquellen-Tooltips.
+    local pairWAT = FreshWAT()
+    pairWAT.db.characters.panra = {
+        name = "Panra", realm = "Silbermond", classFile = "WARRIOR", raceFile = "Tauren",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    pairWAT.db.characters.cataline = {
+        name = "Cataline", realm = "Silbermond", classFile = "PALADIN",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    local panraTooltip = TooltipForCharacter(pairWAT, "panra")
+    assert(string.find(panraTooltip, "Cataline", 1, true),
+        "[easter-egg] fehlt in Panras Tooltip trotz beider passenden Charaktere: " .. panraTooltip)
+    local catalineTooltip = TooltipForCharacter(pairWAT, "cataline")
+    assert(string.find(catalineTooltip, "Panra", 1, true),
+        "[easter-egg] fehlt in Catalines Tooltip trotz beider passenden Charaktere: " .. catalineTooltip)
+    local thirdTooltip = TooltipForCharacter(pairWAT, "test")
+    assert(not string.find(thirdTooltip, "Cataline", 1, true),
+        "[easter-egg] erscheint faelschlich im Tooltip eines unbeteiligten Charakters: " .. thirdTooltip)
+
+    -- Derselbe Name allein reicht auch bei einem existierenden korrekten Paar
+    -- nicht: der konkret gehoverte Datensatz muss selbst Panras Klasse/Rasse
+    -- erfuellen. Das schuetzt gegen gleichnamige Charaktere auf anderen Realms.
+    pairWAT.db.characters.panraWrong = {
+        name = "Panra", realm = "AndererRealm", classFile = "WARRIOR", raceFile = "Human",
+        lastSeen = 994, statistics = { scanned = 994 }, weekly = {},
+    }
+    local duplicateWrongTooltip = TooltipForCharacter(pairWAT, "panraWrong")
+    assert(not string.find(duplicateWrongTooltip, "Cataline", 1, true),
+        "[easter-egg] erscheint bei gleichnamigem, aber nicht passendem Panra-Datensatz: "
+            .. duplicateWrongTooltip)
+
+    pairWAT:SetActiveTab("overview")
+    pairWAT:RefreshUI()
+    local overviewOrder = pairWAT:NormalizeCharacterOrder()
+    local panraIndex
+    for position, key in ipairs(overviewOrder) do if key == "panra" then panraIndex = position end end
+    local overviewRow = pairWAT.panels.overview.rows[panraIndex]
+    overviewRow.scripts.OnEnter(overviewRow)
+    local overviewTooltip = GameTooltip:TooltipText()
+    assert(not string.find(overviewTooltip, "Cataline", 1, true),
+        "[easter-egg] Zeile erscheint faelschlich ausserhalb des Wappenquellen-Tooltips: " .. overviewTooltip)
+
+    -- b) nur Panra vorhanden: keine Zeile.
+    local onlyPanraWAT = FreshWAT()
+    onlyPanraWAT.db.characters.panra = {
+        name = "Panra", realm = "Silbermond", classFile = "WARRIOR", raceFile = "Tauren",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    local onlyPanraTooltip = TooltipForCharacter(onlyPanraWAT, "panra")
+    assert(not string.find(onlyPanraTooltip, "Cataline", 1, true),
+        "[easter-egg] erscheint trotz fehlendem Cataline: " .. onlyPanraTooltip)
+
+    -- c) nur Cataline vorhanden: keine Zeile.
+    local onlyCatalineWAT = FreshWAT()
+    onlyCatalineWAT.db.characters.cataline = {
+        name = "Cataline", realm = "Silbermond", classFile = "PALADIN",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    local onlyCatalineTooltip = TooltipForCharacter(onlyCatalineWAT, "cataline")
+    assert(not string.find(onlyCatalineTooltip, "Panra", 1, true),
+        "[easter-egg] erscheint trotz fehlendem Panra: " .. onlyCatalineTooltip)
+
+    -- d) falsche Klasse fuer Panra (Magier statt Krieger): keine Zeile.
+    local wrongClassWAT = FreshWAT()
+    wrongClassWAT.db.characters.panra = {
+        name = "Panra", realm = "Silbermond", classFile = "MAGE", raceFile = "Tauren",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    wrongClassWAT.db.characters.cataline = {
+        name = "Cataline", realm = "Silbermond", classFile = "PALADIN",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    local wrongClassTooltip = TooltipForCharacter(wrongClassWAT, "panra")
+    assert(not string.find(wrongClassTooltip, "Cataline", 1, true),
+        "[easter-egg] erscheint trotz falscher Klasse (kein Krieger): " .. wrongClassTooltip)
+
+    -- e) falsche Rasse fuer Panra (Mensch statt Tauren): keine Zeile.
+    local wrongRaceWAT = FreshWAT()
+    wrongRaceWAT.db.characters.panra = {
+        name = "Panra", realm = "Silbermond", classFile = "WARRIOR", raceFile = "Human",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    wrongRaceWAT.db.characters.cataline = {
+        name = "Cataline", realm = "Silbermond", classFile = "PALADIN",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    local wrongRaceTooltip = TooltipForCharacter(wrongRaceWAT, "panra")
+    assert(not string.find(wrongRaceTooltip, "Cataline", 1, true),
+        "[easter-egg] erscheint trotz falscher Rasse (kein Tauren): " .. wrongRaceTooltip)
+
+    -- f) Gross-/Kleinschreibung des Namens ist egal (Klasse/Rasse bleiben exakt).
+    local caseWAT = FreshWAT()
+    caseWAT.db.characters.panra = {
+        name = "pAnRa", realm = "Silbermond", classFile = "WARRIOR", raceFile = "TAUREN",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    caseWAT.db.characters.cataline = {
+        name = "CATALINE", realm = "Silbermond", classFile = "PALADIN",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    local caseTooltip = TooltipForCharacter(caseWAT, "panra")
+    assert(string.find(caseTooltip, "Cataline", 1, true),
+        "[easter-egg] Namensvergleich muss Gross-/Kleinschreibung ignorieren: " .. caseTooltip)
+end
+
 RunDragReorderSuite()
 RunWeeklyQuestRenderingSuite()
+RunDundunSuite()
+RunDundunLocaleSuite("deDE", {
+    "Splitter von Dundun", "5/8", "accountweit", "Offline-Ressourcen-Snapshot",
+    "Panra hält die Front, Cataline hält ihn im Licht",
+})
+RunDundunLocaleSuite("frFR", {
+    "Shard of Dundun", "5/8", "account-wide", "Offline resource snapshot",
+    "Panra holds the line, Cataline keeps him in the Light",
+})
+RunEasterEggSuite()
 
 print("LUA UI RUNTIME OK: 7/7 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10,"
     .. " offene Berufs-Wochenquest, gesperrter Wappentausch und Wappensymbole"
@@ -2171,4 +2478,8 @@ print("LUA UI RUNTIME OK: 7/7 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Be
     .. " Mehrfach-Refresh und Derived-only-Quellfallback, dazu ein 16-Charakter-Lauf"
     .. " mit geblaettertem Reiter-Ausschnitt, Pfeilgrenzen und Sichtbarmachen der"
     .. " Auswahl, Einstellungsformular mit 6 Skalierungsstufen,"
-    .. " Minimap-Sichtbarkeit und Positions-Reset - je einmal in deDE, enUS und frFR")
+    .. " Minimap-Sichtbarkeit und Positions-Reset - je einmal in deDE, enUS und frFR,"
+    .. " Dundun-Splitter-Spalte (bekannt+Maximum, nur Menge, '-'), lokalisierter"
+    .. " Tooltip mit Client-Name/Reichweite/Offline-Hinweis, objektfreier Mehrfach-"
+    .. " Refresh sowie das Panra/Cataline-Easter-Egg (nur bei beiden passenden"
+    .. " Charakteren, nur im eigenen Wappenquellen-Tooltip, jeder Negativfall geprüft)")

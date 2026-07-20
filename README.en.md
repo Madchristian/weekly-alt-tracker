@@ -58,6 +58,7 @@ Supported are Alchemy, Blacksmithing, Engineering, Inscription, Jewelcrafting, L
 
 ### Crest Sources
 
+- Shards of Dundun per character as an offline resource snapshot, with a dynamic maximum such as `5/8`
 - Gilded Stash: weekly, four completions with 5 Myth Twilight Crests each
 - Cracked Keystone, quest 92600: once, 20 Myth and 20 Hero Twilight Crests
 - Nullaeus on Tier 11, achievement 61798: once, 30 Myth Twilight Crests
@@ -66,6 +67,8 @@ Supported are Alchemy, Blacksmithing, Engineering, Inscription, Jewelcrafting, L
 - Hero-to-Myth exchange after achievement 42769: 30 Hero Twilight Crests yield 10 Myth Twilight Crests; only the exchangeable potential is shown
 
 The repeatable sources have no retroactive per-source weekly counter. The addon therefore does not invent a number for runs that happened outside its observation.
+
+The Dundun balance deliberately lives outside the weekly reset. An unreadable or protected API value never overwrites a known balance. The tooltip states data age and API scope; account-wide values are never summed across characters.
 
 ### Keystones
 
@@ -244,13 +247,13 @@ The project-side CurseForge texts are versioned under `curseforge/`:
 
 - `PROJECT-en.md` – English title, summary and description. CurseForge requires English as the project language.
 - `PROJECT-de.md` – German additional version of the same description.
-- `CHANGELOG-0.5.0-en.md` and `CHANGELOG-0.5.0-de.md` – change log for the current preview. The logs of the previous versions (`CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
+- `CHANGELOG-0.6.0-en.md` and `CHANGELOG-0.6.0-de.md` – change log for the current preview. The logs of the previous versions (`CHANGELOG-0.5.0-*`, `CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
 
 The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 
 #### Automatic packaging and manual fallback
 
-CurseForge Automatic Packaging is connected to the public GitHub repository through the repository webhook. `Package all commits` stays disabled; normal tags such as `v0.5.0` produce releases, while tags containing `beta` or `alpha` use the corresponding prerelease channel. There is deliberately no parallel automatic `CF_API_KEY` upload, preventing duplicate files for one tag.
+CurseForge Automatic Packaging is connected to the public GitHub repository through the repository webhook. `Package all commits` stays disabled; normal tags such as `v0.6.0` produce releases, while tags containing `beta` or `alpha` use the corresponding prerelease channel. There is deliberately no parallel automatic `CF_API_KEY` upload, preventing duplicate files for one tag.
 
 The separate workflow `.github/workflows/curseforge-package.yml` (**Build CurseForge ZIP**) remains a manual fallback only. It produces an uploadable ZIP as an Actions artifact, has read-only permissions, knows no `CF_API_KEY`, and uploads nowhere.
 

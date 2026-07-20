@@ -65,6 +65,7 @@ UnitFullName = function() return player.name, player.realm end
 UnitName = function() return player.name end
 GetRealmName = function() return player.realm end
 UnitClass = function() return player.className, player.classFile end
+UnitRace = function() return player.raceName, player.raceFile, player.raceID end
 UnitFactionGroup = function() return player.faction end
 UnitLevel = function() return player.level end
 GetAverageItemLevel = function() return player.itemLevel, player.itemLevel end
@@ -708,6 +709,7 @@ do
     player = {
         guid = GUID_MAIN, name = "Thalyra", realm = "Blackrock",
         className = "Magier", classFile = "MAGE", faction = "Alliance",
+        raceName = "Mensch", raceFile = "Human", raceID = 1,
         level = 80, itemLevel = 268, secondsUntilReset = 86400,
     }
     local character = WAT:PrepareCurrentCharacter()
@@ -715,6 +717,18 @@ do
     check(character.weekEnd ~= nil, "weekEnd wurde nicht gesetzt")
     checkEqual(character.weekUnknown, nil, "weekUnknown darf bei bekannter Woche nicht gesetzt sein")
     checkEqual(WAT:IsStale(character), false, "frischer Charakter gilt als veraltet")
+    checkEqual(character.raceName, "Mensch", "UnitRace-Name wird nicht sicher erfasst")
+    checkEqual(character.raceFile, "Human", "UnitRace-raceFile wird nicht sicher erfasst")
+    checkEqual(character.raceID, 1, "UnitRace-raceID wird nicht sicher erfasst")
+
+    -- Ein Secret Value bei UnitRace darf den zuletzt sicheren Rassenstand nicht
+    -- loeschen - dasselbe Muster wie className/classFile/faction oben.
+    player.raceName, player.raceFile, player.raceID = SECRET_VALUE, SECRET_VALUE, SECRET_VALUE
+    local afterSecretRace = WAT:PrepareCurrentCharacter()
+    checkEqual(afterSecretRace.raceName, "Mensch", "Secret-Rassenname darf den Vorwert nicht loeschen")
+    checkEqual(afterSecretRace.raceFile, "Human", "Secret-raceFile darf den Vorwert nicht loeschen")
+    checkEqual(afterSecretRace.raceID, 1, "Secret-raceID darf den Vorwert nicht loeschen")
+    player.raceName, player.raceFile, player.raceID = "Mensch", "Human", 1
 
     -- Ohne lesbaren Reset bleibt die Woche unbekannt, statt 0 zu erfinden.
     WeeklyAltTrackerDB = nil
@@ -736,6 +750,7 @@ do
         weekly = { gilded = { current = 4, maximum = 4 }, updated = 1 },
         season = { crestSources = { crackedKeystone = true } },
         professions = { [1] = { skillLevel = 85 } },
+        resources = { dundun = { currencyID = 3376, quantity = 12, maxQuantity = 20, updated = 1 } },
     }
     local afterReset = WAT:PrepareCurrentCharacter()
     checkEqual(next(afterReset.weekly), nil, "Wocheninhalt wurde beim Reset nicht geleert")
@@ -743,6 +758,10 @@ do
         "Saisonflag hat den Wochenreset nicht überlebt")
     checkEqual(afterReset.professions[1].skillLevel, 85,
         "Berufsfortschritt hat den Wochenreset nicht überlebt")
+    checkEqual(afterReset.resources.dundun.quantity, 12,
+        "Dundun-Ressourcen-Snapshot hat den Wochenreset nicht überlebt")
+    checkEqual(afterReset.resources.dundun.maxQuantity, 20,
+        "Dundun-Maximum hat den Wochenreset nicht überlebt")
     player = {}
 end
 
@@ -889,6 +908,114 @@ do
     check(resultNil ~= true, "nil-Quelle darf kein erfolgreiches Verschieben melden")
 end
 
+-- ---------------------------------------------------------------------------
+-- 8. NormalizeCharacter: additive Migration von Rassen-Metadaten und dem
+-- Ressourcen-Container (character.resources, z.B. der Dundun-Splitter-
+-- Snapshot). Beides muss wie character.statistics additiv nachgezogen werden,
+-- ohne db.version zu erhoehen, und darf Secret/Fremdtyp-Werte nur verwerfen,
+-- nie mit einem erfundenen Ersatzwert fuellen.
+-- ---------------------------------------------------------------------------
+
+do
+    local WAT = Load("deDE")
+    WeeklyAltTrackerDB = {
+        version = 1,
+        characters = {
+            -- Ein 0.4.x-Datensatz kennt weder Rassen-Metadaten noch resources:
+            -- beides muss additiv als leere/nil-Struktur entstehen, ohne den
+            -- Rest des Datensatzes zu beruehren.
+            [GUID_MAIN] = {
+                guid = GUID_MAIN, name = "Thalyra", realm = "Blackrock",
+                classFile = "MAGE", level = 80,
+                weekly = {},
+            },
+            -- Ein Datensatz mit gueltigen Rassen-/Ressourcenfeldern: die
+            -- Migration darf echte Daten nicht verwerfen.
+            [GUID_ALT] = {
+                guid = GUID_ALT, name = "Nerith", realm = "Blackrock",
+                classFile = "PALADIN", level = 76,
+                raceName = "Tauren", raceFile = "Tauren", raceID = 6,
+                resources = { dundun = {
+                    currencyID = 3376, quantity = 7, maxQuantity = "acht",
+                    isAccountWide = SECRET_VALUE, weekEnd = 1234, updated = 500,
+                } },
+                weekly = {},
+            },
+            -- Ein beschaedigter Datensatz: Secret/Fremdtyp-Rassenfelder und ein
+            -- Secret-Container fuer resources duerfen nichts erfinden.
+            broken = {
+                guid = "Player-1084-0BADBAD0", name = "Bruk", realm = "Antonidas",
+                raceName = SECRET_VALUE, raceFile = 42, raceID = "sechs",
+                resources = SECRET_VALUE,
+                weekly = {},
+            },
+            -- Auch ein gueltiger resources-Container kann einen unlesbaren
+            -- inneren Snapshot enthalten. Eine Secret-Menge darf nach dem
+            -- Laden niemals bis in string.format/UI-Vergleiche gelangen.
+            nestedBroken = {
+                guid = "Player-1084-0BADBAD1", name = "SecretDundun", realm = "Antonidas",
+                resources = { dundun = {
+                    currencyID = 3376, quantity = SECRET_VALUE, maxQuantity = 8, updated = 500,
+                } },
+                weekly = {},
+            },
+        },
+    }
+    WAT:InitializeDatabase()
+    checkEqual(WeeklyAltTrackerDB.version, 2,
+        "db.version bleibt bei 2 - die Migration von Rasse/resources ist additiv")
+
+    local main = WeeklyAltTrackerDB.characters[GUID_MAIN]
+    check(main ~= nil, "Datensatz ohne Rassen-/Ressourcenfelder ging bei der Migration verloren")
+    if main then
+        check(type(main.resources) == "table",
+            "character.resources muss additiv als Tabelle entstehen, auch ohne Vorwert")
+        checkEqual(next(main.resources), nil,
+            "ein Charakter ohne Ressourcen-Snapshot darf keinen Dundun-Wert erfinden")
+        checkEqual(main.raceName, nil, "kein Rassenname darf zu einem erfundenen Ersatztext werden")
+        checkEqual(main.raceFile, nil, "kein raceFile darf erfunden werden")
+        checkEqual(main.raceID, nil, "keine raceID darf erfunden werden")
+    end
+
+    local alt = WeeklyAltTrackerDB.characters[GUID_ALT]
+    check(alt ~= nil, "Datensatz mit echten Rassen-/Ressourcendaten ging verloren")
+    if alt then
+        checkEqual(alt.raceName, "Tauren", "gueltiger Rassenname ging bei der Migration verloren")
+        checkEqual(alt.raceFile, "Tauren", "gueltiges raceFile ging bei der Migration verloren")
+        checkEqual(alt.raceID, 6, "gueltige raceID ging bei der Migration verloren")
+        check(type(alt.resources) == "table", "resources-Container ging bei der Migration verloren")
+        check(type(alt.resources.dundun) == "table", "Dundun-Snapshot ging bei der Migration verloren")
+        checkEqual(alt.resources.dundun.quantity, 7, "Dundun-Menge ging bei der Migration verloren")
+        checkEqual(alt.resources.dundun.maxQuantity, nil,
+            "ein stringwertiges Dundun-Maximum muss bei der Migration verworfen werden")
+        checkEqual(alt.resources.dundun.isAccountWide, nil,
+            "ein Secret-Accountflag muss bei der Migration verworfen werden")
+        checkEqual(alt.resources.dundun.weekEnd, 1234,
+            "ein gueltiges Dundun-weekEnd muss bei der Migration erhalten bleiben")
+    end
+
+    local broken = WeeklyAltTrackerDB.characters["Player-1084-0BADBAD0"]
+    check(broken ~= nil, "Datensatz mit kaputten Rassen-/Ressourcenfeldern ging komplett verloren")
+    if broken then
+        checkEqual(broken.raceName, nil, "ein Secret-Rassenname muss zu nil werden, nicht zu einem Text")
+        checkEqual(broken.raceFile, nil, "ein numerisches raceFile muss zu nil werden")
+        checkEqual(broken.raceID, nil, "eine stringwertige raceID muss zu nil werden")
+        check(type(broken.resources) == "table",
+            "ein Secret-resources-Container muss additiv durch eine leere Tabelle ersetzt werden")
+        checkEqual(next(broken.resources), nil,
+            "ein verworfener Secret-Container darf keinen erfundenen Inhalt hinterlassen")
+    end
+
+    local nestedBroken = WeeklyAltTrackerDB.characters["Player-1084-0BADBAD1"]
+    check(nestedBroken ~= nil, "Datensatz mit innerem Secret-Dundun ging komplett verloren")
+    if nestedBroken then
+        check(type(nestedBroken.resources) == "table",
+            "resources-Container um einen unlesbaren Dundun-Snapshot muss erhalten bleiben")
+        checkEqual(nestedBroken.resources.dundun, nil,
+            "ein Dundun-Snapshot mit Secret-Menge muss beim Laden vollstaendig verworfen werden")
+    end
+end
+
 if failures > 0 then
     error(failures .. " Core-Runtime-Prüfungen fehlgeschlagen")
 end
@@ -896,4 +1023,7 @@ end
 print("LUA CORE RUNTIME OK: " .. #LOCALE_CASES .. " Locale-Szenarien, InitializeDatabase/db.version=2,"
     .. " 0.2.5-Migration mit GUID-Re-Key und lastSeen-Kollision, sprachstabiler Fallback-Schluessel,"
     .. " " .. #SLASH_CASES .. " Slash-Szenarien in deDE/enUS/frFR, Wochenfenster-Logik und"
-    .. " globale Charakterreihenfolge (Normalisierung, Anhaengen, Verschieben)")
+    .. " globale Charakterreihenfolge (Normalisierung, Anhaengen, Verschieben),"
+    .. " sicher erfasste UnitRace-Metadaten mit Secret-Erhalt, Dundun-Ressourcen-Snapshot"
+    .. " als Wochenreset-Ueberlebender und additive Migration von Rasse/resources"
+    .. " (leer, echte Daten, Secret/Fremdtyp verworfen ohne Erfindung)")

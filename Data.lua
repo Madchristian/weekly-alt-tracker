@@ -13,6 +13,11 @@ Data.CRESTS = {
     myth = { currencyID = 3347, short = "M", labelKey = "CREST_MYTH" },
 }
 
+-- Currency-ID des Dundun-Splitters. Kein Wochenwert: der Bestand wird
+-- ausschließlich als Offline-Ressourcen-Snapshot je Charakter gehalten
+-- (character.resources.dundun), nicht in character.weekly.
+Data.DUNDUN_CURRENCY_ID = 3376
+
 -- Midnight-Meta-Weekly. Der Pool enthält auch die Raid-Variante, damit das Addon
 -- eine vom Spieler gewählte Weekly erkennen kann. Es gibt dennoch keinerlei
 -- Raid-Vault- oder Raid-Fortschritts-Tracker.

@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "0.5.0"
+WAT.version = "0.6.0"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -29,6 +29,45 @@ local function SafeTable(value)
     return type(value) == "table" and value or nil
 end
 
+local function SafeBoolean(value)
+    if issecretvalue and issecretvalue(value) then return nil end
+    return type(value) == "boolean" and value or nil
+end
+
+-- SavedVariables koennen aus einer aelteren Preview, einer manuellen Aenderung
+-- oder einem frueheren Secret-Value-Fehler stammen. Der innere Snapshot wird
+-- deshalb genauso defensiv normalisiert wie der Charakter selbst. Eine nicht
+-- sicher lesbare Menge entwertet den gesamten Snapshot; optionale Felder werden
+-- einzeln verworfen, ohne die bekannte Menge zu verlieren.
+local function NormalizeDundunSnapshot(resources)
+    local snapshot = SafeTable(resources.dundun)
+    local quantity = snapshot and SafeNumber(snapshot.quantity)
+    if quantity == nil then
+        resources.dundun = nil
+        return
+    end
+
+    local expectedID = WAT.Data and SafeNumber(WAT.Data.DUNDUN_CURRENCY_ID)
+    local currencyID = SafeNumber(snapshot.currencyID)
+    if expectedID ~= nil and currencyID ~= expectedID then currencyID = nil end
+    local maximum = SafeNumber(snapshot.maxQuantity)
+    if maximum ~= nil and maximum <= 0 then maximum = nil end
+    local weeklyMaximum = SafeNumber(snapshot.maxWeeklyQuantity)
+    if weeklyMaximum ~= nil and weeklyMaximum <= 0 then weeklyMaximum = nil end
+
+    resources.dundun = {
+        currencyID = currencyID,
+        quantity = quantity,
+        maxQuantity = maximum,
+        quantityEarnedThisWeek = SafeNumber(snapshot.quantityEarnedThisWeek),
+        maxWeeklyQuantity = weeklyMaximum,
+        isAccountWide = SafeBoolean(snapshot.isAccountWide),
+        isAccountTransferable = SafeBoolean(snapshot.isAccountTransferable),
+        weekEnd = SafeNumber(snapshot.weekEnd),
+        updated = SafeNumber(snapshot.updated),
+    }
+end
+
 -- Ein brauchbarer Eintrag fuer settings.characterOrder: ein nicht-leerer,
 -- sicherer String. Alles andere (Secret Value, Zahl, Tabelle, leerer String)
 -- ist Muell und wird beim Normalisieren stillschweigend verworfen.
@@ -52,6 +91,11 @@ local function NormalizeCharacter(record, oldKey)
     -- Additiv: eine 0.2.6-Datenbank kennt noch keine Statistiken. Der Container
     -- wird nur ergaenzt, das Schema bleibt deshalb bei Version 2.
     record.statistics = SafeTable(record.statistics) or {}
+    -- Additiv: Offline-Ressourcen-Snapshots (z.B. Dundun-Splitter) sind kein
+    -- Wochenwert und liegen deshalb neben weekly. Ein Secret- oder Fremdtyp-
+    -- Container wird verworfen, nie mit erfundenem Inhalt gefuellt.
+    record.resources = SafeTable(record.resources) or {}
+    NormalizeDundunSnapshot(record.resources)
     record.guid = SafeString(record.guid)
     -- Kein Ersatztext: ein unlesbarer Name bleibt nil und wird erst zur
     -- Renderzeit lokalisiert. In die SavedVariables gehoert kein Locale-Text.
@@ -59,13 +103,18 @@ local function NormalizeCharacter(record, oldKey)
     record.realm = SafeString(record.realm)
     record.className = SafeString(record.className)
     record.classFile = SafeString(record.classFile)
+    -- Additiv wie className/classFile: eine 0.4.x-Datenbank kennt noch keine
+    -- Rasse. raceFile/raceID sind sprach- und expansion-stabil; raceName ist
+    -- nur der optionale, clientlokalisierte Anzeigename.
+    record.raceName = SafeString(record.raceName)
+    record.raceFile = SafeString(record.raceFile)
+    record.raceID = SafeNumber(record.raceID)
     record.faction = SafeString(record.faction)
     record.level = SafeNumber(record.level)
     record.itemLevel = SafeNumber(record.itemLevel)
     record.lastSeen = SafeNumber(record.lastSeen)
     record.weekEnd = SafeNumber(record.weekEnd)
-    record.weekUnknown = (not (issecretvalue and issecretvalue(record.weekUnknown))
-        and type(record.weekUnknown) == "boolean") and record.weekUnknown or nil
+    record.weekUnknown = SafeBoolean(record.weekUnknown)
     local key = record.guid or SafeString(oldKey)
     if not key or key == "" then return nil end
     record.key = key
@@ -253,6 +302,9 @@ function WAT:PrepareCurrentCharacter()
         self.db.characters[key] = character
     end
     if type(character.weekly) ~= "table" then character.weekly = {} end
+    -- Offline-Ressourcen-Snapshots ueberleben den Wochenreset unten wie
+    -- season/professions/statistics - der Container muss dafuer nur existieren.
+    if type(character.resources) ~= "table" then character.resources = {} end
 
     local now = time()
     local currentWeekEnd = self:GetCurrentWeekEnd()
@@ -283,6 +335,13 @@ function WAT:PrepareCurrentCharacter()
     local className, classFile = UnitClass("player")
     character.className = SafeString(className, character.className)
     character.classFile = SafeString(classFile, character.classFile)
+    -- raceFile/raceID sind sprach- und expansion-stabil; raceName ist nur der
+    -- clientlokalisierte Anzeigename. Ein Secret- oder Fremdtyp-Wert laesst den
+    -- zuletzt sicheren Stand stehen, genau wie className/classFile oben.
+    local raceName, raceFile, raceID = UnitRace("player")
+    character.raceName = SafeString(raceName, character.raceName)
+    character.raceFile = SafeString(raceFile, character.raceFile)
+    character.raceID = SafeNumber(raceID, character.raceID)
     character.faction = SafeString(UnitFactionGroup("player"), character.faction)
     local level = SafeNumber(UnitLevel("player"))
     if level ~= nil then character.level = level end
