@@ -7,10 +7,15 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import generate_changelog  # noqa: E402 - Generator und Gate teilen exakt dieselbe Renderlogik
 import test_runtime  # noqa: E402  - kanonische Harnessmenge, eine Quelle der Wahrheit
 
 ROOT = Path(__file__).resolve().parents[1]
 TOC = ROOT / "WeeklyAltTracker.toc"
+IMMUTABLE_RELEASE_VERSIONS = (
+    "0.6.0", "0.5.0", "0.4.2", "0.4.1", "0.4.0", "0.3.1",
+    "0.3.0", "0.2.6", "0.2.5", "0.2.4",
+)
 
 # Ein Unterprozess des Gates darf nie unbegrenzt haengen. Der Runtime-Test
 # startet selbst bis zu fuenf Fengari-Laeufe und ggf. eine npm-Installation,
@@ -266,15 +271,13 @@ def check_icon_wiring() -> None:
         error(".pkgmeta fehlt")
     else:
         pkgmeta_text = pkgmeta.read_text(encoding="utf-8")
-        manual_changelog = (
-            "manual-changelog:\n"
-            "  filename: CHANGELOG.md\n"
-            "  markup-type: markdown"
-        )
-        if manual_changelog not in pkgmeta_text:
+        lines = pkgmeta_text.splitlines()
+        manual_changelog_lines = [line for line in lines if line.startswith("manual-changelog:")]
+        if manual_changelog_lines != ["manual-changelog: CHANGELOG.md"]:
             error(
-                ".pkgmeta muss CHANGELOG.md als manuellen Markdown-Changelog verwenden; "
-                "sonst zeigt der Packager nur die Änderungen seit dem letzten Tag"
+                ".pkgmeta muss den hostuebergreifend kompatiblen skalaren Eintrag "
+                "'manual-changelog: CHANGELOG.md' exakt einmal verwenden; die verschachtelte "
+                "BigWigs-Form wird vom CurseForge-Repository-Packager ignoriert"
             )
         entries = set()
         in_ignore = False
@@ -300,42 +303,22 @@ def check_icon_wiring() -> None:
     if not changelog.is_file():
         error("CHANGELOG.md mit der vollständigen öffentlichen Release-Historie fehlt")
     else:
-        expected_versions = [
-            "0.6.0", "0.5.0", "0.4.2", "0.4.1", "0.4.0", "0.3.1",
-            "0.3.0", "0.2.6", "0.2.5", "0.2.4",
-        ]
-        parts = [
-            "# WeeklyAltTracker – vollständiger Änderungsverlauf",
-            "",
-            "Dieser Changelog enthält die vollständige öffentliche Release-Historie. "
-            "Frühere Einträge beschreiben den Stand der jeweils genannten Version und "
-            "werden bei späteren Änderungen nicht rückwirkend umgeschrieben.",
-            "",
-        ]
-        for index, version in enumerate(expected_versions):
-            source = ROOT / "wago" / f"CHANGELOG-{version}.md"
-            if not source.is_file():
-                error(f"Historische Release-Notiz fehlt: {source.relative_to(ROOT)}")
-                continue
-            lines = source.read_text(encoding="utf-8").strip().splitlines()
-            expected_title = f"# WeeklyAltTracker {version}"
-            if not lines or lines[0] != expected_title:
-                error(
-                    f"{source.relative_to(ROOT)} beginnt nicht mit {expected_title!r}"
-                )
-                continue
-            parts.append(f"## {version}")
-            for line in lines[1:]:
-                parts.append("#" + line if line.startswith("## ") else line)
-            if index != len(expected_versions) - 1:
-                parts.extend(["", "---", ""])
-        expected_changelog = "\n".join(parts).rstrip() + "\n"
-        actual_changelog = changelog.read_text(encoding="utf-8")
-        if actual_changelog != expected_changelog:
-            error(
-                "CHANGELOG.md ist keine exakte kumulative Historie der vollständigen "
-                "versionierten Release-Notizen von 0.6.0 bis 0.2.4"
+        if generate_changelog.RELEASE_VERSIONS != IMMUTABLE_RELEASE_VERSIONS:
+            error("Changelog-Generator und Gate verwenden unterschiedliche Release-Inventare")
+        try:
+            expected_changelog, versions = generate_changelog.render(
+                ROOT, IMMUTABLE_RELEASE_VERSIONS
             )
+        except generate_changelog.ChangelogError as exc:
+            error(f"Changelog-Generator: {exc}")
+        else:
+            actual_changelog = changelog.read_text(encoding="utf-8")
+            if actual_changelog != expected_changelog:
+                error(
+                    "CHANGELOG.md weicht vom deterministischen Generator fuer "
+                    f"{len(versions)} versionierte Release-Notizen ab; "
+                    "python tools/generate_changelog.py ausfuehren"
+                )
 
 
 def pkgmeta_ignores() -> set[str]:
@@ -441,6 +424,7 @@ def run_subprocess(label: str, script: str, timeout: int) -> str | None:
 
 
 def run_subtests() -> None:
+    run_subprocess("Changelog-Generator-Tests", "test_changelog_generator.py", V2_TIMEOUT)
     run_subprocess("V2-Akzeptanztests", "test_v2.py", V2_TIMEOUT)
 
     output = run_subprocess("Lua-Runtime-Test", "test_runtime.py", RUNTIME_TIMEOUT)

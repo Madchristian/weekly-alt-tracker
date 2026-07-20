@@ -2,11 +2,11 @@ package-as: WeeklyAltTracker
 
 enable-nolib-creation: no
 
-# Kanonische kumulative Release-Historie statt automatisch erzeugter Notizen,
-# die nur die Commits seit dem vorherigen Tag enthalten würden.
-manual-changelog:
-  filename: CHANGELOG.md
-  markup-type: markdown
+# Kanonische kumulative Release-Historie statt automatisch erzeugter Commitliste.
+# Die skalare Form ist die gemeinsame Schnittmenge des BigWigs-Packagers und
+# des CurseForge-Repository-Packagers; die verschachtelte BigWigs-Form wird von
+# CurseForge ignoriert.
+manual-changelog: CHANGELOG.md
 
 ignore:
   - .github
