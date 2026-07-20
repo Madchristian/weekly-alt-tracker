@@ -253,7 +253,7 @@ def main() -> int:
             "Entfernte Retail-API GetUnspentPointsForSkillLine darf nicht verwendet werden")
     require("character.professions" in activities,
             "Nichtwöchentlicher Berufsfortschritt muss außerhalb von character.weekly gespeichert werden")
-    require("completionKnown and onLogKnown" in activities,
+    require("if sawUnknown then return nil end" in activities,
             "Meta-Weekly darf bei unbekanntem On-Log-Status kein false erfinden")
     require("firstIndex ~= nil and not first then return nil" in activities
             and "secondIndex ~= nil and not second then return nil" in activities,
@@ -626,6 +626,10 @@ def main() -> int:
             "SimpleTexture muss in Retail 12.0.7 SetMask statt SetMaskTexture verwenden")
     require("CreateNavButton" in ui and "SIDEBAR_WIDTH" in ui,
             "Ellesmere-inspirierte Sidebar-Navigation fehlt")
+    require('CreateFrame("Frame", "WeeklyAltTrackerFrame"' in ui,
+            "Hauptfenster braucht einen globalen Namen, sonst kann UISpecialFrames es nicht referenzieren")
+    require("UISpecialFrames" in ui and "EnsureUISpecialFrame" in ui,
+            "ESC-Standardsemantik (UISpecialFrames) fehlt")
     require("local targetKey = key" in ui and "SetActiveTab(targetKey)" in ui,
             "Sidebar-Klickziele müssen für Lua 5.1 pro Schleifendurchlauf gebunden werden")
     require("CreateTabButton" not in ui and "UIPanelButtonTemplate" not in ui,

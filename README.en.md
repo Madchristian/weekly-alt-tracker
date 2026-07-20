@@ -38,7 +38,7 @@ The slash command `/wat` is identical in both languages; only its output is tran
 
 ### Midnight Week
 
-- Active Midnight weekly quest including variant and progress
+- Active Midnight weekly quest including variant and progress; the display distinguishes active with progress (e.g. `3/5`) from done (objective met in the quest log or already turned in) based on the real quest API state
 - Hunts on Normal, Hard and Nightmare, 0/4 each
 - Ritual Sites including percentage progress
 
@@ -51,7 +51,7 @@ For both of the character's primary professions:
 - free, already credited knowledge points
 - unused Midnight knowledge points sitting in normal bags and the reagent bag
 - tooltip breakdown by knowledge item, stack size and point value
-- profession weekly quest
+- profession weekly quest, likewise with a real active/done state instead of a bare turn-in flag
 - Thalassian Treatise
 
 Supported are Alchemy, Blacksmithing, Engineering, Inscription, Jewelcrafting, Leatherworking, Tailoring, Enchanting, Herbalism, Mining and Skinning.
@@ -90,7 +90,7 @@ New in 0.3.0, extended from nine to thirteen values in 0.4.0. This section recor
 
 Thirteen values do not fit side by side across the table width. Since 0.4.2 the page therefore no longer compares all characters at once but always shows exactly **one scope** – and for that scope all thirteen values simultaneously.
 
-The scope is selected by a fixed register bar along the bottom: pinned at the far left is **TOTAL** (the account total), and to its right one tab per known character in the existing deterministic order. From the eighth character onwards the character tabs live in a horizontally paged viewport with explicit arrow buttons; **TOTAL** always stays pinned and never pages away. The selection is bound to the stable character key (the GUID), not to a position: it survives every refresh, and if the character disappears from the database the scope falls back to **TOTAL** rather than showing someone else's number. The active TOTAL tab is turquoise, the active character tab carries its class colour; inactive tabs stay in the neutral dark.
+The scope is selected by a fixed register bar along the bottom: pinned at the far left is **TOTAL** (the account total), and to its right one tab per known character in the stored, drag-to-reorder order (see [Usage](#usage)). From the eighth character onwards the character tabs live in a horizontally paged viewport with explicit arrow buttons; **TOTAL** always stays pinned, cannot itself be moved, and never pages away. The selection is bound to the stable character key (the GUID), not to a position: it survives every refresh, and if the character disappears from the database the scope falls back to **TOTAL** rather than showing someone else's number. The active TOTAL tab is turquoise, the active character tab carries its class colour; inactive tabs stay in the neutral dark.
 
 Above the bar the thirteen values of the selected scope appear as metric cards in three simultaneously visible sections – never as navigation tabs and never as stacked table rows: **content** (delves, Midnight delves, dungeons entered, Midnight dungeons, playtime), **survival** (deaths total, in dungeons, in raids, from falling, healthstones) and **quests** (completed, daily, abandoned). Every card visibly binds a concise label to a prominent value.
 
@@ -153,7 +153,9 @@ The installation path depends on the drive you chose; the Windows default is `C:
 
 - `/wat` – show/hide the window; `/weeklyalt` remains an equivalent alias. From 0.3.0 on there are no public subcommands.
 - Any argument after `/wat` opens the `Settings` section directly; the former subcommands `show`, `hide`, `refresh`, `resetpos` and `scale` moved there without replacement.
+- `ESC` closes the window like any other Blizzard standard window, with no custom key binding and no conflict with the slash command or minimap button.
 - Minimap button: left click opens or closes the window; dragging changes the stored position. The button can be hidden in the `Settings` section.
+- Drag a character row or character tab with the left mouse button onto another row or tab to reorder it. The order is global and stable: it applies to all five table sections and the statistics page's character tabs at once, survives refreshes and restarts, and a new character appears predictably in alphabetical order at the end instead of disturbing the stored order.
 
 ## Important technical limits
 
@@ -242,22 +244,24 @@ The project-side CurseForge texts are versioned under `curseforge/`:
 
 - `PROJECT-en.md` – English title, summary and description. CurseForge requires English as the project language.
 - `PROJECT-de.md` – German additional version of the same description.
-- `CHANGELOG-0.4.2-en.md` and `CHANGELOG-0.4.2-de.md` – change log for the current release. The logs of the previous versions (`CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
+- `CHANGELOG-0.5.0-en.md` and `CHANGELOG-0.5.0-de.md` – change log for the current preview. The logs of the previous versions (`CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
 
 The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 
-#### Building the package for a manual upload
+#### Automatic packaging and manual fallback
 
-The separate workflow `.github/workflows/curseforge-package.yml` (**Build CurseForge ZIP**) produces the uploadable ZIP as an Actions artifact. It has read-only permissions, knows no `CF_API_KEY` and uploads nowhere – the upload always stays manual.
+CurseForge Automatic Packaging is connected to the public GitHub repository through the repository webhook. `Package all commits` stays disabled; normal tags such as `v0.5.0` produce releases, while tags containing `beta` or `alpha` use the corresponding prerelease channel. There is deliberately no parallel automatic `CF_API_KEY` upload, preventing duplicate files for one tag.
+
+The separate workflow `.github/workflows/curseforge-package.yml` (**Build CurseForge ZIP**) remains a manual fallback only. It produces an uploadable ZIP as an Actions artifact, has read-only permissions, knows no `CF_API_KEY`, and uploads nowhere.
 
 1. In GitHub go to *Actions → Build CurseForge ZIP → Run workflow*. The workflow also runs automatically on every push to `main` that touches package or check files.
 2. After the run, download the artifact `WeeklyAltTracker-<version>-CurseForge-manual-upload` from the bottom of the summary page.
 3. Unpack the downloaded Actions archive **once**.
 4. Upload the `WeeklyAltTracker-<version>.zip` found inside to CurseForge **unchanged** – do not repack or unpack it again.
 
-The workflow runs the full `tools/check.py` first and then verifies the built ZIP with `tools/verify_package.py` (14 expected files under `WeeklyAltTracker/`, byte-identical to the repository, TOC fields, no secret assignments). The bundled `SHA256SUMS.txt` is there to check the downloaded file.
+The workflow runs the full `tools/check.py` first and then verifies the built ZIP with `tools/verify_package.py` (15 expected files under `WeeklyAltTracker/`, byte-identical to the repository, TOC fields, no secret assignments). The bundled `SHA256SUMS.txt` is there to check the downloaded file.
 
-The addon is listed on CurseForge at [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker). The project uses Project ID `1616769` under the **All Rights Reserved** licence; the ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.4.2 is uploaded manually through the CurseForge project page just like 0.2.6, 0.3.1, 0.4.0 and 0.4.1, which does not require an API key. Automated CurseForge uploads are deliberately not configured without `CF_API_KEY`.
+The addon is listed on CurseForge at [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker). The project uses Project ID `1616769` under the **All Rights Reserved** licence; the ID is declared as `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. GitHub and Wago continue to publish through the existing tag workflow, while CurseForge primarily uses its own repository webhook. The manual ZIP workflow remains available only as a fallback if that native route fails.
 
 ## Data provenance and third parties
 

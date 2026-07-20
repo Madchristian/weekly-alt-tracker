@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "0.4.2"
+WAT.version = "0.5.0"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -27,6 +27,14 @@ WAT.SafeString = SafeString
 local function SafeTable(value)
     if issecretvalue and issecretvalue(value) then return nil end
     return type(value) == "table" and value or nil
+end
+
+-- Ein brauchbarer Eintrag fuer settings.characterOrder: ein nicht-leerer,
+-- sicherer String. Alles andere (Secret Value, Zahl, Tabelle, leerer String)
+-- ist Muell und wird beim Normalisieren stillschweigend verworfen.
+local function IsValidOrderKey(value)
+    local safe = SafeString(value)
+    return safe ~= nil and safe ~= ""
 end
 
 local VALID_POINTS = {
@@ -113,8 +121,94 @@ function WAT:InitializeDatabase()
         or activeTab == "professions" or activeTab == "sources" or activeTab == "keystones"
         or activeTab == "statistics" or activeTab == "settings")
         and activeTab or "overview"
+    -- Additiv: eine Datenbank vor dieser Version kennt noch keine gespeicherte
+    -- Charakterreihenfolge. Das Schema bleibt deshalb bei Version 2; der
+    -- eigentliche Inhalt wird gleich unten durch NormalizeCharacterOrder
+    -- gegen db.characters gefiltert und ergaenzt.
+    settings.characterOrder = SafeTable(settings.characterOrder) or {}
     db.version = 2
     self.db = db
+    self:NormalizeCharacterOrder()
+end
+
+-- Liefert die normalisierte, persistierte Charakterreihenfolge und schreibt
+-- sie gleich zurueck nach db.settings.characterOrder. Sie ist die EINE Quelle
+-- der Wahrheit fuer die Sortierung aller fuenf Tabellenseiten und der
+-- Statistik-Charakterreiter:
+--   1. bekannte, eindeutige Schluessel bleiben in der gespeicherten Reihenfolge
+--   2. verwaiste, doppelte, nicht-String- oder Secret-Eintraege verschwinden
+--   3. Charaktere, die noch in keiner gespeicherten Reihenfolge stehen, werden
+--      deterministisch alphabetisch (Name+Realm, kleingeschrieben) angehaengt
+-- Ein neuer Charakter erscheint damit vorhersagbar am Ende, statt die
+-- gespeicherte Reihenfolge durcheinanderzuwuerfeln.
+function WAT:NormalizeCharacterOrder()
+    local db = self.db
+    if type(db) ~= "table" then return {} end
+    if (issecretvalue and issecretvalue(db.characters)) or type(db.characters) ~= "table" then
+        db.characters = {}
+    end
+    local characters = db.characters
+    if (issecretvalue and issecretvalue(db.settings)) or type(db.settings) ~= "table" then
+        db.settings = {}
+    end
+    local settings = db.settings
+    local saved = SafeTable(settings.characterOrder) or {}
+
+    local order, seen = {}, {}
+    for _, key in ipairs(saved) do
+        if IsValidOrderKey(key) and type(characters[key]) == "table" and not seen[key] then
+            order[#order + 1] = key
+            seen[key] = true
+        end
+    end
+
+    local missing = {}
+    for key, character in pairs(characters) do
+        if IsValidOrderKey(key) and not seen[key] and type(character) == "table" then
+            missing[#missing + 1] = key
+        end
+    end
+    table.sort(missing, function(a, b)
+        local characterA, characterB = characters[a], characters[b]
+        local nameA = string.lower(SafeString(characterA.name, "") .. SafeString(characterA.realm, ""))
+        local nameB = string.lower(SafeString(characterB.name, "") .. SafeString(characterB.realm, ""))
+        if nameA == nameB then return a < b end
+        return nameA < nameB
+    end)
+    for _, key in ipairs(missing) do
+        order[#order + 1] = key
+        seen[key] = true
+    end
+
+    settings.characterOrder = order
+    return order
+end
+
+-- Verschiebt einen Charakter tatsaechlich an die Zielposition, statt ihn nur
+-- mit dem Ziel zu tauschen, und persistiert sofort. Ein Selbst-Drop oder ein
+-- Schluessel, der nicht in der normalisierten Reihenfolge steht (unbekannt,
+-- veraltet, GESAMT-Bereichsschluessel der Statistikseite, ...), aendert
+-- nichts und liefert false - so kann ein ungueltiger Drop die Datenbank nie
+-- beschaedigen.
+function WAT:MoveCharacterOrder(sourceKey, targetKey)
+    if not IsValidOrderKey(sourceKey) or not IsValidOrderKey(targetKey) then return false end
+    if sourceKey == targetKey then return false end
+    local order = self:NormalizeCharacterOrder()
+    local sourceIndex, targetIndex
+    for index, key in ipairs(order) do
+        if key == sourceKey then sourceIndex = index end
+        if key == targetKey then targetIndex = index end
+    end
+    if not sourceIndex or not targetIndex then return false end
+    table.remove(order, sourceIndex)
+    -- Ziel ist die urspruengliche Zielposition. Beim Verschieben nach oben wird
+    -- davor eingefuegt; beim Verschieben nach unten ist das Ziel durch remove
+    -- bereits um einen Platz nach vorn gerutscht, sodass derselbe numerische
+    -- targetIndex die Quelle dahinter einfuegt. So ist auch der letzte Platz
+    -- per Drag-and-drop erreichbar.
+    table.insert(order, targetIndex, sourceKey)
+    self.db.settings.characterOrder = order
+    return true
 end
 
 -- Sprachneutraler Baustein fuer den DB-Schluessel, wenn weder GUID noch Name

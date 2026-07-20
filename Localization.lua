@@ -125,6 +125,8 @@ local enUS = {
 
     -- Status
     STATUS_DONE = "done",
+    STATUS_READY_TO_TURN_IN = "Ready to turn in",
+    STATUS_TURNED_IN = "Turned in",
     STATUS_OPEN = "open",
     STATUS_UNKNOWN = "unknown",
     STATUS_STALE_WEEK = "old week",
@@ -266,6 +268,7 @@ local enUS = {
     CHROME_TOOLBAR_SETTINGS = "Settings apply immediately and are stored account-wide",
     CHROME_LEGEND = "Green: done  /  Yellow: in progress  /  Red: open  /  Grey: unknown or old week",
     TOOLTIP_OFFLINE_HINT = "Offline data updates the next time this character logs in.",
+    TOOLTIP_DRAG_REORDER = "Drag to reorder characters",
     MINIMAP_LEFTCLICK = "Left click: open or close",
     MINIMAP_DRAG = "Drag: change position",
 
@@ -398,6 +401,8 @@ local deDE = {
 
     -- Status
     STATUS_DONE = "fertig",
+    STATUS_READY_TO_TURN_IN = "Fertig - nicht abgegeben",
+    STATUS_TURNED_IN = "Abgegeben",
     STATUS_OPEN = "offen",
     STATUS_UNKNOWN = "unbekannt",
     STATUS_STALE_WEEK = "alte Woche",
@@ -538,6 +543,7 @@ local deDE = {
     CHROME_TOOLBAR_SETTINGS = "Einstellungen wirken sofort und gelten accountweit",
     CHROME_LEGEND = "Grün: fertig  /  Gelb: läuft  /  Rot: offen  /  Grau: unbekannt oder alte Woche",
     TOOLTIP_OFFLINE_HINT = "Offline-Daten werden beim nächsten Login dieses Charakters aktualisiert.",
+    TOOLTIP_DRAG_REORDER = "Ziehen, um Charaktere umzusortieren",
     MINIMAP_LEFTCLICK = "Linksklick: öffnen oder schließen",
     MINIMAP_DRAG = "Ziehen: Position verändern",
 

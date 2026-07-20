@@ -60,12 +60,14 @@ für Tiefen/Welt und Mythic+ sowie eine eigene Spalte `M+10 / 272`, die zeigt, o
 ein Dungeon auf +10 oder höher sicher abgeschlossen wurde.
 
 **Midnight-Woche** - die aktive Midnight-Wochenquest samt Variante und
-Fortschritt, Jagden auf Normal, Schwer und Albtraum (je 0/4) und der Fortschritt
-der Ritualstätten.
+Fortschritt, mit getrennten Zuständen für `Fertig – nicht abgegeben` und
+`Abgegeben`, dazu Jagden auf Normal, Schwer und Albtraum (je 0/4) und der
+Fortschritt der Ritualstätten.
 
 **Berufe** - Midnight-Skill beider Hauptberufe, freie Wissenspunkte, noch nicht
 benutzte Wissenspunkte in den Taschen samt Aufschlüsselung je Gegenstand im
-Tooltip, Berufs-Wochenquest und Thalassischer Traktat.
+Tooltip, Berufs-Wochenquest mit Fortschritt und getrenntem Abgabezustand sowie
+Thalassischer Traktat.
 
 **Wappenquellen** - wöchentliche, einmalige/saisonale und wiederholbare Quellen:
 Goldene Truhe, Rissiger Schlüsselstein, Nullaeus T11, Ritualstätten T6, Mythic+
@@ -109,7 +111,11 @@ Raid-Fortschritt und Raid-Vault werden bewusst nicht getrackt.
 - `/weeklyalt` - gleichwertiger Alias
 
 Das Minimap-Symbol öffnet das Fenster per Linksklick und lässt sich am
-Minimap-Rand verschieben. Aktualisieren, Position, Skalierung und Sichtbarkeit
+Minimap-Rand verschieben. `ESC` schließt das Addon-Fenster wie ein
+Blizzard-Standardfenster. Charakterzeilen und Statistikreiter lassen sich per
+Drag-and-drop accountweit umsortieren; dieselbe Reihenfolge gilt in allen
+Ansichten und bleibt nach einem Neustart erhalten. Aktualisieren, Position,
+Skalierung und Sichtbarkeit
 des Symbols werden im Bereich **Einstellungen** gesteuert; öffentliche
 Slash-Unterbefehle gibt es ab 0.3.0 nicht mehr.
 

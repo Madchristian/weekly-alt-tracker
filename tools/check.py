@@ -34,7 +34,7 @@ def check_toc() -> list[Path]:
     text = TOC.read_text(encoding="utf-8")
     required = {
         "## Interface: 120007",
-        "## Version: 0.4.2",
+        "## Version: 0.5.0",
         "## X-License: All Rights Reserved",
         "## X-Wago-ID: ZKxZJkNk",
         "## X-Curse-Project-ID: 1616769",
@@ -301,7 +301,7 @@ def check_icon_wiring() -> None:
         error("CHANGELOG.md mit der vollständigen öffentlichen Release-Historie fehlt")
     else:
         expected_versions = [
-            "0.4.2", "0.4.1", "0.4.0", "0.3.1",
+            "0.5.0", "0.4.2", "0.4.1", "0.4.0", "0.3.1",
             "0.3.0", "0.2.6", "0.2.5", "0.2.4",
         ]
         parts = [
@@ -334,7 +334,7 @@ def check_icon_wiring() -> None:
         if actual_changelog != expected_changelog:
             error(
                 "CHANGELOG.md ist keine exakte kumulative Historie der vollständigen "
-                "versionierten Release-Notizen von 0.4.2 bis 0.2.4"
+                "versionierten Release-Notizen von 0.5.0 bis 0.2.4"
             )
 
 

@@ -18,7 +18,7 @@ WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 1
 
 ### Midnight-Woche
 
-- aktive Midnight-Wochenquest
+- aktive Midnight-Wochenquest mit Fortschritt, `Fertig – nicht abgegeben` und `Abgegeben`
 - Jagden auf Normal, Schwer und Albtraum
 - Ritualstätten mit Fortschritt
 
@@ -27,7 +27,7 @@ WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 1
 - Midnight-Skill beider Hauptberufe
 - freie Berufswissenspunkte
 - Wissenspunkte aus Gegenständen in Rucksack, normalen Taschen und Reagenzientasche
-- Berufs-Wochenquest
+- Berufs-Wochenquest mit Fortschritt und getrenntem Abgabezustand
 - Thalassischer Traktat
 
 ### Wappenquellen
@@ -72,6 +72,8 @@ WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 1
 - sieben kompakte Ansichten
 - Minimap-Symbol: Linksklick öffnet oder schließt das Fenster
 - Minimap-Symbol per Drag verschiebbar
+- `ESC` schließt das Addon-Fenster wie ein Blizzard-Standardfenster
+- Charakterzeilen und Statistikreiter per Drag-and-drop accountweit umsortierbar; dieselbe Reihenfolge gilt in allen Ansichten
 - keine externen Bibliotheken
 - Abhängigkeiten: keine
 

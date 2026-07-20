@@ -257,5 +257,164 @@ for key, definition in pairs(WAT.Data.CRESTS) do
         "Data.CRESTS." .. key .. " braucht einen labelKey für Localization.lua")
 end
 
+-- ---------------------------------------------------------------------------
+-- readyToTurnIn / turnedIn: echter Zielfortschritt der Midnight-Weekly.
+--
+-- Drei Zustaende, die die UI unterscheiden koennen muss: aktiv mit
+-- Teilfortschritt, im Log erfuellt aber noch nicht abgegeben, und tatsaechlich
+-- abgegeben. Der dritte Zustand darf den zweiten nicht vortaeuschen, auch
+-- wenn das Zielobjekt zufaellig ebenfalls "finished" meldet.
+-- ---------------------------------------------------------------------------
+
+local function SetMidnightObjective(current, required, finished)
+    C_QuestLog.GetQuestObjectives = function(questID)
+        if questID ~= META_QUEST then return nil end
+        return { { numFulfilled = current, numRequired = required, finished = finished } }
+    end
+end
+
+onQuest[META_QUEST] = true
+questCompleted[META_QUEST] = false
+SetMidnightObjective(3, 5, false)
+local activeMidnight = WAT:ScanMidnightWeekly()
+assert(type(activeMidnight) == "table",
+    "aktive Midnight-Weekly mit Zielfortschritt muss einen Snapshot liefern")
+assert(activeMidnight.active == true, "3/5-Ziel muss als aktiv gelten")
+assert(activeMidnight.current == 3 and activeMidnight.required == 5,
+    "3/5-Ziel muss Fortschritt 3 von 5 melden, erhalten "
+        .. tostring(activeMidnight.current) .. "/" .. tostring(activeMidnight.required))
+assert(activeMidnight.readyToTurnIn == false,
+    "3/5-Ziel darf noch nicht abgabebereit sein, erhalten " .. tostring(activeMidnight.readyToTurnIn))
+assert(activeMidnight.turnedIn == false,
+    "3/5-Ziel darf noch nicht als abgegeben gelten, erhalten " .. tostring(activeMidnight.turnedIn))
+
+SetMidnightObjective(5, 5, true)
+local readyMidnight = WAT:ScanMidnightWeekly()
+assert(type(readyMidnight) == "table", "abgabebereite Midnight-Weekly muss einen Snapshot liefern")
+assert(readyMidnight.readyToTurnIn == true,
+    "erfuelltes, aber nicht abgegebenes Ziel muss abgabebereit sein, erhalten "
+        .. tostring(readyMidnight.readyToTurnIn))
+assert(readyMidnight.turnedIn == false,
+    "erfuelltes, aber nicht abgegebenes Ziel darf nicht als abgegeben gelten, erhalten "
+        .. tostring(readyMidnight.turnedIn))
+assert(readyMidnight.completed == true,
+    "die bestehende completed-Kompatibilitaet muss ein erfuelltes Ziel weiter als erledigt zeigen")
+
+questCompleted[META_QUEST] = true
+local turnedInMidnight = WAT:ScanMidnightWeekly()
+assert(type(turnedInMidnight) == "table", "abgegebene Midnight-Weekly muss einen Snapshot liefern")
+assert(turnedInMidnight.turnedIn == true,
+    "abgegebene Midnight-Weekly muss turnedIn true melden, erhalten " .. tostring(turnedInMidnight.turnedIn))
+assert(turnedInMidnight.readyToTurnIn == false,
+    "abgegeben und abgabebereit duerfen sich nicht ueberschneiden (finished war weiterhin true), erhalten "
+        .. tostring(turnedInMidnight.readyToTurnIn))
+
+questCompleted[META_QUEST] = nil
+onQuest[META_QUEST] = nil
+C_QuestLog.GetQuestObjectives = function() return nil end
+
+-- ---------------------------------------------------------------------------
+-- Strukturierter Berufs-Wochenquest-Status (weeklyQuest) neben den
+-- rueckwaertskompatiblen Feldern weeklyDone/weeklyQuestID.
+-- ---------------------------------------------------------------------------
+
+local PROF_WEEKLY_QUEST = 90002
+WAT.Data.PROFESSION_WEEKLIES[171] = { PROF_WEEKLY_QUEST }
+onQuest[PROF_WEEKLY_QUEST] = true
+questCompleted[PROF_WEEKLY_QUEST] = false
+C_QuestLog.GetQuestObjectives = function(questID)
+    if questID ~= PROF_WEEKLY_QUEST then return nil end
+    return { { numFulfilled = 3, numRequired = 5, finished = false } }
+end
+
+local activeProfWeekly = WAT:ScanProfessions(progress, weekly, false)
+assert(type(activeProfWeekly) == "table" and type(activeProfWeekly[1]) == "table",
+    "Berufs-Wochenstatus mit aktivem Zielfortschritt fehlt")
+local activeState = activeProfWeekly[1].weeklyQuest
+assert(type(activeState) == "table", "strukturierter weeklyQuest-Status fehlt")
+assert(activeState.active == true and activeState.current == 3 and activeState.required == 5,
+    "aktiver Berufs-Wochenquest muss 3/5 als aktiv melden")
+assert(activeState.readyToTurnIn == false and activeState.turnedIn == false,
+    "3/5 darf weder abgabebereit noch abgegeben sein")
+assert(activeProfWeekly[1].weeklyDone == false and activeProfWeekly[1].weeklyQuestID == nil,
+    "rueckwaertskompatible Felder muessen bei aktivem Quest erhalten bleiben")
+
+C_QuestLog.GetQuestObjectives = function(questID)
+    if questID ~= PROF_WEEKLY_QUEST then return nil end
+    return { { numFulfilled = 5, numRequired = 5, finished = true } }
+end
+local readyProfWeekly = WAT:ScanProfessions(progress, weekly, false)
+local readyState = readyProfWeekly[1].weeklyQuest
+assert(readyState.readyToTurnIn == true and readyState.turnedIn == false,
+    "erfuelltes, nicht abgegebenes Berufsziel muss abgabebereit sein")
+assert(readyProfWeekly[1].weeklyDone == false and readyProfWeekly[1].weeklyQuestID == nil,
+    "abgabebereit ist nicht dasselbe wie abgegeben - weeklyDone darf nicht vorauseilen")
+
+questCompleted[PROF_WEEKLY_QUEST] = true
+local turnedInProfWeekly = WAT:ScanProfessions(progress, weekly, false)
+local turnedInState = turnedInProfWeekly[1].weeklyQuest
+assert(turnedInState.turnedIn == true and turnedInState.readyToTurnIn == false,
+    "abgegebener Berufs-Wochenquest muss turnedIn true und readyToTurnIn false melden")
+assert(turnedInProfWeekly[1].weeklyDone == true
+    and turnedInProfWeekly[1].weeklyQuestID == PROF_WEEKLY_QUEST,
+    "rueckwaertskompatible Felder muessen den Abgabestatus weiter melden")
+
+questCompleted[PROF_WEEKLY_QUEST] = nil
+onQuest[PROF_WEEKLY_QUEST] = nil
+C_QuestLog.GetQuestObjectives = function() return nil end
+WAT.Data.PROFESSION_WEEKLIES[171] = nil
+
+-- ---------------------------------------------------------------------------
+-- ScanActivities darf einen sicheren weeklyQuest-/Midnight-Snapshot nie durch
+-- einen anschliessend komplett unlesbaren Scan ersetzen (Merge-Atomaritaet).
+-- ---------------------------------------------------------------------------
+
+WAT.Data.PROFESSION_WEEKLIES[171] = { PROF_WEEKLY_QUEST }
+onQuest[META_QUEST] = true
+questCompleted[META_QUEST] = false
+onQuest[PROF_WEEKLY_QUEST] = true
+questCompleted[PROF_WEEKLY_QUEST] = false
+C_QuestLog.GetQuestObjectives = function(questID)
+    if questID == META_QUEST then return { { numFulfilled = 3, numRequired = 5, finished = false } } end
+    if questID == PROF_WEEKLY_QUEST then return { { numFulfilled = 2, numRequired = 5, finished = false } } end
+    return nil
+end
+
+local mergeCharacter = { professions = progress }
+WAT:ScanActivities(mergeCharacter, "PLAYER_LOGIN")
+local snapshotMidnight = mergeCharacter.weekly.midnightWeekly
+local snapshotProfessions = mergeCharacter.weekly.professions
+local snapshotWeeklyQuest = type(snapshotProfessions) == "table" and snapshotProfessions[1]
+    and snapshotProfessions[1].weeklyQuest or nil
+assert(type(snapshotMidnight) == "table" and snapshotMidnight.current == 3,
+    "erster Scan muss einen brauchbaren Midnight-Snapshot liefern")
+assert(type(snapshotWeeklyQuest) == "table" and snapshotWeeklyQuest.current == 2,
+    "erster Scan muss einen brauchbaren Berufs-Wochenquest-Snapshot liefern")
+
+-- Zweiter Scan: die gesamte Quest-API wird unlesbar (Secret Value). Das darf
+-- weder einen falschen Fortschritt erfinden noch die sicheren Snapshots aus
+-- dem ersten Scan ersetzen.
+local safeCQuestLog = C_QuestLog
+C_QuestLog = {
+    IsOnQuest = function() return SECRET_VALUE end,
+    IsQuestFlaggedCompleted = function() return SECRET_VALUE end,
+    GetQuestObjectives = function() return SECRET_VALUE end,
+    GetQuestProgressBarPercent = function() return SECRET_VALUE end,
+}
+WAT:ScanActivities(mergeCharacter, "PLAYER_LOGIN")
+assert(mergeCharacter.weekly.midnightWeekly == snapshotMidnight,
+    "unlesbarer Folge-Scan darf den sicheren Midnight-Snapshot nicht ersetzen")
+assert(mergeCharacter.weekly.professions[1].weeklyQuest == snapshotWeeklyQuest,
+    "unlesbarer Folge-Scan darf den sicheren Berufs-Wochenquest-Snapshot nicht ersetzen")
+C_QuestLog = safeCQuestLog
+
+questCompleted[META_QUEST] = nil
+onQuest[META_QUEST] = nil
+questCompleted[PROF_WEEKLY_QUEST] = nil
+onQuest[PROF_WEEKLY_QUEST] = nil
+C_QuestLog.GetQuestObjectives = function() return nil end
+WAT.Data.PROFESSION_WEEKLIES[171] = nil
+
 print("LUA PROFESSION RUNTIME OK: echte Wissens-API, Skill 87/100, 14 frei, 5 Taschenpunkte, Slot-Erhalt,"
-    .. " QuestOnLog-false, heroToMyth-gesperrt und label-freier Midnight-Snapshot")
+    .. " QuestOnLog-false, heroToMyth-gesperrt, label-freier Midnight-Snapshot,"
+    .. " readyToTurnIn/turnedIn fuer Midnight- und Berufs-Wochenquest und atomarer Merge-Schutz")

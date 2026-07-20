@@ -109,12 +109,36 @@ function Widget:GetEffectiveScale() return self.effectiveScale or 1 end
 -- Test die tatsaechliche Rahmenhierarchie pruefen kann: eine Karte, die nicht
 -- in ihrem Abschnitt haengt, wird beim Ausblenden des Panels nicht mit
 -- ausgeblendet und bleibt als Geisterelement im Bild stehen.
+--
+-- Ein benannter Rahmen landet wie in echtem WoW als Global unter genau diesem
+-- Namen - UISpecialFrames referenziert Frames ausschliesslich ueber ihren
+-- globalen Namen, nie ueber eine Objektreferenz.
 function CreateFrame(kind, name, parent)
     local frame = NewWidget(kind, parent)
+    if type(name) == "string" and name ~= "" then
+        frame.name = name
+        _G[name] = frame
+    end
     if type(parent) == "table" and type(parent.children) == "table" then
         parent.children[#parent.children + 1] = frame
     end
     return frame
+end
+function Widget:GetParent() return self.parent end
+
+-- ESC-Standardsemantik: UISpecialFrames ist eine Liste globaler Frame-Namen,
+-- die Blizzards eigener Escape-Handler beim Druecken der Taste durchgeht und
+-- fuer jeden sichtbaren Treffer :Hide() aufruft. Kein Stub dieses Handlers
+-- selbst - geprueft wird nur die Registrierung, die den Vertrag herstellt.
+UISpecialFrames = {}
+
+-- Fuer die Drag-and-drop-Umsortierung: liefert, was die Tests als "unter dem
+-- Cursor" simulieren. Retail 12.0.7 nennt die Mehrfachvariante GetMouseFoci;
+-- Produktionscode faellt sicher auf GetMouseFocus zurueck, falls sie fehlt.
+MOUSE_FOCUS = nil
+function GetMouseFoci()
+    if MOUSE_FOCUS == nil then return {} end
+    return { MOUSE_FOCUS }
 end
 
 UIParent = NewWidget("UIParent")
@@ -198,7 +222,7 @@ local function MakeWAT()
     -- Data.lua wird echt geladen (siehe RunSuite); hier steht bewusst kein
     -- Stub, damit die Ableitung questID -> Labelschluessel wirklich laeuft.
     local WAT = {
-        version = "0.4.2",
+        version = "0.5.0",
         db = {
             settings = {
                 scale = 1,
@@ -293,6 +317,61 @@ local function MakeWAT()
         if type(value) == "number" then return value end
         return fallback
     end
+    -- Getreuer Nachbau des echten Core.lua-Vertrags (siehe Core.lua), damit
+    -- die UI-Suite Core.lua nicht laden muss: bekannte Schluessel behalten
+    -- ihre gespeicherte Reihenfolge, ein neuer Charakter wird deterministisch
+    -- alphabetisch (Name+Realm) angehaengt.
+    function WAT:NormalizeCharacterOrder()
+        local order, seen = {}, {}
+        local saved = type(self.db.settings.characterOrder) == "table"
+            and self.db.settings.characterOrder or {}
+        for _, key in ipairs(saved) do
+            if type(key) == "string" and key ~= "" and type(self.db.characters[key]) == "table"
+                    and not seen[key] then
+                order[#order + 1] = key
+                seen[key] = true
+            end
+        end
+        local missing = {}
+        for key, character in pairs(self.db.characters) do
+            if not seen[key] and type(character) == "table" then
+                missing[#missing + 1] = key
+            end
+        end
+        table.sort(missing, function(a, b)
+            local characterA, characterB = self.db.characters[a], self.db.characters[b]
+            local nameA = string.lower((characterA.name or "") .. (characterA.realm or ""))
+            local nameB = string.lower((characterB.name or "") .. (characterB.realm or ""))
+            if nameA == nameB then return a < b end
+            return nameA < nameB
+        end)
+        for _, key in ipairs(missing) do
+            order[#order + 1] = key
+            seen[key] = true
+        end
+        self.db.settings.characterOrder = order
+        return order
+    end
+    -- Getreuer Nachbau von Core.lua:WAT:MoveCharacterOrder (siehe Core.lua):
+    -- verschiebt tatsaechlich um, statt zu tauschen; Selbst-Drop und
+    -- unbekannte Schluessel bleiben wirkungslos.
+    function WAT:MoveCharacterOrder(sourceKey, targetKey)
+        if type(sourceKey) ~= "string" or sourceKey == "" then return false end
+        if type(targetKey) ~= "string" or targetKey == "" then return false end
+        if sourceKey == targetKey then return false end
+        local order = self:NormalizeCharacterOrder()
+        local sourceIndex, targetIndex
+        for index, key in ipairs(order) do
+            if key == sourceKey then sourceIndex = index end
+            if key == targetKey then targetIndex = index end
+        end
+        if not sourceIndex or not targetIndex then return false end
+        table.remove(order, sourceIndex)
+        if sourceIndex < targetIndex then targetIndex = targetIndex - 1 end
+        table.insert(order, targetIndex, sourceKey)
+        self.db.settings.characterOrder = order
+        return true
+    end
     function WAT:SaveFramePosition() end
     function WAT:Refresh() end
     function WAT:IsStale() return false end
@@ -365,6 +444,22 @@ local function RunSuite(locale, expect)
     assert(WAT.frame, context("Hauptfenster wurde nicht erstellt"))
     assert(WAT.frame.width == 1154 and WAT.frame.height == 600,
         context("unerwartete Fenstergröße: " .. tostring(WAT.frame.width) .. "x" .. tostring(WAT.frame.height)))
+
+    -- ESC schliesst das Fenster ueber die WoW-Standardsemantik: das Hauptfenster
+    -- braucht einen globalen Namen, und genau dieser Name muss GENAU EINMAL in
+    -- UISpecialFrames stehen - auch nach mehrfacher CreateUI-artiger Neuerzeugung
+    -- ueber mehrere Sprachlaeufe hinweg (diese Suite laeuft mehrfach im selben
+    -- Prozess mit derselben globalen UISpecialFrames-Tabelle).
+    assert(type(WAT.frame.name) == "string" and WAT.frame.name ~= "",
+        context("Hauptfenster hat keinen globalen Namen - UISpecialFrames kann es nicht referenzieren"))
+    assert(_G[WAT.frame.name] == WAT.frame,
+        context("globaler Fenstername zeigt nicht auf das Hauptfenster"))
+    local specialCount = 0
+    for _, registeredName in ipairs(UISpecialFrames) do
+        if registeredName == WAT.frame.name then specialCount = specialCount + 1 end
+    end
+    assert(specialCount == 1,
+        context("Hauptfenster muss genau einmal in UISpecialFrames stehen, gefunden " .. specialCount))
     assert(WAT.sidebar and WAT.sidebar.width == 176, context("Sidebar fehlt oder hat falsche Breite"))
     assert(WAT.minimapButton, context("Minimap-Symbol fehlt"))
     assert(WAT.minimapButton.icon and WAT.minimapButton.icon.mask,
@@ -497,6 +592,10 @@ local function RunSuite(locale, expect)
         context("Übersichts-Tooltip nicht lokalisiert, erhalten: " .. overviewTooltip))
     assert(string.find(overviewTooltip, expect.offlineHint, 1, true),
         context("Offline-Hinweis im Tooltip nicht lokalisiert"))
+    -- Drag-and-drop ist ohne sichtbare Beschriftung nicht auffindbar: der
+    -- Tooltip jeder generischen Zeile muss den Umsortierungs-Hinweis tragen.
+    assert(string.find(overviewTooltip, expect.dragHint, 1, true),
+        context("Zeilen-Tooltip nennt den Drag-and-drop-Hinweis nicht, erhalten: " .. overviewTooltip))
     for _, forbidden in ipairs(expect.forbiddenInTooltip) do
         assert(not string.find(overviewTooltip, forbidden, 1, true),
             context("fremdsprachiger Text im Tooltip: " .. forbidden))
@@ -772,6 +871,8 @@ local function RunSuite(locale, expect)
     assert(string.find(tabTooltip, "Testheld", 1, true)
             and string.find(tabTooltip, "Testreich", 1, true),
         context("der Reiter-Tooltip nennt nicht die volle Identitaet, erhalten: " .. tabTooltip))
+    assert(string.find(tabTooltip, expect.dragHint, 1, true),
+        context("Charakterreiter-Tooltip nennt den Drag-and-drop-Hinweis nicht, erhalten: " .. tabTooltip))
 
     -- -----------------------------------------------------------------------
     -- Standardbereich GESAMT und die aktiven Zustaende
@@ -985,6 +1086,14 @@ local function RunSuite(locale, expect)
         context("nach dem Rueckfall stimmt die Accountsumme nicht, erhalten: "
             .. PlainText(cards.delvesTotal.value)))
     WAT.db.characters.test = savedCharacter
+    -- Diese Loeschung/Wiederherstellung ist ein reines Testartefakt fuer den
+    -- GESAMT-Ruecksprung oben, keine reale Charakterreihenfolge-Aktion. Ohne
+    -- diesen Reset haette NormalizeCharacterOrder "test" waehrend der
+    -- Abwesenheit korrekt aus der gespeicherten Reihenfolge entfernt und
+    -- haengte ihn beim Wiederauftauchen nach ihrer eigenen Regel ans Ende an -
+    -- fuer den Rest dieser Suite ist aber weiterhin die urspruengliche
+    -- alphabetische Reihenfolge (test, alt) vorausgesetzt.
+    WAT.db.settings.characterOrder = nil
     WAT:RefreshUI()
 
     -- -----------------------------------------------------------------------
@@ -1378,6 +1487,7 @@ RunSuite("deDE", {
     tooltipClass = "Klasse",
     keystoneLabel = "Challenge-Map-ID",
     offlineHint = "Offline-Daten werden beim nächsten Login",
+    dragHint = "Ziehen, um Charaktere umzusortieren",
     forbiddenInTooltip = { "Class", "Equipped Item Level", "Week status" },
 })
 
@@ -1426,6 +1536,7 @@ RunSuite("enUS", {
     tooltipClass = "Class",
     keystoneLabel = "Challenge Map ID",
     offlineHint = "Offline data updates the next time",
+    dragHint = "Drag to reorder characters",
     forbiddenInTooltip = { "Klasse", "Angelegte Gegenstandsstufe", "Wochenstand" },
 })
 
@@ -1475,6 +1586,7 @@ RunSuite("frFR", {
     tooltipClass = "Class",
     keystoneLabel = "Challenge Map ID",
     offlineHint = "Offline data updates the next time",
+    dragHint = "Drag to reorder characters",
     forbiddenInTooltip = { "Klasse", "Angelegte Gegenstandsstufe", "Wochenstand" },
 })
 
@@ -1713,6 +1825,333 @@ local function RunPaginationSuite()
 end
 
 RunPaginationSuite()
+
+-- ---------------------------------------------------------------------------
+-- Globale Charakterreihenfolge treibt alle fuenf Tabellenseiten UND die
+-- Statistik-Charakterreiter
+--
+-- Core.lua liefert mit WAT:NormalizeCharacterOrder() die eine normalisierte
+-- Quelle der Wahrheit. GetCharacters() in UI.lua darf keine eigene,
+-- abweichende Sortierung mehr rechnen (die alte alphabetische Sortierung war
+-- nur der Normalisierungs-Fallback fuer unbekannte Charaktere). Ein neuer
+-- Charakter, der noch in keiner gespeicherten Reihenfolge steht, muss
+-- vorhersagbar ans Ende wandern statt die gespeicherte Reihenfolge
+-- durcheinanderzuwuerfeln.
+-- ---------------------------------------------------------------------------
+
+local function RunCharacterOrderSuite()
+    C_CurrencyInfo = RealCurrencyInfo()
+    local WAT = MakeWAT()
+    GetLocale = function() return "enUS" end
+    -- Bewusst umgekehrt zur alphabetischen Reihenfolge (Testheld < Zweitheld):
+    -- nur eine echte, vom Alphabet abweichende Persistenz beweist, dass die
+    -- gespeicherte Reihenfolge wirklich gewinnt.
+    WAT.db.settings.characterOrder = { "alt", "test" }
+
+    LoadInto(WAT, "Localization.lua")
+    LoadInto(WAT, "Data.lua")
+    LoadInto(WAT, "UI.lua")
+    WAT:CreateUI()
+
+    local function AssertPanelOrder(panelKey)
+        local panel = WAT.panels[panelKey]
+        assert(panel and panel.rows[1] and panel.rows[2],
+            "[order] Panel " .. panelKey .. " hat keine zwei Zeilen")
+        assert(panel.rows[1].character == WAT.db.characters.alt,
+            "[order] Panel " .. panelKey .. ": Zeile 1 folgt nicht der gespeicherten Reihenfolge (erwartet alt)")
+        assert(panel.rows[2].character == WAT.db.characters.test,
+            "[order] Panel " .. panelKey .. ": Zeile 2 folgt nicht der gespeicherten Reihenfolge (erwartet test)")
+    end
+    for _, panelKey in ipairs({ "overview", "midnight", "professions", "sources", "keystones" }) do
+        AssertPanelOrder(panelKey)
+    end
+
+    WAT:SetActiveTab("statistics")
+    local statisticsPanel = WAT.panels.statistics
+    local activeScopeOrder = {}
+    for _, tab in ipairs(statisticsPanel.characterTabs) do
+        if tab:IsShown() and tab.scopeKey ~= nil then
+            activeScopeOrder[#activeScopeOrder + 1] = tab.scopeKey
+        end
+    end
+    assert(activeScopeOrder[1] == "alt" and activeScopeOrder[2] == "test",
+        "[order] Statistik-Charakterreiter folgen nicht der gespeicherten Reihenfolge, erhalten: "
+            .. tostring(activeScopeOrder[1]) .. ", " .. tostring(activeScopeOrder[2]))
+
+    -- Ein neuer Charakter ohne Eintrag in der gespeicherten Reihenfolge muss
+    -- deterministisch ans Ende wandern, ohne "alt"/"test" zu verwuerfeln.
+    WAT.db.characters.newchar = {
+        name = "Neuling", realm = "Neureich", classFile = "MAGE",
+        lastSeen = 999, statistics = { scanned = 999 }, weekly = {},
+    }
+    WAT:SetActiveTab("overview")
+    WAT:RefreshUI()
+    local overview = WAT.panels.overview
+    assert(overview.rows[1].character == WAT.db.characters.alt
+            and overview.rows[2].character == WAT.db.characters.test
+            and overview.rows[3].character == WAT.db.characters.newchar,
+        "[order] ein neuer Charakter wurde nicht vorhersagbar ans Ende angehaengt")
+    local persistedOrder = WAT.db.settings.characterOrder
+    assert(persistedOrder[1] == "alt" and persistedOrder[2] == "test" and persistedOrder[3] == "newchar",
+        "[order] die erweiterte Reihenfolge wurde nicht persistiert, erhalten: "
+            .. tostring(persistedOrder[1]) .. ", " .. tostring(persistedOrder[2]) .. ", "
+            .. tostring(persistedOrder[3]))
+end
+
+RunCharacterOrderSuite()
+
+-- ---------------------------------------------------------------------------
+-- Drag-and-drop-Umsortierung: echte Skripte ueber mock GetMouseFoci
+--
+-- OnDragStart faengt nur den Ausgangspunkt (WoW capturet die Maus auf dem
+-- Rahmen, der den Zug begann); OnReceiveDrag feuert dafuer NICHT bei einem
+-- custom RegisterForDrag-Zug (das ist Cursor-Objekten wie Items vorbehalten).
+-- Das Ziel wird deshalb in OnDragStop ueber GetMouseFoci ermittelt - genau
+-- das simuliert MOUSE_FOCUS/GetMouseFoci hier. Jede gepoolte Zeile und jeder
+-- Charakterreiter traegt dafuer dragCharacterKey.
+-- ---------------------------------------------------------------------------
+
+local function RunDragReorderSuite()
+    C_CurrencyInfo = RealCurrencyInfo()
+    local WAT = MakeWAT()
+    GetLocale = function() return "enUS" end
+    WAT.db.settings.characterOrder = { "test", "alt" }
+
+    LoadInto(WAT, "Localization.lua")
+    LoadInto(WAT, "Data.lua")
+    LoadInto(WAT, "UI.lua")
+    WAT:CreateUI()
+    WAT:SetActiveTab("overview")
+
+    local overview = WAT.panels.overview
+    local rowTest, rowAlt = overview.rows[1], overview.rows[2]
+    assert(rowTest.dragCharacterKey == "test" and rowAlt.dragCharacterKey == "alt",
+        "[drag] Zeilen tragen keinen dragCharacterKey")
+    assert(type(rowTest.scripts.OnDragStart) == "function"
+            and type(rowTest.scripts.OnDragStop) == "function",
+        "[drag] generische Zeile hat keine Drag-Skripte")
+    assert(rowTest.dragButtons ~= nil, "[drag] Zeile registriert kein LeftButton-Drag")
+
+    -- Zieht die "alt"-Zeile auf die "test"-Zeile: alt rutscht VOR test in
+    -- dessen alte Position (Einfuegen-vor-Ziel-Semantik, siehe
+    -- Core.lua:WAT:MoveCharacterOrder).
+    MOUSE_FOCUS = rowTest
+    rowAlt.scripts.OnDragStart(rowAlt)
+    rowAlt.scripts.OnDragStop(rowAlt)
+    MOUSE_FOCUS = nil
+    local order = WAT.db.settings.characterOrder
+    assert(order[1] == "alt" and order[2] == "test",
+        "[drag] Ziehen einer Zeile auf eine andere hat die Reihenfolge nicht vertauscht, erhalten: "
+            .. tostring(order[1]) .. ", " .. tostring(order[2]))
+    -- Wirkt SOFORT auf alle fuenf Panels: die Zeile an Position 1 zeigt jetzt alt.
+    assert(WAT.panels.overview.rows[1].character == WAT.db.characters.alt,
+        "[drag] Drag-Umsortierung aktualisiert die Uebersicht nicht sofort")
+    assert(WAT.panels.midnight.rows[1].character == WAT.db.characters.alt,
+        "[drag] Drag-Umsortierung wirkt nicht auf alle fuenf Panels (midnight)")
+    assert(WAT.panels.keystones.rows[1].character == WAT.db.characters.alt,
+        "[drag] Drag-Umsortierung wirkt nicht auf alle fuenf Panels (keystones)")
+
+    -- Selbst-Drop: Ziehen auf die eigene Zeile darf nichts veraendern.
+    local rowNowFirst = WAT.panels.overview.rows[1]
+    MOUSE_FOCUS = rowNowFirst
+    rowNowFirst.scripts.OnDragStart(rowNowFirst)
+    rowNowFirst.scripts.OnDragStop(rowNowFirst)
+    MOUSE_FOCUS = nil
+    order = WAT.db.settings.characterOrder
+    assert(order[1] == "alt" and order[2] == "test",
+        "[drag] Selbst-Drop hat die Reihenfolge veraendert")
+
+    -- Ungueltiges Ziel (keine gepoolte Zeile, kein dragCharacterKey): kein
+    -- Effekt, kein Fehler - etwa der Kopfbereich der Tabelle.
+    local header = overview.headerCells and overview.headerCells.character
+    if header then
+        local before = { order[1], order[2] }
+        MOUSE_FOCUS = header
+        local sourceRow = WAT.panels.overview.rows[1]
+        sourceRow.scripts.OnDragStart(sourceRow)
+        local ok = pcall(sourceRow.scripts.OnDragStop, sourceRow)
+        MOUSE_FOCUS = nil
+        assert(ok, "[drag] Drop auf ein Ziel ohne dragCharacterKey darf nicht werfen")
+        order = WAT.db.settings.characterOrder
+        assert(order[1] == before[1] and order[2] == before[2],
+            "[drag] ungueltiges Ziel hat trotzdem die Reihenfolge veraendert")
+    end
+
+    -- Kein Ziel unter dem Cursor (Drop ins Leere): ebenfalls kein Effekt.
+    local beforeEmpty = { order[1], order[2] }
+    MOUSE_FOCUS = nil
+    local sourceRow2 = WAT.panels.overview.rows[1]
+    sourceRow2.scripts.OnDragStart(sourceRow2)
+    local okEmpty = pcall(sourceRow2.scripts.OnDragStop, sourceRow2)
+    assert(okEmpty, "[drag] Drop ohne Ziel unter dem Cursor darf nicht werfen")
+    order = WAT.db.settings.characterOrder
+    assert(order[1] == beforeEmpty[1] and order[2] == beforeEmpty[2],
+        "[drag] Drop ins Leere hat trotzdem die Reihenfolge veraendert")
+
+    -- -----------------------------------------------------------------------
+    -- Statistik-Charakterreiter: dieselbe Umsortierung, GESAMT bleibt
+    -- angeheftet und ist NIE ziehbar.
+    -- -----------------------------------------------------------------------
+
+    WAT:SetActiveTab("statistics")
+    local statisticsPanel = WAT.panels.statistics
+    assert(type(statisticsPanel.totalTab.scripts.OnDragStart) ~= "function",
+        "[drag] der GESAMT-Reiter darf keine Ziehskripte tragen")
+    assert(statisticsPanel.totalTab.dragCharacterKey == nil,
+        "[drag] der GESAMT-Reiter darf kein dragCharacterKey tragen und damit nie Drop-Ziel sein")
+
+    -- Frischer, bekannter Ausgangszustand: der vorherige Zeilentest hat die
+    -- Reihenfolge bereits auf [alt, test] gebracht.
+    WAT.db.settings.characterOrder = { "test", "alt" }
+    WAT:RefreshUI()
+
+    local function TabFor(key)
+        for _, tab in ipairs(statisticsPanel.characterTabs) do
+            if tab.scopeKey == key then return tab end
+        end
+        return nil
+    end
+    local tabAlt, tabTest = TabFor("alt"), TabFor("test")
+    assert(tabAlt and tabTest, "[drag] Charakterreiter fuer alt/test fehlen")
+    assert(type(tabAlt.scripts.OnDragStart) == "function"
+            and type(tabAlt.scripts.OnDragStop) == "function",
+        "[drag] Charakterreiter hat keine Drag-Skripte")
+
+    -- Auswahl auf "test" setzen, dann "alt" auf "test" ziehen: alt rutscht vor
+    -- test, aber die Auswahl muss dem stabilen Schluessel folgen, nicht der
+    -- alten Position.
+    WAT:SetStatisticsScope("test")
+    MOUSE_FOCUS = TabFor("test")
+    local dragSource = TabFor("alt")
+    dragSource.scripts.OnDragStart(dragSource)
+    dragSource.scripts.OnDragStop(dragSource)
+    MOUSE_FOCUS = nil
+    assert(WAT.panels.statistics.scopeKey == "test",
+        "[drag] die Auswahl ueberlebt die Drag-Umsortierung der Reiter nicht")
+    local tabOrder = WAT.db.settings.characterOrder
+    assert(tabOrder[1] == "alt" and tabOrder[2] == "test",
+        "[drag] Ziehen eines Charakterreiters hat die Reihenfolge nicht umsortiert, erhalten: "
+            .. tostring(tabOrder[1]) .. ", " .. tostring(tabOrder[2]))
+
+    -- Selbst-Drop eines Reiters: kein Effekt.
+    local selfTab = TabFor("test")
+    MOUSE_FOCUS = selfTab
+    selfTab.scripts.OnDragStart(selfTab)
+    selfTab.scripts.OnDragStop(selfTab)
+    MOUSE_FOCUS = nil
+    local afterSelf = WAT.db.settings.characterOrder
+    assert(afterSelf[1] == "alt" and afterSelf[2] == "test",
+        "[drag] Selbst-Drop eines Charakterreiters hat die Reihenfolge veraendert")
+
+    -- Ziehen auf GESAMT darf NICHT wirken: GESAMT ist nie Umsortierungsziel.
+    MOUSE_FOCUS = statisticsPanel.totalTab
+    local ontoTotal = TabFor("alt")
+    ontoTotal.scripts.OnDragStart(ontoTotal)
+    local okTotal = pcall(ontoTotal.scripts.OnDragStop, ontoTotal)
+    MOUSE_FOCUS = nil
+    assert(okTotal, "[drag] Ziehen auf GESAMT darf nicht werfen")
+    local afterTotal = WAT.db.settings.characterOrder
+    assert(afterTotal[1] == "alt" and afterTotal[2] == "test",
+        "[drag] Ziehen eines Reiters auf GESAMT hat trotzdem die Reihenfolge veraendert")
+
+    -- Kein Objektwachstum durch Drag-Handling selbst.
+    local widgetsBefore = WidgetsCreated()
+    WAT:RefreshUI()
+    WAT:RefreshUI()
+    assert(WidgetsCreated() == widgetsBefore,
+        "[drag] Drag-Handling erzeugt bei wiederholtem RefreshUI neue Objekte")
+
+    -- Recycelte/ausgeblendete Widgets duerfen keinen alten Drop-Schluessel
+    -- behalten. Das ist bei versteckten Frames zwar nicht erreichbar, verhindert
+    -- aber, dass spaetere Pool-Aenderungen versehentlich auf veraltete Ziele zeigen.
+    WAT.db.characters.alt = nil
+    WAT:RefreshUI()
+    for _, panelKey in ipairs({ "overview", "midnight", "professions", "sources", "keystones" }) do
+        local recycled = WAT.panels[panelKey].rows[2]
+        assert(recycled and recycled.dragCharacterKey == nil and recycled.character == nil,
+            "[drag] ausgeblendete Zeile behaelt alten Charakterschluessel: " .. panelKey)
+    end
+    local recycledTab = WAT.panels.statistics.characterTabs[2]
+    assert(recycledTab and recycledTab.dragCharacterKey == nil and recycledTab.character == nil,
+        "[drag] ausgeblendeter Statistikreiter behaelt alten Charakterschluessel")
+end
+
+-- Echter Rendervertrag fuer die drei Weekly-Zustaende. Die Scanner-Harnesses
+-- pruefen die gespeicherten Felder; diese Suite beweist zusaetzlich, dass die
+-- gepoolten UI-Zeilen sie wirklich anzeigen und alte Snapshots lesbar bleiben.
+local function RunWeeklyQuestRenderingSuite()
+    C_CurrencyInfo = RealCurrencyInfo()
+    local WAT = MakeWAT()
+    GetLocale = function() return "enUS" end
+    WAT.db.settings.characterOrder = { "test", "alt" }
+    LoadInto(WAT, "Localization.lua")
+    LoadInto(WAT, "Data.lua")
+    LoadInto(WAT, "UI.lua")
+    WAT:CreateUI()
+
+    local character = WAT.db.characters.test
+    local function FirstRow(panelKey)
+        WAT:SetActiveTab(panelKey)
+        WAT:RefreshUI()
+        return WAT.panels[panelKey].rows[1]
+    end
+
+    character.weekly.midnightWeekly = {
+        questID = 93909, active = true, completed = true,
+        readyToTurnIn = true, turnedIn = false, current = 5, required = 5,
+        variantKnown = true, updated = 995,
+    }
+    local midnightReady = FirstRow("midnight").values.weekly.text or ""
+    assert(string.find(midnightReady, "Ready to turn in", 1, true),
+        "[quest-render] Midnight abgabebereit wird nicht angezeigt: " .. midnightReady)
+
+    character.weekly.midnightWeekly.readyToTurnIn = false
+    character.weekly.midnightWeekly.turnedIn = true
+    local midnightTurned = FirstRow("midnight").values.weekly.text or ""
+    assert(string.find(midnightTurned, "Turned in", 1, true),
+        "[quest-render] Midnight abgegeben wird nicht angezeigt: " .. midnightTurned)
+    assert(not string.find(midnightTurned, "Ready to turn in", 1, true),
+        "[quest-render] abgegebene Midnight-Quest bleibt faelschlich abgabebereit")
+
+    character.weekly.midnightWeekly = {
+        questID = 93909, active = false, completed = true,
+        variantKnown = false, updated = 995,
+    }
+    local midnightLegacy = FirstRow("midnight").values.weekly.text or ""
+    assert(string.find(midnightLegacy, "done", 1, true),
+        "[quest-render] alter Midnight-Snapshot ohne neue Felder ist nicht lesbar: " .. midnightLegacy)
+
+    local profession = character.weekly.professions[1]
+    profession.weeklyDone = false
+    profession.weeklyQuest = {
+        active = true, completed = false, readyToTurnIn = false,
+        turnedIn = false, current = 3, required = 5,
+    }
+    local professionActive = FirstRow("professions").values.weekly1.text or ""
+    assert(string.find(professionActive, "3/5", 1, true),
+        "[quest-render] Berufs-Weekly-Fortschritt fehlt: " .. professionActive)
+
+    profession.weeklyQuest.completed = true
+    profession.weeklyQuest.readyToTurnIn = true
+    local professionReady = FirstRow("professions").values.weekly1.text or ""
+    assert(string.find(professionReady, "Ready to turn in", 1, true),
+        "[quest-render] Berufs-Weekly abgabebereit fehlt: " .. professionReady)
+
+    profession.weeklyDone = true
+    profession.weeklyQuest.readyToTurnIn = false
+    profession.weeklyQuest.turnedIn = true
+    local professionTurned = FirstRow("professions").values.weekly1.text or ""
+    assert(string.find(professionTurned, "Turned in", 1, true),
+        "[quest-render] Berufs-Weekly abgegeben fehlt: " .. professionTurned)
+
+    profession.weeklyQuest = nil
+    local professionLegacy = FirstRow("professions").values.weekly1.text or ""
+    assert(string.find(professionLegacy, "done", 1, true),
+        "[quest-render] alter Berufs-Snapshot ohne weeklyQuest ist nicht lesbar: " .. professionLegacy)
+end
+
+RunDragReorderSuite()
+RunWeeklyQuestRenderingSuite()
 
 print("LUA UI RUNTIME OK: 7/7 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10,"
     .. " offene Berufs-Wochenquest, gesperrter Wappentausch und Wappensymbole"

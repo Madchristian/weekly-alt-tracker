@@ -95,25 +95,42 @@ local function CandidateIsBetter(candidate, best)
     return candidateRatio > bestRatio
 end
 
-function WAT:ScanMidnightWeekly()
-    if type(Data.META_QUESTS) ~= "table" then return nil end
+-- Gemeinsame Poolauswahl fuer Midnight-Weekly und Berufs-Wochenquests: beide
+-- sind Listen alternativer questIDs, von denen hoechstens eine gleichzeitig
+-- im Log steht. readyToTurnIn (im Log erfuellt, aber noch nicht abgegeben)
+-- und turnedIn (IsQuestFlaggedCompleted) sind getrennte Zustaende - ein
+-- abgegebener Quest darf nie gleichzeitig als abgabebereit gelten, selbst
+-- wenn sein Zielobjekt zufaellig weiterhin "finished" meldet. Bleibt ein
+-- Zustand unlesbar, bleibt das jeweilige Feld nil statt eines erfundenen
+-- false (Invariante 1).
+local function ReadPoolQuestState(pool)
+    if type(pool) ~= "table" or #pool == 0 then return nil end
     local best
-    local completionKnown = true
-    local onLogKnown = true
-    local completedWithoutLog
+    local sawUnknown = false
+    local completedWithoutLogID
 
-    for _, questID in ipairs(Data.META_QUESTS) do
+    for _, questID in ipairs(pool) do
         local onLog = QuestOnLog(questID)
-        local completed = QuestCompleted(questID)
-        if onLog == nil then onLogKnown = false end
-        if completed == nil then completionKnown = false end
-        if completed then completedWithoutLog = true end
-        if onLog then
+        local turnedIn = QuestCompleted(questID)
+        if onLog == nil then sawUnknown = true end
+        if turnedIn == nil then sawUnknown = true end
+        if turnedIn == true and onLog ~= true then completedWithoutLogID = questID end
+        if onLog == true then
             local current, required, objectiveFinished, percent = ReadQuestProgress(questID)
+            local readyToTurnIn
+            if turnedIn == true then
+                readyToTurnIn = false
+            elseif turnedIn == false then
+                if objectiveFinished == true then
+                    readyToTurnIn = true
+                elseif objectiveFinished == false then
+                    readyToTurnIn = false
+                end
+            end
             local done
-            if completed == true or objectiveFinished == true then
+            if turnedIn == true or objectiveFinished == true then
                 done = true
-            elseif completed == false and objectiveFinished == false then
+            elseif turnedIn == false and objectiveFinished == false then
                 done = false
             end
             -- Bewusst ohne Label: der Snapshot speichert nur die questID,
@@ -124,6 +141,8 @@ function WAT:ScanMidnightWeekly()
                 required = required,
                 percent = percent,
                 completed = done,
+                readyToTurnIn = readyToTurnIn,
+                turnedIn = turnedIn,
                 active = true,
                 variantKnown = true,
                 updated = time(),
@@ -133,13 +152,31 @@ function WAT:ScanMidnightWeekly()
     end
 
     if best then return best end
-    if completedWithoutLog then
-        return { completed = true, active = false, variantKnown = false, updated = time() }
+    if completedWithoutLogID then
+        return {
+            questID = completedWithoutLogID,
+            completed = true,
+            turnedIn = true,
+            readyToTurnIn = false,
+            active = false,
+            variantKnown = false,
+            updated = time(),
+        }
     end
-    if completionKnown and onLogKnown then
-        return { completed = false, active = false, variantKnown = false, updated = time() }
-    end
-    return nil
+    if sawUnknown then return nil end
+    return {
+        completed = false,
+        turnedIn = false,
+        readyToTurnIn = false,
+        active = false,
+        variantKnown = false,
+        updated = time(),
+    }
+end
+
+function WAT:ScanMidnightWeekly()
+    if type(Data.META_QUESTS) ~= "table" then return nil end
+    return ReadPoolQuestState(Data.META_QUESTS)
 end
 
 local function CountCompletedPool(pool)
@@ -240,6 +277,7 @@ local function ReadWeeklyProfession(identity)
         baseSkillLineID = baseSkillLineID,
         weeklyDone = weeklyDone,
         weeklyQuestID = weeklyQuestID,
+        weeklyQuest = ReadPoolQuestState(weeklyPool),
         treatiseDone = treatiseDone,
         treatiseQuestID = treatiseQuestID,
         updated = time(),

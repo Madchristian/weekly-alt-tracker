@@ -747,6 +747,147 @@ do
 end
 
 -- ---------------------------------------------------------------------------
+-- 7. Charakterreihenfolge: settings.characterOrder
+--
+-- Additiv, Schema bleibt Version 2. NormalizeCharacterOrder ist die einzige
+-- Quelle der Wahrheit ueber die Sortierung: sie behaelt bekannte, eindeutige
+-- Schluessel in der gespeicherten Reihenfolge, verwirft alles Unbrauchbare
+-- und haengt neue Charaktere deterministisch alphabetisch (Name+Realm) an.
+-- MoveCharacterOrder verschiebt tatsaechlich, statt nur zu tauschen.
+-- ---------------------------------------------------------------------------
+
+local function MakeOrderCharacter(name, realm)
+    return { name = name, realm = realm, weekly = {} }
+end
+
+-- 7a. Frische Datenbank ohne Charaktere: leere, aber vorhandene Reihenfolge.
+do
+    local WAT = Load("deDE")
+    WeeklyAltTrackerDB = nil
+    WAT:InitializeDatabase()
+    check(type(WeeklyAltTrackerDB.settings.characterOrder) == "table",
+        "settings.characterOrder fehlt nach Erstinitialisierung")
+    checkEqual(#WeeklyAltTrackerDB.settings.characterOrder, 0,
+        "settings.characterOrder muss ohne Charaktere leer sein")
+end
+
+-- 7b. Charaktere ohne gespeicherte Reihenfolge: deterministisch alphabetisch
+-- nach Name+Realm, kleingeschrieben - identisch zur bisherigen Tabellensortierung.
+do
+    local WAT = Load("deDE")
+    WeeklyAltTrackerDB = {
+        characters = {
+            charA = MakeOrderCharacter("Charlie", "Realm"),
+            charB = MakeOrderCharacter("Alice", "Realm"),
+            charC = MakeOrderCharacter("Bob", "Realm"),
+        },
+    }
+    WAT:InitializeDatabase()
+    local order = WeeklyAltTrackerDB.settings.characterOrder
+    check(type(order) == "table", "characterOrder fehlt bei Erstbefuellung")
+    if type(order) == "table" then
+        checkEqual(#order, 3, "characterOrder muss alle drei Charaktere fuehren")
+        checkEqual(order[1], "charB", "erster Platz muss Alice sein (alphabetisch)")
+        checkEqual(order[2], "charC", "zweiter Platz muss Bob sein (alphabetisch)")
+        checkEqual(order[3], "charA", "dritter Platz muss Charlie sein (alphabetisch)")
+    end
+end
+
+-- 7c. Gespeicherte Reihenfolge ueberlebt: bekannte Schluessel bleiben in ihrer
+-- Reihenfolge, verwaiste/doppelte/nicht-String/Secret-Eintraege verschwinden,
+-- ein neuer, noch nicht gefuehrter Charakter wird deterministisch angehaengt.
+do
+    local WAT = Load("deDE")
+    WeeklyAltTrackerDB = {
+        characters = {
+            charA = MakeOrderCharacter("Charlie", "Realm"),
+            charB = MakeOrderCharacter("Alice", "Realm"),
+            charC = MakeOrderCharacter("Bob", "Realm"),
+        },
+        settings = {
+            -- charA vor charC (bewusst NICHT alphabetisch), dazwischen und
+            -- danach Muell: ein verwaister Schluessel, eine Dublette, ein
+            -- Secret Value und ein nicht-String-Eintrag. charB fehlt komplett
+            -- und muss ans Ende.
+            characterOrder = { "charA", "geist-key", "charA", SECRET_VALUE, 42, "charC" },
+        },
+    }
+    WAT:InitializeDatabase()
+    local order = WeeklyAltTrackerDB.settings.characterOrder
+    check(type(order) == "table", "characterOrder fehlt nach Normalisierung")
+    if type(order) == "table" then
+        checkEqual(#order, 3,
+            "characterOrder muss nach der Normalisierung genau drei Eintraege haben, hat " .. #order)
+        checkEqual(order[1], "charA", "gespeicherte Reihenfolge (charA zuerst) wurde nicht erhalten")
+        checkEqual(order[2], "charC", "gespeicherte Reihenfolge (charC zweitens) wurde nicht erhalten")
+        checkEqual(order[3], "charB", "neuer, nicht gefuehrter Charakter wurde nicht deterministisch angehaengt")
+    end
+end
+
+-- 7d. WAT:MoveCharacterOrder verschiebt tatsaechlich um, statt nur zu tauschen,
+-- persistiert sofort und verwirft ungueltige/Selbst-Drops ohne Seiteneffekt.
+do
+    local WAT = Load("deDE")
+    WeeklyAltTrackerDB = {
+        characters = {
+            charA = MakeOrderCharacter("Charlie", "Realm"),
+            charB = MakeOrderCharacter("Alice", "Realm"),
+            charC = MakeOrderCharacter("Bob", "Realm"),
+        },
+    }
+    WAT:InitializeDatabase()
+    -- Ausgangslage laut 7b: charB, charC, charA.
+    local function Order() return WeeklyAltTrackerDB.settings.characterOrder end
+
+    -- A springt von hinten nach ganz vorn (vor B).
+    local moved = WAT:MoveCharacterOrder("charA", "charB")
+    check(moved == true, "gueltiges Verschieben muss true liefern")
+    checkEqual(Order()[1], "charA", "charA muss auf Platz 1 stehen")
+    checkEqual(Order()[2], "charB", "charB muss auf Platz 2 stehen")
+    checkEqual(Order()[3], "charC", "charC muss auf Platz 3 bleiben")
+
+    -- C springt von hinten nach ganz vorn (vor A): das Ziel landet exakt an
+    -- der alten Zielposition, nicht bloss vertauscht.
+    local movedUp = WAT:MoveCharacterOrder("charC", "charA")
+    check(movedUp == true, "Verschieben nach vorn muss true liefern")
+    checkEqual(Order()[1], "charC", "charC muss nach vorn auf Platz 1 gerutscht sein")
+    checkEqual(Order()[2], "charA", "charA muss auf Platz 2 gerutscht sein")
+    checkEqual(Order()[3], "charB", "charB muss auf Platz 3 gerutscht sein")
+
+    -- C springt zurueck nach hinten auf die bisherige Position von B. Beim
+    -- Verschieben nach unten muss die Quelle HINTER dem Ziel landen; andernfalls
+    -- koennte ein Charakter per Drag-and-drop niemals den letzten Platz erreichen.
+    local movedDown = WAT:MoveCharacterOrder("charC", "charB")
+    check(movedDown == true, "Verschieben nach hinten muss true liefern")
+    checkEqual(Order()[1], "charA", "charA muss auf Platz 1 bleiben")
+    checkEqual(Order()[2], "charB", "charB muss beim Abwaertsverschieben auf Platz 2 ruecken")
+    checkEqual(Order()[3], "charC", "charC muss die bisherige Zielposition am Ende uebernehmen")
+
+    local beforeInvalid = { Order()[1], Order()[2], Order()[3] }
+    local selfDrop = WAT:MoveCharacterOrder("charA", "charA")
+    check(selfDrop ~= true, "Selbst-Drop darf kein erfolgreiches Verschieben melden")
+    checkEqual(Order()[1], beforeInvalid[1], "Selbst-Drop hat die Reihenfolge veraendert (Platz 1)")
+    checkEqual(Order()[2], beforeInvalid[2], "Selbst-Drop hat die Reihenfolge veraendert (Platz 2)")
+    checkEqual(Order()[3], beforeInvalid[3], "Selbst-Drop hat die Reihenfolge veraendert (Platz 3)")
+
+    local unknownTarget = WAT:MoveCharacterOrder("charA", "nicht-vorhanden")
+    check(unknownTarget ~= true, "unbekanntes Ziel darf kein erfolgreiches Verschieben melden")
+    checkEqual(Order()[1], beforeInvalid[1], "unbekanntes Ziel hat die Reihenfolge veraendert (Platz 1)")
+    checkEqual(Order()[3], beforeInvalid[3], "unbekanntes Ziel hat die Reihenfolge veraendert (Platz 3)")
+
+    local unknownSource = WAT:MoveCharacterOrder("nicht-vorhanden", "charA")
+    check(unknownSource ~= true, "unbekannte Quelle darf kein erfolgreiches Verschieben melden")
+    checkEqual(Order()[1], beforeInvalid[1], "unbekannte Quelle hat die Reihenfolge veraendert (Platz 1)")
+
+    for _, badKey in ipairs({ "", 42, SECRET_VALUE }) do
+        local ok, result = pcall(function() return WAT:MoveCharacterOrder(badKey, "charA") end)
+        check(ok, "MoveCharacterOrder wirft bei unbrauchbarem Schluessel (" .. type(badKey) .. ")")
+        check(result ~= true, "unbrauchbarer Schluessel darf kein erfolgreiches Verschieben melden")
+    end
+    local okNil, resultNil = pcall(function() return WAT:MoveCharacterOrder(nil, "charA") end)
+    check(okNil, "MoveCharacterOrder wirft bei nil-Quelle")
+    check(resultNil ~= true, "nil-Quelle darf kein erfolgreiches Verschieben melden")
+end
 
 if failures > 0 then
     error(failures .. " Core-Runtime-Prüfungen fehlgeschlagen")
@@ -754,4 +895,5 @@ end
 
 print("LUA CORE RUNTIME OK: " .. #LOCALE_CASES .. " Locale-Szenarien, InitializeDatabase/db.version=2,"
     .. " 0.2.5-Migration mit GUID-Re-Key und lastSeen-Kollision, sprachstabiler Fallback-Schluessel,"
-    .. " " .. #SLASH_CASES .. " Slash-Szenarien in deDE/enUS/frFR und Wochenfenster-Logik")
+    .. " " .. #SLASH_CASES .. " Slash-Szenarien in deDE/enUS/frFR, Wochenfenster-Logik und"
+    .. " globale Charakterreihenfolge (Normalisierung, Anhaengen, Verschieben)")

@@ -55,11 +55,13 @@ Mythic+, plus a dedicated `M+10 / 272` column showing whether a dungeon at +10 o
 higher has been safely completed.
 
 **Midnight Week** - the active Midnight weekly quest with variant and progress,
-hunts on Normal, Hard and Nightmare (0/4 each), and Ritual Sites progress.
+with separate `Ready to turn in` and `Turned in` states, plus hunts on Normal,
+Hard and Nightmare (0/4 each), and Ritual Sites progress.
 
 **Professions** - Midnight skill for both primary professions, free knowledge
 points, unused knowledge points still sitting in your bags with a per-item
-tooltip breakdown, the profession weekly and the Thalassian Treatise.
+tooltip breakdown, profession weekly progress with a separate turn-in state,
+and the Thalassian Treatise.
 
 **Crest Sources** - weekly, one-off/seasonal and repeatable sources: Gilded
 Stash, Cracked Keystone, Nullaeus T11, Ritual Sites T6, Mythic+ from +9 and the
@@ -103,7 +105,10 @@ Raid progress and the raid vault are deliberately not tracked.
 - `/weeklyalt` - equivalent alias
 
 The minimap button opens the window on left click and can be dragged around the
-minimap edge. Refresh, position, scale and button visibility are controlled in
+minimap edge. `ESC` closes the addon like a standard Blizzard window. Character
+rows and Statistics tabs can be reordered account-wide by drag-and-drop; the
+same order applies to every view and survives restarts. Refresh, position, scale
+and button visibility are controlled in
 the **Settings** section; there are no public slash subcommands from 0.3.0 on.
 
 ### Notes

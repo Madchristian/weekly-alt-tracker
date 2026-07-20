@@ -356,6 +356,14 @@ local function MidnightWeeklyText(snapshot, stale)
     if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
     if type(snapshot) ~= "table" then return COLORS.unknown .. "-|r" end
     local label = MidnightWeeklyLabel(snapshot)
+    if snapshot.turnedIn == true then
+        local variant = snapshot.variantKnown and label or L("STATUS_VARIANT_UNKNOWN")
+        return COLORS.green .. L("STATUS_TURNED_IN") .. "|r  |cff8f9aa9" .. (variant or "") .. "|r"
+    end
+    if snapshot.readyToTurnIn == true then
+        local variant = snapshot.variantKnown and label or L("STATUS_VARIANT_UNKNOWN")
+        return COLORS.amber .. L("STATUS_READY_TO_TURN_IN") .. "|r  |cff8f9aa9" .. (variant or "") .. "|r"
+    end
     if snapshot.completed == true then
         local variant = snapshot.variantKnown and label or L("STATUS_VARIANT_UNKNOWN")
         return COLORS.green .. L("STATUS_DONE") .. "|r  |cff8f9aa9" .. (variant or "") .. "|r"
@@ -566,6 +574,31 @@ local function ProfessionKnowledgeText(progress)
         or (bagNumber ~= nil and bagNumber > 0)
     local color = hasKnowledge and COLORS.amber or "|cffb0bac6"
     return color .. free .. " / " .. bag .. "|r"
+end
+
+local function ProfessionWeeklyText(profession, stale)
+    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
+    local quest = type(profession) == "table" and profession.weeklyQuest or nil
+    if type(quest) == "table" then
+        if quest.turnedIn == true then
+            return COLORS.green .. L("STATUS_TURNED_IN") .. "|r"
+        end
+        if quest.readyToTurnIn == true then
+            return COLORS.amber .. L("STATUS_READY_TO_TURN_IN") .. "|r"
+        end
+        if quest.active == true and type(quest.current) == "number"
+                and type(quest.required) == "number" then
+            return COLORS.amber .. string.format("%s/%s", tostring(quest.current),
+                tostring(quest.required)) .. "|r"
+        end
+        if quest.completed == true then
+            return COLORS.green .. L("STATUS_DONE") .. "|r"
+        end
+        if quest.active == true then
+            return COLORS.amber .. L("STATUS_ACTIVE") .. "|r"
+        end
+    end
+    return BooleanStatus(ProfessionFlag(profession, "weeklyDone"), false)
 end
 
 local function KnowledgeItemName(itemID)
@@ -963,6 +996,7 @@ function WAT:ShowCharacterTooltip(row)
     end
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(L("TOOLTIP_OFFLINE_HINT"), 0.56, 0.6, 0.66, true)
+    GameTooltip:AddLine(L("TOOLTIP_DRAG_REORDER"), 0.56, 0.6, 0.66, true)
     GameTooltip:Show()
 end
 
@@ -1071,6 +1105,64 @@ local function CreatePanel(parent, key, definition)
     panel.child = child
     panel.rows = {}
     return panel
+end
+
+-- ---------------------------------------------------------------------------
+-- Drag-and-drop-Umsortierung
+--
+-- OnDragStart faengt nur den Ausgangspunkt: WoW capturet die Maus auf dem
+-- Rahmen, der den Zug begonnen hat. Ein OnReceiveDrag auf einem fremden
+-- Rahmen feuert dafuer NICHT - das ist ausschliesslich Cursor-Objekten wie
+-- Items oder Zaubern vorbehalten, nicht einem per RegisterForDrag bewegten
+-- eigenen Rahmen. Das Ziel wird deshalb erst in OnDragStop ermittelt:
+-- GetMouseFoci (bzw. der aeltere Einzelname GetMouseFocus als Rueckfall)
+-- liefert, was gerade unter dem Cursor liegt, unabhaengig vom Ausgangsrahmen.
+--
+-- Jede gepoolte Zeile und jeder Charakterreiter traegt dafuer sein eigenes
+-- dragCharacterKey. Der GESAMT-Reiter der Statistikseite bekommt bewusst
+-- weder Ziehskripte noch ein dragCharacterKey: er ist damit weder Quelle noch
+-- Ziel einer Umsortierung. Dieser Block steht bewusst VOR
+-- RefreshStatisticsDashboard/CreateRow, die AttachCharacterDragHandlers als
+-- lokale Funktion referenzieren - Lua loest ein "local function" nur fuer
+-- Code auf, der textuell danach steht.
+-- ---------------------------------------------------------------------------
+
+local function FindDragTargetKey()
+    local getter = GetMouseFoci or GetMouseFocus
+    if type(getter) ~= "function" then return nil end
+    local ok, result = pcall(getter)
+    if not ok or result == nil then return nil end
+    if type(result) == "table" and result.dragCharacterKey == nil and type(result[1]) == "table" then
+        -- GetMouseFoci liefert eine Liste, der oberste Treffer zuerst.
+        result = result[1]
+    end
+    if type(result) ~= "table" then return nil end
+    local key = result.dragCharacterKey
+    return (type(key) == "string" and key ~= "") and key or nil
+end
+
+function WAT:BeginCharacterDrag(sourceKey)
+    if type(sourceKey) ~= "string" or sourceKey == "" then return end
+    self.dragCharacterKey = sourceKey
+end
+
+function WAT:EndCharacterDrag()
+    local sourceKey = self.dragCharacterKey
+    self.dragCharacterKey = nil
+    if type(sourceKey) ~= "string" then return end
+    local targetKey = FindDragTargetKey()
+    if not targetKey or targetKey == sourceKey then return end
+    if self:MoveCharacterOrder(sourceKey, targetKey) then
+        self:RefreshUI()
+    end
+end
+
+local function AttachCharacterDragHandlers(frame)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", function(self)
+        if self.dragCharacterKey then WAT:BeginCharacterDrag(self.dragCharacterKey) end
+    end)
+    frame:SetScript("OnDragStop", function() WAT:EndCharacterDrag() end)
 end
 
 -- ---------------------------------------------------------------------------
@@ -1414,13 +1506,17 @@ function WAT:RefreshStatisticsDashboard(panel, characters, characterKeys)
                     .. (character.realm or unknown),
                     COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
                 AddTooltipLine(L("TOOLTIP_CLASS"), character.className or "-")
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddLine(L("TOOLTIP_DRAG_REORDER"), 0.56, 0.6, 0.66, true)
                 GameTooltip:Show()
             end)
             tab:SetScript("OnLeave", function() GameTooltip:Hide() end)
+            AttachCharacterDragHandlers(tab)
             panel.characterTabs[index] = tab
         end
         local character = characters[index]
         tab.scopeKey = characterKeys[index]
+        tab.dragCharacterKey = characterKeys[index]
         tab.character = character
         local unknown = L("CHARACTER_UNKNOWN")
         tab.label:SetText((character.name or unknown) .. "-" .. (character.realm or unknown))
@@ -1430,14 +1526,17 @@ function WAT:RefreshStatisticsDashboard(panel, characters, characterKeys)
         if slot >= 1 and slot <= visible then
             tab:ClearAllPoints()
             tab:SetPoint("TOPLEFT", (slot - 1) * (TAB_WIDTH + TAB_GAP), 0)
+            tab.dragCharacterKey = characterKeys[index]
             tab:Show()
         else
+            tab.dragCharacterKey = nil
             tab:Hide()
         end
     end
     for index = count + 1, #panel.characterTabs do
         local tab = panel.characterTabs[index]
         tab.scopeKey = nil
+        tab.dragCharacterKey = nil
         tab.character = nil
         tab:Hide()
     end
@@ -1709,9 +1808,25 @@ function WAT:SetActiveTab(key)
     self:RefreshUI()
 end
 
+-- Registriert einen Rahmennamen genau einmal in UISpecialFrames. Das ist die
+-- WoW-Standardsemantik fuer "ESC schliesst dieses Fenster": Blizzards eigener
+-- Escape-Handler durchlaeuft diese Liste globaler Frame-Namen und ruft fuer
+-- jeden sichtbaren Treffer :Hide() auf. Ohne eigenes OnKeyDown, ohne eigene
+-- Tastaturbindung - und deshalb ohne Konflikt mit Slash-Befehl oder
+-- Minimap-Symbol, die weiterhin ganz normal ToggleUI/ShowUI/HideUI aufrufen.
+local function EnsureUISpecialFrame(name)
+    local special = _G.UISpecialFrames
+    if type(name) ~= "string" or name == "" or type(special) ~= "table" then return end
+    for _, existing in ipairs(special) do
+        if existing == name then return end
+    end
+    table.insert(special, name)
+end
+
 function WAT:CreateUI()
     if self.frame then return end
-    local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    local frame = CreateFrame("Frame", "WeeklyAltTrackerFrame", UIParent, "BackdropTemplate")
+    EnsureUISpecialFrame("WeeklyAltTrackerFrame")
     frame:SetSize(FRAME_WIDTH, FRAME_HEIGHT)
     frame:SetClampedToScreen(true)
     frame:SetMovable(true)
@@ -1877,26 +1992,23 @@ function WAT:CreateUI()
     if self.db.settings.seenIntro then frame:Hide() else self.db.settings.seenIntro = true end
 end
 
--- Liefert die sortierten Charaktere UND ihre stabilen Datenbankschluessel in
--- derselben Reihenfolge. Die Statistikseite haengt ihre Auswahl an diesen
--- Schluessel (die GUID), nicht an einer Position: eine Position verschiebt
--- sich, sobald ein Charakter dazukommt oder umbenannt wird.
+-- Liefert die Charaktere UND ihre stabilen Datenbankschluessel in derselben
+-- Reihenfolge. WAT:NormalizeCharacterOrder() in Core.lua ist die EINE Quelle
+-- der Wahrheit fuer diese Reihenfolge - sie treibt alle fuenf Tabellenseiten
+-- UND die Statistik-Charakterreiter. Die Statistikseite haengt ihre Auswahl
+-- zusaetzlich an den stabilen Schluessel (die GUID), nicht an einer Position:
+-- eine Position verschiebt sich, sobald ein Charakter dazukommt oder per
+-- Drag-and-drop umsortiert wird.
 local function GetCharacters()
-    local entries = {}
-    for key, character in pairs(WAT.db.characters) do
-        if type(character) == "table" then
-            entries[#entries + 1] = { key = key, character = character }
-        end
-    end
-    table.sort(entries, function(a, b)
-        local an = string.lower((a.character.name or "") .. (a.character.realm or ""))
-        local bn = string.lower((b.character.name or "") .. (b.character.realm or ""))
-        return an < bn
-    end)
+    local order = WAT:NormalizeCharacterOrder()
+    if type(order) ~= "table" then order = {} end
     local characters, keys = {}, {}
-    for index, entry in ipairs(entries) do
-        characters[index] = entry.character
-        keys[index] = entry.key
+    for _, key in ipairs(order) do
+        local character = WAT.db.characters[key]
+        if type(character) == "table" then
+            characters[#characters + 1] = character
+            keys[#keys + 1] = key
+        end
     end
     return characters, keys
 end
@@ -1939,6 +2051,7 @@ local function CreateRow(panel, index)
         r:SetBackdropColor(color[1], color[2], color[3], color[4])
         GameTooltip:Hide()
     end)
+    AttachCharacterDragHandlers(row)
     panel.rows[index] = row
     return row
 end
@@ -1980,7 +2093,7 @@ local function FillProfessions(row, character, weekly, stale)
             or COLORS.unknown .. L("STATUS_NOT_TRACKED") .. "|r")
         row.values[skillKey]:SetText(ProfessionSkillText(progress))
         row.values[knowledgeKey]:SetText(ProfessionKnowledgeText(progress))
-        row.values[weeklyKey]:SetText(BooleanStatus(ProfessionFlag(profession, "weeklyDone"), stale))
+        row.values[weeklyKey]:SetText(ProfessionWeeklyText(profession, stale))
         row.values[treatiseKey]:SetText(BooleanStatus(ProfessionFlag(profession, "treatiseDone"), stale))
     end
 end
@@ -2072,12 +2185,17 @@ function WAT:RefreshUI()
         if panel.isDashboard then
             self:RefreshStatisticsDashboard(panel, characters, characterKeys)
         elseif not panel.isForm then
-            for _, row in ipairs(panel.rows) do row:Hide() end
+            for _, row in ipairs(panel.rows) do
+                row.character = nil
+                row.dragCharacterKey = nil
+                row:Hide()
+            end
             local index = 0
             for _, character in ipairs(characters) do
                 index = index + 1
                 local row = PlaceRow(panel, index)
                 row.character = character
+                row.dragCharacterKey = characterKeys[index]
                 PaintRow(row, index % 2 == 0 and COLORS.alternate or COLORS.surface)
                 local weekly = type(character.weekly) == "table" and character.weekly or {}
                 local stale = self:IsStale(character)

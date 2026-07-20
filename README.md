@@ -38,7 +38,7 @@ Der Slash-Befehl `/wat` ist in beiden Sprachen identisch; nur seine Ausgabe ist 
 
 ### Midnight-Woche
 
-- Aktive Midnight-Wochenquest samt Variante und Fortschritt
+- Aktive Midnight-Wochenquest samt Variante und Fortschritt; die Anzeige unterscheidet aktiv mit Fortschritt (z. B. `3/5`) von erledigt (Ziel im Log erfüllt oder bereits abgegeben) anhand des echten Quest-API-Zustands
 - Jagden auf Normal, Schwer und Albtraum, jeweils 0/4
 - Ritualstätten samt Prozentfortschritt
 
@@ -51,7 +51,7 @@ Für die beiden Hauptberufe des Charakters:
 - freie, bereits gutgeschriebene Wissenspunkte
 - noch nicht benutzte Midnight-Wissenspunkte in normalen Taschen und Reagenzientasche
 - Tooltip-Aufschlüsselung nach Wissensgegenstand, Stapelmenge und Punktwert
-- Berufs-Wochenquest
+- Berufs-Wochenquest, ebenfalls mit echtem aktiv/erledigt-Zustand statt eines bloßen Abgabeflags
 - Thalassischer Traktat
 
 Unterstützt werden Alchemie, Schmiedekunst, Ingenieurskunst, Inschriftenkunde, Juwelierskunst, Lederverarbeitung, Schneiderei, Verzauberkunst, Kräuterkunde, Bergbau und Kürschnerei.
@@ -88,7 +88,7 @@ Neu in 0.3.0, in 0.4.0 von neun auf dreizehn Werte erweitert. Der Bereich erfass
 
 Dreizehn Werte passen nicht nebeneinander in die Tabellenbreite. Seit 0.4.2 zeigt der Bereich deshalb keinen Vergleich aller Charaktere mehr, sondern immer genau **einen Bereich** – und für diesen alle dreizehn Werte gleichzeitig.
 
-Den Bereich wählt eine feste Registerleiste am unteren Rand: ganz links dauerhaft **GESAMT** (die Accountsumme), rechts daneben je ein Reiter pro bekanntem Charakter in der bisherigen deterministischen Sortierung. Ab dem achten Charakter liegen die Charakterreiter in einem waagerecht blätternden Ausschnitt mit ausdrücklichen Pfeilen; **GESAMT** bleibt dabei immer angeheftet und blättert nie mit weg. Die Auswahl hängt am stabilen Charakterschlüssel (der GUID), nicht an einer Position: sie überlebt jede Aktualisierung, und verschwindet der Charakter aus der Datenbank, fällt der Bereich auf **GESAMT** zurück statt eine fremde Zahl zu zeigen. Der aktive GESAMT-Reiter ist türkis, der aktive Charakterreiter trägt seine Klassenfarbe; inaktive Reiter bleiben im neutralen Dunkel.
+Den Bereich wählt eine feste Registerleiste am unteren Rand: ganz links dauerhaft **GESAMT** (die Accountsumme), rechts daneben je ein Reiter pro bekanntem Charakter in der gespeicherten, per Ziehen sortierbaren Reihenfolge (siehe [Bedienung](#bedienung)). Ab dem achten Charakter liegen die Charakterreiter in einem waagerecht blätternden Ausschnitt mit ausdrücklichen Pfeilen; **GESAMT** bleibt dabei immer angeheftet, ist selbst nicht verschiebbar und blättert nie mit weg. Die Auswahl hängt am stabilen Charakterschlüssel (der GUID), nicht an einer Position: sie überlebt jede Aktualisierung, und verschwindet der Charakter aus der Datenbank, fällt der Bereich auf **GESAMT** zurück statt eine fremde Zahl zu zeigen. Der aktive GESAMT-Reiter ist türkis, der aktive Charakterreiter trägt seine Klassenfarbe; inaktive Reiter bleiben im neutralen Dunkel.
 
 Über der Leiste stehen die dreizehn Werte des gewählten Bereichs als Kennzahlkarten in drei gleichzeitig sichtbaren Abschnitten – nicht als Navigationsreiter und nicht als gestapelte Tabellenzeilen: **Inhalte** (Tiefen, Midnight-Tiefen, Dungeons betreten, Midnight-Dungeons, Spielzeit), **Überleben** (Tode gesamt, im Dungeon, im Schlachtzug, durch Sturz, Heilsteine) und **Quests** (abgeschlossen, täglich, abgebrochen). Jede Karte bindet eine knappe Beschriftung sichtbar an einen prominenten Wert.
 
@@ -151,7 +151,9 @@ Der Installationspfad hängt vom gewählten Laufwerk ab; der Standard unter Wind
 
 - `/wat` – Fenster ein-/ausblenden; `/weeklyalt` bleibt als gleichwertiger Alias. Ab 0.3.0 gibt es keine öffentlichen Unterbefehle mehr.
 - Jedes Argument hinter `/wat` öffnet direkt den Bereich `Einstellungen`; die früheren Unterbefehle `show`, `hide`, `refresh`, `resetpos` und `scale` sind ersatzlos dorthin gewandert.
+- `ESC` schließt das Fenster wie jedes andere Blizzard-Standardfenster, ohne eigene Tastaturbindung und ohne mit Slash-Befehl oder Minimap-Symbol zu kollidieren.
 - Minimap-Symbol: Linksklick öffnet oder schließt das Fenster; Ziehen verändert die gespeicherte Position. Ausblenden lässt sich das Symbol im Bereich `Einstellungen`.
+- Eine Charakterzeile oder einen Charakterreiter mit gedrückter linker Maustaste auf eine andere Zeile beziehungsweise einen anderen Reiter ziehen, um die Reihenfolge umzusortieren. Die Reihenfolge ist global und stabil: sie gilt gleichzeitig für alle fünf Tabellenbereiche und die Charakterreiter der Statistikseite, überlebt Aktualisierungen und Neustarts, und ein neuer Charakter erscheint vorhersagbar alphabetisch am Ende statt die gespeicherte Reihenfolge zu verändern.
 
 ## Wichtige technische Grenzen
 
@@ -238,22 +240,24 @@ Die projektseitigen CurseForge-Texte liegen versioniert unter `curseforge/`:
 
 - `PROJECT-en.md` – englischer Titel, Kurzbeschreibung und Beschreibung. CurseForge verlangt Englisch als Projektsprache.
 - `PROJECT-de.md` – deutsche Zusatzfassung derselben Beschreibung.
-- `CHANGELOG-0.4.2-en.md` und `CHANGELOG-0.4.2-de.md` – Änderungsprotokoll zum aktuellen Release. Die Protokolle der Vorversionen (`CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) bleiben als Historie erhalten.
+- `CHANGELOG-0.5.0-en.md` und `CHANGELOG-0.5.0-de.md` – Änderungsprotokoll zum aktuellen Preview-Stand. Die Protokolle der Vorversionen (`CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) bleiben als Historie erhalten.
 
 Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mit ausgeliefert.
 
-#### Paket für den manuellen Upload bauen
+#### Automatische Paketierung und manueller Fallback
 
-Der separate Workflow `.github/workflows/curseforge-package.yml` (**Build CurseForge ZIP**) erzeugt das hochladbare ZIP als Actions-Artefakt. Er hat nur Leserechte, kennt kein `CF_API_KEY` und lädt nirgendwohin hoch – der Upload bleibt in jedem Fall manuell.
+CurseForge Automatic Packaging ist über den Repository-Webhook mit dem öffentlichen GitHub-Repository verbunden. `Package all commits` bleibt deaktiviert; normale Tags wie `v0.5.0` erzeugen Releases, Tags mit `beta` beziehungsweise `alpha` die entsprechenden Vorabkanäle. Es gibt bewusst keinen parallelen automatischen Upload per `CF_API_KEY`, damit ein Tag nicht doppelt veröffentlicht wird.
+
+Der separate Workflow `.github/workflows/curseforge-package.yml` (**Build CurseForge ZIP**) bleibt ausschließlich als manueller Fallback. Er erzeugt ein hochladbares ZIP als Actions-Artefakt, hat nur Leserechte, kennt kein `CF_API_KEY` und lädt nirgendwohin hoch.
 
 1. In GitHub auf *Actions → Build CurseForge ZIP → Run workflow* gehen. Der Workflow läuft zusätzlich automatisch bei jedem Push auf `main`, der Paket- oder Prüfdateien berührt.
 2. Nach dem Lauf unten auf der Zusammenfassungsseite das Artefakt `WeeklyAltTracker-<version>-CurseForge-manual-upload` herunterladen.
 3. Das heruntergeladene Actions-Archiv **einmal** entpacken.
 4. Die darin liegende Datei `WeeklyAltTracker-<version>.zip` **unverändert** bei CurseForge hochladen – nicht erneut ein- oder auspacken.
 
-Der Workflow führt vorher das vollständige `tools/check.py` aus und prüft das gebaute ZIP anschließend mit `tools/verify_package.py` (14 erwartete Dateien unter `WeeklyAltTracker/`, bytegleich zum Repository, TOC-Kennwerte, keine Secret-Zuweisungen). Die mitgelieferte `SHA256SUMS.txt` dient zur Kontrolle der heruntergeladenen Datei.
+Der Workflow führt vorher das vollständige `tools/check.py` aus und prüft das gebaute ZIP anschließend mit `tools/verify_package.py` (15 erwartete Dateien unter `WeeklyAltTracker/`, bytegleich zum Repository, TOC-Kennwerte, keine Secret-Zuweisungen). Die mitgelieferte `SHA256SUMS.txt` dient zur Kontrolle der heruntergeladenen Datei.
 
-Das Addon ist auf CurseForge unter [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker) angelegt. Das Projekt verwendet die Project ID `1616769` und die Lizenz **All Rights Reserved**; die ID steht als `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. Version 0.4.2 wird wie 0.2.6, 0.3.1, 0.4.0 und 0.4.1 manuell über die CurseForge-Projektseite hochgeladen; dafür ist kein API-Key erforderlich. Ein automatischer CurseForge-Upload ist ohne `CF_API_KEY` bewusst nicht eingerichtet.
+Das Addon ist auf CurseForge unter [curseforge.com/wow/addons/weeklyalttracker](https://www.curseforge.com/wow/addons/weeklyalttracker) angelegt. Das Projekt verwendet die Project ID `1616769` und die Lizenz **All Rights Reserved**; die ID steht als `## X-Curse-Project-ID: 1616769` in `WeeklyAltTracker.toc`. GitHub und Wago werden weiterhin durch den bestehenden Tag-Workflow veröffentlicht, CurseForge primär durch dessen eigenen Repository-Webhook. Der manuelle ZIP-Workflow bleibt nur für den Ausfall dieses nativen Wegs erhalten.
 
 ## Datenherkunft und Dritte
 
