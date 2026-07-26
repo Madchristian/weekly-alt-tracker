@@ -306,6 +306,34 @@ local function MakeWAT()
                         },
                         crestSources = {
                             heroToMyth = { unlocked = false, heroQuantity = 60 },
+                            -- Realistischer Activities.lua-Snapshot: Hauptslot Val
+                            -- abgegeben (questID aus Data.HEROIC_SHOWDOWN_MAIN_QUESTS),
+                            -- Folgeslot offen ohne bekannte Variante. Kein Label, nur IDs.
+                            heroicShowdowns = {
+                                main = {
+                                    questID = 96714,
+                                    completed = true,
+                                    turnedIn = true,
+                                    readyToTurnIn = false,
+                                    active = false,
+                                    variantKnown = false,
+                                    updated = 995,
+                                },
+                                followup = {
+                                    completed = false,
+                                    turnedIn = false,
+                                    readyToTurnIn = false,
+                                    active = false,
+                                    variantKnown = false,
+                                    updated = 995,
+                                },
+                                mainDone = true,
+                                followupDone = false,
+                                earned = 5,
+                                maximum = 10,
+                                mythPerSlot = 5,
+                                updated = 995,
+                            },
                         },
                     },
                 },
@@ -431,6 +459,15 @@ local function RunSuite(locale, expect)
         return achievementID, name, 10, false, 1, 1, 2026,
             "Beschreibung", 0, "icon", "", false, false, nil
     end
+
+    -- Client-Questtitel fuer die Heroischen Showdowns: nur defensiv genutzt,
+    -- nie gespeichert. questID 96714 ist der Hauptslot Val aus dem Stub-Snapshot.
+    C_QuestLog = {
+        GetTitleForQuestID = function(questID)
+            assert(questID == 96714, context("unerwartete Showdown-Quest-ID angefragt: " .. tostring(questID)))
+            return expect.showdownTitle
+        end,
+    }
 
     local WAT = MakeWAT()
     GetLocale = function() return locale end
@@ -566,6 +603,26 @@ local function RunSuite(locale, expect)
         context("Ritual-T6-Zelle nicht lokalisiert, erhalten "
             .. tostring(sourcesRow.values.ritualFarm.text)))
 
+    -- Heroische Showdowns: ein abgeschlossener Slot von zwei muss als 5/10
+    -- erscheinen - sprachneutrale Ziffern, keine Uebersetzung noetig.
+    assert(sourcesRow.values.heroicShowdown
+            and string.find(sourcesRow.values.heroicShowdown.text or "", "5/10", 1, true),
+        context("Heroische-Showdowns-Zelle zeigt nicht 5/10, erhalten "
+            .. tostring(sourcesRow.values.heroicShowdown and sourcesRow.values.heroicShowdown.text)))
+
+    -- Die Spaltenbreiten des Wappenquellen-Panels bleiben trotz der neuen
+    -- Spalte innerhalb von CONTENT_WIDTH.
+    local sourcesColumns = WAT.panels.sources.columns
+    local heroicShowdownColumn
+    for _, column in ipairs(sourcesColumns) do
+        if column.key == "heroicShowdown" then heroicShowdownColumn = column end
+    end
+    assert(heroicShowdownColumn ~= nil, context("Heroische-Showdowns-Spalte fehlt im Wappenquellen-Panel"))
+    local sourcesWidthTotal = 0
+    for _, column in ipairs(sourcesColumns) do sourcesWidthTotal = sourcesWidthTotal + column.width end
+    assert(sourcesWidthTotal <= 920,
+        context("Wappenquellen-Spaltenbreiten überschreiten CONTENT_WIDTH: " .. sourcesWidthTotal))
+
     local overviewRow = WAT.panels.overview.rows[1]
     assert(overviewRow and overviewRow.shown == true, context("Übersichtszeile fehlt"))
     assert(overviewRow.values.mythic10
@@ -583,6 +640,9 @@ local function RunSuite(locale, expect)
     local header = WAT.panels.overview.columns
     assert(header[1].label == expect.colCharacter,
         context("Spaltenkopf nicht lokalisiert: " .. tostring(header[1].label)))
+    assert(heroicShowdownColumn.label == expect.colHeroicShowdown,
+        context("Heroische-Showdowns-Spaltenkopf nicht lokalisiert: "
+            .. tostring(heroicShowdownColumn.label)))
 
     -- Tooltips in beiden Sprachen.
     local overviewTooltipRow = WAT.panels.overview.rows[1]
@@ -625,6 +685,29 @@ local function RunSuite(locale, expect)
     assert(string.find(genericTooltip, expect.lockedGeneric, 1, true),
         context("ohne lesbaren Erfolgsnamen fehlt der generische Text, erhalten: " .. genericTooltip))
     GetAchievementInfo = savedAchievementInfo
+
+    -- Heroische Showdowns: der abgegebene Hauptslot muss den echten,
+    -- clientlokalisierten Questtitel nennen (nie einen unlokalisierten
+    -- englischen Namen), der offene Folgeslot bleibt ohne Variante.
+    assert(string.find(sourcesTooltip, expect.done, 1, true)
+            and string.find(sourcesTooltip, expect.showdownTitle, 1, true),
+        context("Heroischer-Showdown-Hauptslot nennt nicht den Client-Questtitel, erhalten: "
+            .. sourcesTooltip))
+    assert(string.find(sourcesTooltip, expect.open, 1, true),
+        context("Heroischer-Showdown-Folgeslot muss als offen erscheinen, erhalten: " .. sourcesTooltip))
+
+    -- Ohne lesbaren Questtitel bleibt ein sprachneutraler ID-Ersatztext -
+    -- niemals ein fest verdrahteter englischer Questname.
+    local savedGetTitleForQuestID = C_QuestLog.GetTitleForQuestID
+    C_QuestLog.GetTitleForQuestID = function() error("kein Questtitel lesbar") end
+    sourcesTooltipRow.scripts.OnEnter(sourcesTooltipRow)
+    local showdownFallbackTooltip = GameTooltip:TooltipText()
+    assert(string.find(showdownFallbackTooltip, "96714", 1, true),
+        context("ohne lesbaren Questtitel fehlt der sprachneutrale ID-Ersatztext, erhalten: "
+            .. showdownFallbackTooltip))
+    assert(not string.find(showdownFallbackTooltip, expect.showdownTitle, 1, true),
+        context("ohne lesbaren Questtitel darf der vorherige Client-Titel nicht hängen bleiben"))
+    C_QuestLog.GetTitleForQuestID = savedGetTitleForQuestID
 
     -- -----------------------------------------------------------------------
     -- Statistiken: Dashboard je Bereich statt Vergleichstabelle
@@ -1489,6 +1572,8 @@ RunSuite("deDE", {
     offlineHint = "Offline-Daten werden beim nächsten Login",
     dragHint = "Ziehen, um Charaktere umzusortieren",
     forbiddenInTooltip = { "Class", "Equipped Item Level", "Week status" },
+    colHeroicShowdown = "HEROISCHE\nSHOWDOWNS",
+    showdownTitle = "Showdown auf Val (Heroisch)",
 })
 
 RunSuite("enUS", {
@@ -1538,6 +1623,8 @@ RunSuite("enUS", {
     offlineHint = "Offline data updates the next time",
     dragHint = "Drag to reorder characters",
     forbiddenInTooltip = { "Klasse", "Angelegte Gegenstandsstufe", "Wochenstand" },
+    colHeroicShowdown = "HEROIC\nSHOWDOWNS",
+    showdownTitle = "Showdown on Val (Heroic)",
 })
 
 -- Eine nicht unterstuetzte Clientsprache muss vollstaendig auf Englisch laufen.
@@ -1588,6 +1675,8 @@ RunSuite("frFR", {
     offlineHint = "Offline data updates the next time",
     dragHint = "Drag to reorder characters",
     forbiddenInTooltip = { "Klasse", "Angelegte Gegenstandsstufe", "Wochenstand" },
+    colHeroicShowdown = "HEROIC\nSHOWDOWNS",
+    showdownTitle = "Confrontation à Val (Héroïque)",
 })
 
 -- Regression fuer eine teilweise geladene Datentabelle: Fehlen die direkten
@@ -2270,6 +2359,154 @@ local function RunDundunSuite()
         "[dundun] wiederholtes RefreshUI erzeugt mit der Dundun-Spalte neue Objekte")
 end
 
+-- ---------------------------------------------------------------------------
+-- Heroische Showdowns (Wappenquellen-Spalte): beweist alle drei bekannten
+-- Zellwerte (0/10, 5/10 bereits in RunSuite, 10/10), den unbekannten Strich
+-- ohne Snapshot, dass ein aktiver (aber noch nicht abgegebener) Folgeslot
+-- seinen echten Client-Questtitel zeigt, dass im Snapshot kein uebersetztes
+-- Label steckt, und dass wiederholtes RefreshUI keine zusaetzlichen Objekte
+-- erzeugt.
+-- ---------------------------------------------------------------------------
+
+local SHOWDOWN_QUEST_TITLES = {
+    [96714] = "Showdown on Val (Heroic)",
+    [97081] = "More Disruptions - Val",
+    [97086] = "Dangerous Enemies - Naigtal",
+}
+
+local function RunHeroicShowdownSuite()
+    C_CurrencyInfo = RealCurrencyInfo()
+    C_QuestLog = {
+        GetTitleForQuestID = function(questID) return SHOWDOWN_QUEST_TITLES[questID] end,
+    }
+    local WAT = MakeWAT()
+    GetLocale = function() return "enUS" end
+
+    WAT.db.characters.showdownFull = {
+        name = "Vollstaendig", realm = "Testreich", classFile = "HUNTER",
+        lastSeen = 995, statistics = { scanned = 995 },
+        weekly = {
+            crestSources = {
+                heroicShowdowns = {
+                    main = { questID = 96714, turnedIn = true, active = false, variantKnown = false },
+                    followup = { questID = 97081, turnedIn = true, active = false, variantKnown = false },
+                    mainDone = true, followupDone = true, earned = 10, maximum = 10,
+                    mythPerSlot = 5, updated = 995,
+                },
+            },
+        },
+    }
+    WAT.db.characters.showdownNone = {
+        name = "Offen", realm = "Testreich", classFile = "HUNTER",
+        lastSeen = 995, statistics = { scanned = 995 },
+        weekly = {
+            crestSources = {
+                heroicShowdowns = {
+                    main = { turnedIn = false, active = false, variantKnown = false },
+                    followup = { turnedIn = false, active = false, variantKnown = false },
+                    mainDone = false, followupDone = false, earned = 0, maximum = 10,
+                    mythPerSlot = 5, updated = 995,
+                },
+            },
+        },
+    }
+    WAT.db.characters.showdownActive = {
+        name = "Aktiv", realm = "Testreich", classFile = "HUNTER",
+        lastSeen = 995, statistics = { scanned = 995 },
+        weekly = {
+            crestSources = {
+                heroicShowdowns = {
+                    main = { turnedIn = false, active = false, variantKnown = false },
+                    followup = { questID = 97086, turnedIn = false, active = true, variantKnown = true },
+                    mainDone = false, followupDone = false, earned = 0, maximum = 10,
+                    mythPerSlot = 5, updated = 995,
+                },
+            },
+        },
+    }
+    WAT.db.characters.showdownUnknown = {
+        name = "Unbekannt", realm = "Testreich", classFile = "HUNTER",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    WAT.db.settings.characterOrder = {
+        "showdownFull", "showdownNone", "showdownActive", "showdownUnknown", "test", "alt",
+    }
+
+    LoadInto(WAT, "Localization.lua")
+    LoadInto(WAT, "Data.lua")
+    LoadInto(WAT, "UI.lua")
+    WAT:CreateUI()
+    WAT:SetActiveTab("sources")
+    WAT:RefreshUI()
+
+    local rows = WAT.panels.sources.rows
+    assert(string.find(rows[1].values.heroicShowdown.text or "", "10/10", 1, true),
+        "[showdown] beide abgeschlossenen Slots muessen 10/10 anzeigen, erhalten: "
+            .. tostring(rows[1].values.heroicShowdown.text))
+    assert(string.find(rows[2].values.heroicShowdown.text or "", "0/10", 1, true),
+        "[showdown] kein abgeschlossener Slot muss 0/10 anzeigen, erhalten: "
+            .. tostring(rows[2].values.heroicShowdown.text))
+    assert(string.find(rows[3].values.heroicShowdown.text or "", "0/10", 1, true),
+        "[showdown] ein aktiver, aber nicht abgegebener Folgeslot bleibt bei 0/10, erhalten: "
+            .. tostring(rows[3].values.heroicShowdown.text))
+    assert(string.find(rows[4].values.heroicShowdown.text or "", "%-"),
+        "[showdown] fehlender Snapshot muss '-' anzeigen, erhalten: "
+            .. tostring(rows[4].values.heroicShowdown.text))
+
+    -- Tooltip: beide abgegebenen Varianten nennen ihren echten Client-Questtitel.
+    rows[1].scripts.OnEnter(rows[1])
+    local fullTooltip = GameTooltip:TooltipText()
+    assert(string.find(fullTooltip, "Showdown on Val (Heroic)", 1, true),
+        "[showdown] Tooltip nennt nicht den Hauptslot-Questtitel: " .. fullTooltip)
+    assert(string.find(fullTooltip, "More Disruptions - Val", 1, true),
+        "[showdown] Tooltip nennt nicht den Folgeslot-Questtitel: " .. fullTooltip)
+    assert(string.find(fullTooltip, "10", 1, true),
+        "[showdown] Tooltip nennt nicht die verdiente Menge: " .. fullTooltip)
+
+    -- Ein alter Wochenstand muss im Quellen-Tooltip ausdrücklich markiert sein;
+    -- die darunterliegenden Slotdetails bleiben nur der letzte bekannte Stand.
+    local savedIsStale = WAT.IsStale
+    WAT.IsStale = function() return true end
+    WAT:RefreshUI()
+    assert(string.find(rows[1].values.heroicShowdown.text or "", "old week", 1, true),
+        "[showdown] Zelle maskiert einen alten Wochenwert nicht: "
+            .. tostring(rows[1].values.heroicShowdown.text))
+    rows[1].scripts.OnEnter(rows[1])
+    local staleTooltip = GameTooltip:TooltipText()
+    assert(string.find(staleTooltip, "old week", 1, true),
+        "[showdown] Tooltip markiert einen alten Wochenstand nicht: " .. staleTooltip)
+    WAT.IsStale = savedIsStale
+    WAT:RefreshUI()
+
+    -- Ohne Snapshot bleibt der Tooltip unbekannt statt 0 zu erfinden.
+    rows[4].scripts.OnEnter(rows[4])
+    local unknownTooltip = GameTooltip:TooltipText()
+    assert(string.find(unknownTooltip, "unknown", 1, true),
+        "[showdown] Tooltip ohne Snapshot nennt nicht unbekannt: " .. unknownTooltip)
+
+    -- Ein aktiver, aber nicht abgegebener Folgeslot zeigt seinen echten
+    -- Questtitel als "active", nicht als generisches "done".
+    rows[3].scripts.OnEnter(rows[3])
+    local activeTooltip = GameTooltip:TooltipText()
+    assert(string.find(activeTooltip, "Dangerous Enemies - Naigtal", 1, true),
+        "[showdown] Tooltip nennt nicht den aktiven Folgeslot-Questtitel: " .. activeTooltip)
+    assert(string.find(activeTooltip, "active", 1, true),
+        "[showdown] aktiver Folgeslot muss als aktiv erscheinen: " .. activeTooltip)
+
+    -- Kein Locale-Text im Snapshot: die Testdaten selbst tragen nie ein Label,
+    -- und der Scan-Vertrag speichert ausschliesslich IDs/Zahlen/Booleans.
+    local fullShowdown = WAT.db.characters.showdownFull.weekly.crestSources.heroicShowdowns
+    assert(fullShowdown.main.label == nil and fullShowdown.followup.label == nil,
+        "[showdown] der Snapshot darf kein uebersetztes Label speichern")
+
+    -- Objektfreier Mehrfach-Refresh: die neue Spalte darf den Pool nicht sprengen.
+    local widgetsBefore = WidgetsCreated()
+    WAT:RefreshUI()
+    WAT:RefreshUI()
+    assert(WidgetsCreated() == widgetsBefore,
+        "[showdown] wiederholtes RefreshUI erzeugt mit der Heroische-Showdowns-Spalte neue Objekte")
+end
+
 -- Die neuen Renderpfade selbst muessen deutsch laufen und bei einer nicht
 -- unterstuetzten Clientsprache vollstaendig auf Englisch zurueckfallen. Dabei
 -- wird der API-Name bewusst unterdrueckt, damit der eigene Fallbacktext getestet
@@ -2459,8 +2696,11 @@ RunDundunLocaleSuite("frFR", {
     "Panra holds the line, Cataline keeps him in the Light",
 })
 RunEasterEggSuite()
+RunHeroicShowdownSuite()
 
 print("LUA UI RUNTIME OK: 7/7 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10,"
+    .. " Heroische Showdowns (0/5/10, Strich ohne Snapshot, Client-Questtitel,"
+    .. " kein Locale-Text im Snapshot),"
     .. " offene Berufs-Wochenquest, gesperrter Wappentausch und Wappensymbole"
     .. " (3343/3345/3347) inklusive 8 Fehlerfälle, short aus Data.CRESTS,"
     .. " keine iconFileID und kein Locale-Text in der DB, questID schlägt Legacy-Label,"

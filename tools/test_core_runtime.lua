@@ -747,13 +747,28 @@ do
     WeeklyAltTrackerDB.characters[GUID_MAIN] = {
         guid = GUID_MAIN,
         weekEnd = 1,
-        weekly = { gilded = { current = 4, maximum = 4 }, updated = 1 },
+        weekly = {
+            gilded = { current = 4, maximum = 4 },
+            updated = 1,
+            -- Heroische Showdowns liegen unter weekly.crestSources und duerfen
+            -- als Wocheninhalt keine alte Woche ueberleben: eine veraltete
+            -- questID darf nicht ueber den Reset hinaus stehen bleiben.
+            crestSources = {
+                heroicShowdowns = {
+                    main = { questID = 96714, turnedIn = true },
+                    followup = { questID = 97081, turnedIn = true },
+                    mainDone = true, followupDone = true, earned = 10, maximum = 10,
+                },
+            },
+        },
         season = { crestSources = { crackedKeystone = true } },
         professions = { [1] = { skillLevel = 85 } },
         resources = { dundun = { currencyID = 3376, quantity = 12, maxQuantity = 20, updated = 1 } },
     }
     local afterReset = WAT:PrepareCurrentCharacter()
     checkEqual(next(afterReset.weekly), nil, "Wocheninhalt wurde beim Reset nicht geleert")
+    checkEqual(afterReset.weekly.crestSources, nil,
+        "eine veraltete Heroische-Showdowns-Wochen-ID darf nicht über den Reset hinaus leaken")
     checkEqual(afterReset.season.crestSources.crackedKeystone, true,
         "Saisonflag hat den Wochenreset nicht überlebt")
     checkEqual(afterReset.professions[1].skillLevel, 85,

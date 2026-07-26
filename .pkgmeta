@@ -19,6 +19,7 @@ ignore:
   - design
   - dist
   - releases
+  - .release
   - tools
   - wago
   - curseforge

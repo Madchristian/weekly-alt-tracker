@@ -54,6 +54,22 @@ Data.PREY_NIGHTMARE = {
 
 Data.RITUAL_QUEST_ID = 95843
 
+-- Heroische Showdowns (Val/Naigtal): zwei alternative Hauptslot-Quests und
+-- vier alternative Folgeslot-Quests (zwei je Hauptslot-Variante). Pro Woche
+-- ist je Slot genau eine Variante abschliessbar. Jeder abgeschlossene Slot
+-- gibt 5 Mythische Dämmerwappen über die jeweilige Riftstalker's Overflowing
+-- Cache/Favor/Prize - macht maximal 10 pro Woche. Für PTR 12.1 bleibt der
+-- Scan defensiv über die Quest-Completion-API: eine verschobene oder unbekannte
+-- Variante liefert unbekannt, nie 0.
+Data.HEROIC_SHOWDOWN_MAIN_QUESTS = {
+    96714, 96718,
+}
+Data.HEROIC_SHOWDOWN_FOLLOWUP_QUESTS = {
+    97081, 97087, 97083, 97086,
+}
+Data.HEROIC_SHOWDOWN_MYTH_PER_SLOT = 5
+Data.HEROIC_SHOWDOWN_MAX_MYTH = 10
+
 -- Weitere bestätigte Quellen für Mythische Dämmerwappen (Raid ausgeschlossen).
 Data.CRACKED_KEYSTONE_QUEST_ID = 92600
 Data.NULLAEUS_T11_ACHIEVEMENT_ID = 61798

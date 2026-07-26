@@ -35,6 +35,7 @@ WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 1
 - Splitter von Dundun pro Charakter als sicherer Offline-Ressourcen-Snapshot mit dynamischem Maximum
 - wöchentliche, einmalige beziehungsweise saisonale und wiederholbare Quellen
 - Goldene Truhe
+- Heroische Showdowns in Val oder Naigtal: zwei Wochenslots mit je 5 Mythischen Dämmerwappen aus Riftstalker-Belohnungs-Caches
 - Rissiger Schlüsselstein
 - Nullaeus T11
 - Ritualstätten T6

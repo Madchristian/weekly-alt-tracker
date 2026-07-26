@@ -6,6 +6,7 @@ backups/
 CLAUDE.md
 design/
 releases/
+.release/
 *.zip
 
 # Lokale Secrets niemals committen

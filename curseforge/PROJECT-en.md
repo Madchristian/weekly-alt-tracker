@@ -64,7 +64,8 @@ tooltip breakdown, profession weekly progress with a separate turn-in state,
 and the Thalassian Treatise.
 
 **Crest Sources** - weekly, one-off/seasonal and repeatable sources: Gilded
-Stash, Cracked Keystone, Nullaeus T11, Ritual Sites T6, Mythic+ from +9 and the
+Stash, Heroic Showdowns in Val or Naigtal as two weekly slots worth up to 10
+Myth Dawncrests, Cracked Keystone, Nullaeus T11, Ritual Sites T6, Mythic+ from +9 and the
 Hero-to-Myth exchange potential, plus each character's Shard of Dundun balance
 as a safe offline resource snapshot with a dynamic maximum. Unreadable API
 values never overwrite a known Dundun balance; account-wide values are not

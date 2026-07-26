@@ -113,16 +113,18 @@ local PANELS = {
         description = L("PANEL_SOURCES_DESC"),
         columns = {
             { key = "character", label = L("COL_CHARACTER"), width = 150, left = true },
-            -- Kompakter Offline-Ressourcen-Snapshot, kein Wochenwert. Die
-            -- uebrigen Spalten wurden fuer diese Spalte zusammen um 80px
-            -- geschrumpft, damit die Zeile weiterhin genau CONTENT_WIDTH trifft.
-            { key = "dundun", label = L("COL_DUNDUN"), width = 80 },
-            { key = "gilded", label = L("COL_GILDED_WEEKLY"), width = 100 },
-            { key = "cracked", label = L("COL_CRACKED"), width = 125 },
-            { key = "nullaeus", label = L("COL_NULLAEUS"), width = 115 },
-            { key = "ritualFarm", label = L("COL_RITUAL_FARM"), width = 110 },
-            { key = "mythicFarm", label = L("COL_MYTHIC_FARM"), width = 90 },
-            { key = "exchange", label = L("COL_EXCHANGE"), width = 150 },
+            -- Dundun ist ein Ressourcen-Snapshot; die Heroic-Showdown-Spalte
+            -- dagegen ein echter Wochenwert. Alle Breiten ergeben zusammen
+            -- exakt CONTENT_WIDTH (920px), damit kein Kopf in Nachbarspalten
+            -- hineinragt und kein horizontaler Scrollbereich entsteht.
+            { key = "dundun", label = L("COL_DUNDUN"), width = 70 },
+            { key = "gilded", label = L("COL_GILDED_WEEKLY"), width = 85 },
+            { key = "heroicShowdown", label = L("COL_HEROIC_SHOWDOWN"), width = 95 },
+            { key = "cracked", label = L("COL_CRACKED"), width = 105 },
+            { key = "nullaeus", label = L("COL_NULLAEUS"), width = 100 },
+            { key = "ritualFarm", label = L("COL_RITUAL_FARM"), width = 95 },
+            { key = "mythicFarm", label = L("COL_MYTHIC_FARM"), width = 80 },
+            { key = "exchange", label = L("COL_EXCHANGE"), width = 140 },
         },
     },
     keystones = {
@@ -784,16 +786,73 @@ local function Constant(value)
     return WAT.SafeNumber(value, 0)
 end
 
-local function ShowSourcesTooltip(character, weekly)
+-- Questtitel werden ausschliesslich zur Renderzeit aus dem Client gelesen.
+-- Schlaegt die API fehl, liefert einen Secret Value oder keinen Namen, bleibt
+-- die sprachneutrale Quest-ID sichtbar; ein englischer Name wird nie geraten.
+local function ShowdownQuestName(state)
+    local questID = type(state) == "table" and state.questID or nil
+    if type(questID) ~= "number" then return nil end
+    local getter = C_QuestLog and C_QuestLog.GetTitleForQuestID
+    if getter then
+        local ok, title = pcall(getter, questID)
+        if ok and not (issecretvalue and issecretvalue(title))
+                and type(title) == "string" and title ~= "" then
+            return title
+        end
+    end
+    return L("SRC_SHOWDOWN_QUEST_FALLBACK", questID)
+end
+
+local function ShowdownSlotText(state)
+    if type(state) ~= "table" then return L("STATUS_UNKNOWN") end
+    local questName = ShowdownQuestName(state)
+    if state.turnedIn == true then
+        return questName and L("SRC_SHOWDOWN_SLOT_DONE", questName) or L("STATUS_DONE")
+    end
+    if state.active == true then
+        return questName and L("SRC_SHOWDOWN_SLOT_ACTIVE", questName) or L("STATUS_ACTIVE")
+    end
+    if state.turnedIn == false then return L("STATUS_OPEN") end
+    return L("STATUS_UNKNOWN")
+end
+
+local function HeroicShowdownText(showdown, stale)
+    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
+    if type(showdown) ~= "table" or type(showdown.earned) ~= "number"
+            or type(showdown.maximum) ~= "number" then
+        return COLORS.unknown .. "-|r"
+    end
+    local color = stale and COLORS.stale or (showdown.earned >= showdown.maximum
+        and COLORS.green or (showdown.earned > 0 and COLORS.amber or COLORS.red))
+    return color .. string.format("%d/%d", showdown.earned, showdown.maximum) .. "|r"
+end
+
+local function ShowSourcesTooltip(character, weekly, stale)
     local data = WAT.Data or {}
     local season = type(character.season) == "table" and character.season or {}
     local seasonal = type(season.crestSources) == "table" and season.crestSources or {}
     local sources = type(weekly.crestSources) == "table" and weekly.crestSources or {}
+    if stale then
+        AddTooltipLine(L("TOOLTIP_WEEK_STATE"), L("TOOLTIP_WEEK_STALE"))
+    end
     local gilded = type(weekly.gilded) == "table" and weekly.gilded or {}
     local gildedValue = type(gilded.current) == "number" and type(gilded.maximum) == "number"
         and L("SRC_GILDED_VALUE", gilded.current, gilded.maximum, Constant(data.GILDED_MYTH_PER_STASH))
         or L("STATUS_UNKNOWN")
     AddTooltipLine(L("SRC_GILDED_WEEKLY"), gildedValue)
+    local showdown = sources.heroicShowdowns
+    local showdownValue = L("STATUS_UNKNOWN")
+    if type(showdown) == "table" and type(showdown.earned) == "number"
+            and type(showdown.maximum) == "number" then
+        showdownValue = L("SRC_SHOWDOWN_VALUE", showdown.earned, showdown.maximum,
+            type(showdown.mythPerSlot) == "number" and showdown.mythPerSlot
+                or Constant(data.HEROIC_SHOWDOWN_MYTH_PER_SLOT))
+    end
+    AddTooltipLine(L("SRC_SHOWDOWN"), showdownValue)
+    AddTooltipLine(L("SRC_SHOWDOWN_MAIN"),
+        type(showdown) == "table" and ShowdownSlotText(showdown.main) or L("STATUS_UNKNOWN"))
+    AddTooltipLine(L("SRC_SHOWDOWN_FOLLOWUP"),
+        type(showdown) == "table" and ShowdownSlotText(showdown.followup) or L("STATUS_UNKNOWN"))
     local cracked = seasonal.crackedKeystone
     local crackedText = L("STATUS_UNKNOWN")
     if type(cracked) == "table" then
@@ -1097,7 +1156,7 @@ function WAT:ShowCharacterTooltip(row)
     elseif row.panelKey == "professions" then
         ShowProfessionTooltip(character, weekly)
     elseif row.panelKey == "sources" then
-        ShowSourcesTooltip(character, weekly)
+        ShowSourcesTooltip(character, weekly, stale)
     elseif row.panelKey == "keystones" then
         ShowKeystoneTooltip(weekly, stale)
     else
@@ -2218,6 +2277,7 @@ local function FillSources(row, character, weekly, stale)
     local perRun = Constant(WAT.Data and WAT.Data.RITUAL_T6_MYTH_PER_RUN)
     row.values.ritualFarm:SetText("|cff32e6c4" .. L("CELL_RITUAL_FARM", perRun) .. "|r")
     local sources = type(weekly.crestSources) == "table" and weekly.crestSources or {}
+    row.values.heroicShowdown:SetText(HeroicShowdownText(sources.heroicShowdowns, stale))
     local mythicPlus = sources.mythicPlus
     local highest = type(mythicPlus) == "table" and mythicPlus.highestObservedLevel or nil
     if type(highest) == "number" and highest >= 9 then

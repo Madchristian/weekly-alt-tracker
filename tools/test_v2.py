@@ -128,6 +128,22 @@ def main() -> int:
     require("NULLAEUS_T11_ACHIEVEMENT_ID = 61798" in data, "Nullaeus-T11-Erfolg 61798 fehlt")
     require("HERO_TO_MYTH_ACHIEVEMENT_ID = 42769" in data, "Helden-zu-Mythisch-Erfolg 42769 fehlt")
 
+    showdown_main = ids(table_body(data, "HEROIC_SHOWDOWN_MAIN_QUESTS"))
+    showdown_followup = ids(table_body(data, "HEROIC_SHOWDOWN_FOLLOWUP_QUESTS"))
+    require(set(showdown_main) == {96714, 96718},
+            f"Heroische-Showdowns-Hauptslot-Pool muss genau {{96714, 96718}} sein, gefunden: {showdown_main}")
+    require(set(showdown_followup) == {97081, 97087, 97083, 97086},
+            "Heroische-Showdowns-Folgeslot-Pool muss genau {97081, 97087, 97083, 97086} sein, "
+            f"gefunden: {showdown_followup}")
+    require(len(showdown_main) == len(set(showdown_main)) == 2,
+            "Hauptslot-Pool muss zwei eindeutige IDs enthalten")
+    require(len(showdown_followup) == len(set(showdown_followup)) == 4,
+            "Folgeslot-Pool muss vier eindeutige IDs enthalten")
+    require(not (set(showdown_main) & set(showdown_followup)),
+            "Haupt- und Folgeslot-Pool der Heroischen Showdowns dürfen sich nicht überschneiden")
+    require("HEROIC_SHOWDOWN_MYTH_PER_SLOT = 5" in data, "Mythisch-Belohnung je Showdown-Slot (5) fehlt")
+    require("HEROIC_SHOWDOWN_MAX_MYTH = 10" in data, "Wochenmaximum der Heroischen Showdowns (10) fehlt")
+
     weekly_prof = table_body(data, "PROFESSION_WEEKLIES")
     treatises = table_body(data, "PROFESSION_TREATISES")
     for skill_line in (164, 165, 171, 182, 186, 197, 202, 333, 393, 755, 773):
@@ -164,6 +180,11 @@ def main() -> int:
     for token in ("ScanMidnightWeekly", "ScanPrey", "ScanRitualSites", "ScanProfessions", "ScanCrestSources"):
         require(token in activities, f"Aktivitätsscanner fehlt: {token}")
     require("character.season" in activities, "Saisonquellen dürfen nicht im Wochenreset verloren gehen")
+    for token in ("heroicShowdowns", "HEROIC_SHOWDOWN_MAIN_QUESTS", "HEROIC_SHOWDOWN_FOLLOWUP_QUESTS",
+                  "mainDone", "followupDone"):
+        require(token in activities, f"Heroische-Showdowns-Scan fehlt: {token}")
+    require("weekly.heroicShowdowns" not in activities and "season.heroicShowdowns" not in activities,
+            "Heroische Showdowns müssen unter weekly.crestSources liegen, nicht als eigener Container")
     for api in ("IsQuestFlaggedCompleted", "GetQuestObjectives", "GetQuestProgressBarPercent", "GetProfessions", "GetProfessionInfo",
                 "GetProfessionInfoBySkillLineID", "GetCurrencyInfoForSkillLine", "numAvailable",
                 "GetContainerNumSlots", "GetContainerItemInfo"):
@@ -625,6 +646,10 @@ def main() -> int:
 
     for token in ('key = "mythic10"', 'label = L("COL_MYTHIC10")', "MythicPlusTenText"):
         require(token in ui, f"M+10-Status in der Übersicht fehlt: {token}")
+    for token in ('key = "heroicShowdown"', 'label = L("COL_HEROIC_SHOWDOWN")', "HeroicShowdownText"):
+        require(token in ui, f"Heroische-Showdowns-Spalte im Wappenquellen-Panel fehlt: {token}")
+    for name, body in (("deDE", de_dict), ("enUS", en_dict)):
+        require("COL_HEROIC_SHOWDOWN" in body, f"Spaltenkopf der Heroischen Showdowns fehlt in {name}")
     for name, body in (("deDE", de_dict), ("enUS", en_dict)):
         require('COL_MYTHIC10 = "M+10\\n272 ILVL"' in body,
                 f"M+10-Spaltenkopf fehlt in {name}")

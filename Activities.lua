@@ -103,7 +103,7 @@ end
 -- wenn sein Zielobjekt zufaellig weiterhin "finished" meldet. Bleibt ein
 -- Zustand unlesbar, bleibt das jeweilige Feld nil statt eines erfundenen
 -- false (Invariante 1).
-local function ReadPoolQuestState(pool)
+local function ReadPoolQuestState(pool, requireAllReadable)
     if type(pool) ~= "table" or #pool == 0 then return nil end
     local best
     local sawUnknown = false
@@ -151,8 +151,14 @@ local function ReadPoolQuestState(pool)
         end
     end
 
-    if best then return best end
-    if completedWithoutLogID then
+    -- Fuer belohnungsrelevante Variantenpools gilt der Scan atomar: sobald
+    -- auch nur eine Alternative nicht sicher lesbar ist, darf eine andere
+    -- lesbare Variante keinen sicheren Same-Week-Vorwert herabstufen.
+    if requireAllReadable and sawUnknown then return nil end
+    -- In den strikten Wappenpools ist "abgegeben" der staerkste sichere
+    -- Zustand: eine andere, noch aktive Alternative darf den bereits
+    -- verdienten Slot nicht wieder auf offen zurueckstufen.
+    if completedWithoutLogID and (requireAllReadable or not best) then
         return {
             questID = completedWithoutLogID,
             completed = true,
@@ -163,6 +169,7 @@ local function ReadPoolQuestState(pool)
             updated = time(),
         }
     end
+    if best then return best end
     if sawUnknown then return nil end
     return {
         completed = false,
@@ -849,6 +856,58 @@ function WAT:ScanCrestSources(character)
         heroQuantity = heroQuantity,
         mythPotential = potential,
         updated = time(),
+    }
+
+    -- Heroische Showdowns (Val/Naigtal): Hauptslot- und Folgeslot-Pool sind
+    -- je eine eigene, atomare ReadPoolQuestState-Auswertung, damit hoechstens
+    -- EIN Zustand je Slot entsteht und ein teilweise unlesbarer Pool keinen
+    -- sicheren Same-Week-Vorwert herabstuft (Invarianten 1/2).
+    local previousShowdown = type(sources.heroicShowdowns) == "table" and sources.heroicShowdowns or nil
+    local mainState = ReadPoolQuestState(Data.HEROIC_SHOWDOWN_MAIN_QUESTS, true)
+    local followupState = ReadPoolQuestState(Data.HEROIC_SHOWDOWN_FOLLOWUP_QUESTS, true)
+    local mainObserved = mainState ~= nil
+    local followupObserved = followupState ~= nil
+
+    if mainState == nil and previousShowdown and type(previousShowdown.main) == "table" then
+        mainState = previousShowdown.main
+    end
+    if followupState == nil and previousShowdown and type(previousShowdown.followup) == "table" then
+        followupState = previousShowdown.followup
+    end
+
+    -- Bewusst kein "and ... or nil": SafeBoolean(false) waere selbst falsy und
+    -- das or-Glied wuerde ein sicheres false wieder zu nil kollabieren lassen.
+    local mainDone
+    if type(mainState) == "table" then mainDone = SafeBoolean(mainState.turnedIn) end
+    local followupDone
+    if type(followupState) == "table" then followupDone = SafeBoolean(followupState.turnedIn) end
+
+    local mythPerSlot = SafeNumber(Data.HEROIC_SHOWDOWN_MYTH_PER_SLOT)
+    local maxMyth = SafeNumber(Data.HEROIC_SHOWDOWN_MAX_MYTH)
+    local earned
+    if mainDone ~= nil and followupDone ~= nil and mythPerSlot then
+        earned = 0
+        if mainDone then earned = earned + mythPerSlot end
+        if followupDone then earned = earned + mythPerSlot end
+        if maxMyth and earned > maxMyth then earned = maxMyth end
+    end
+
+    local showdownUpdated
+    if mainObserved or followupObserved then
+        showdownUpdated = time()
+    elseif previousShowdown then
+        showdownUpdated = previousShowdown.updated
+    end
+
+    sources.heroicShowdowns = {
+        main = mainState,
+        followup = followupState,
+        mainDone = mainDone,
+        followupDone = followupDone,
+        earned = earned,
+        maximum = maxMyth,
+        mythPerSlot = mythPerSlot,
+        updated = showdownUpdated,
     }
 
     local highestKeyLevel

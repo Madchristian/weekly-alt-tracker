@@ -60,6 +60,7 @@ Supported are Alchemy, Blacksmithing, Engineering, Inscription, Jewelcrafting, L
 
 - Shards of Dundun per character as an offline resource snapshot, with a dynamic maximum such as `5/8`
 - Gilded Stash: weekly, four completions with 5 Myth Twilight Crests each
+- Heroic Showdowns in Val or Naigtal: one main quest and one follow-up quest per week, each granting 5 Myth Dawncrests through its Riftstalker reward cache, for a maximum of 10; all six quest variants are grouped into two slots without double counting
 - Cracked Keystone, quest 92600: once, 20 Myth and 20 Hero Twilight Crests
 - Nullaeus on Tier 11, achievement 61798: once, 30 Myth Twilight Crests
 - Ritual Sites Tier 6: repeatable, 5 Myth Twilight Crests per completion
@@ -247,13 +248,13 @@ The project-side CurseForge texts are versioned under `curseforge/`:
 
 - `PROJECT-en.md` – English title, summary and description. CurseForge requires English as the project language.
 - `PROJECT-de.md` – German additional version of the same description.
-- `CHANGELOG-0.6.1-en.md` and `CHANGELOG-0.6.1-de.md` – change log for the current release. The logs of the previous versions (`CHANGELOG-0.6.0-*`, `CHANGELOG-0.5.0-*`, `CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
+- `CHANGELOG-0.7.0-en.md` and `CHANGELOG-0.7.0-de.md` – change log for the current release. The logs of the previous versions (`CHANGELOG-0.6.1-*`, `CHANGELOG-0.6.0-*`, `CHANGELOG-0.5.0-*`, `CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
 
 The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 
 #### Automatic packaging and manual fallback
 
-CurseForge Automatic Packaging is connected to the public GitHub repository through the repository webhook. `Package all commits` stays disabled; normal tags such as `v0.6.1` produce releases, while tags containing `beta` or `alpha` use the corresponding prerelease channel. There is deliberately no parallel automatic `CF_API_KEY` upload, preventing duplicate files for one tag.
+CurseForge Automatic Packaging is connected to the public GitHub repository through the repository webhook. `Package all commits` stays disabled; normal tags such as `v0.7.0` produce releases, while tags containing `beta` or `alpha` use the corresponding prerelease channel. There is deliberately no parallel automatic `CF_API_KEY` upload, preventing duplicate files for one tag.
 
 The separate workflow `.github/workflows/curseforge-package.yml` (**Build CurseForge ZIP**) remains a manual fallback only. It produces an uploadable ZIP as an Actions artifact, has read-only permissions, knows no `CF_API_KEY`, and uploads nowhere.
 
