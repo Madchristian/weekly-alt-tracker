@@ -1,6 +1,15 @@
 # WeeklyAltTracker
 
-A standalone WoW Retail addon for Midnight 12.1.0 and Season 2. It stores weekly progress account-wide as offline snapshots and shows several characters in a compact Midnight-dark interface.
+A standalone addon for World of Warcraft Retail. It stores progress account-wide as safe offline snapshots and shows several characters in a compact Midnight-dark interface.
+
+## Current version and changes
+
+WoW activities, currencies, rewards, and thresholds change between patches. This README describes the addon's general scope; the exact state of each version is documented in:
+
+- the full [`CHANGELOG.md`](CHANGELOG.md),
+- the [GitHub releases](https://github.com/Madchristian/weekly-alt-tracker/releases),
+- the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
+- the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
 A detailed installation, usage and troubleshooting guide is in `Guide.en.html`. The terms of use are in `LICENSE.txt`; WeeklyAltTracker is published under **All Rights Reserved**.
 
@@ -236,7 +245,7 @@ The GitHub release is created with the automatically provided `GITHUB_TOKEN`; no
 
 The addon is published on Wago Addons: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). The project ID `ZKxZJkNk` is declared as `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` and is also visible on the project page.
 
-Version 0.3.0 was published through the tag-based BigWigs Packager as a stable release for Retail patch 12.0.7 and its public artifact was verified byte-for-byte. Version 0.3.1 fixes the minimap button position so it sits tangentially outside rather than inside the minimap edge. Version 0.4.0 extends the statistics page from nine to thirteen lifetime values and lays them out in two bands. Version 0.4.1 is a pure UI hotfix on top of it: three thematically grouped bands instead of two and hard-clipping cell containers. Version 0.4.2 replaces the comparison table entirely with a per-scope dashboard: a fixed register bar with pinned TOTAL and one tab per character, and above it all thirteen values at once as metric cards in three sections.
+The [Wago project page](https://addons.wago.io/addons/weekly-alt-tracker) provides the current stable, beta, and alpha versions. Release-specific changes are recorded in each version's changelog and in the full [`CHANGELOG.md`](CHANGELOG.md); the general project description deliberately stays version-independent.
 
 The secret `WAGO_API_TOKEN` is stored in the repository under *Settings → Secrets and variables → Actions*. The token value belongs exclusively in that secret and never in the repository.
 
@@ -244,9 +253,9 @@ The secret `WAGO_API_TOKEN` is stored in the repository under *Settings → Secr
 
 The project-side CurseForge texts are versioned under `curseforge/`:
 
-- `PROJECT-en.md` – English title, summary and description. CurseForge requires English as the project language.
-- `PROJECT-de.md` – German additional version of the same description.
-- `CHANGELOG-0.8.0-en.md` and `CHANGELOG-0.8.0-de.md` – change log for the current release. The logs of the previous versions (`CHANGELOG-0.7.0-*`, `CHANGELOG-0.6.1-*`, `CHANGELOG-0.6.0-*`, `CHANGELOG-0.5.0-*`, `CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
+- `PROJECT-en.md` – general English project description for CurseForge.
+- `PROJECT-de.md` – matching German supplementary version.
+- `CHANGELOG-<version>-en.md` and `CHANGELOG-<version>-de.md` – release-specific change logs; published earlier versions remain unchanged as history.
 
 The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 

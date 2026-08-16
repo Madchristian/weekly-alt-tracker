@@ -1,126 +1,79 @@
 # WeeklyAltTracker
 
-**Dein Wochenfortschritt. Alle Charaktere. Eine kompakte Übersicht - deutsch und englisch.**
+**Wochenfortschritt für alle Charaktere in einer kompakten Übersicht.**
 
-WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 12.1.0 / Midnight Saison 2**. Es speichert sichere Offline-Snapshots deiner Charaktere und zeigt die wichtigsten wöchentlichen Aufgaben, Schatzkammer-Slots, Berufe, Wissenspunkte, Wappenquellen und Mythic+-Schlüsselsteine accountweit an.
+WeeklyAltTracker ist ein eigenständiges Addon für World of Warcraft Retail. Es speichert pro Charakter sichere Offline-Snapshots und zeigt den Fortschritt deiner Alts in einer gemeinsamen Oberfläche.
 
-## Funktionen
+## Was das Addon abdeckt
 
-### Übersicht
+- Wochenaktivitäten und accountweiter Charaktervergleich
+- Große Schatzkammer für Mythic+ und Tiefen/Welt
+- saisonale Währungen und ihre unterstützten Quellen
+- Berufe, Wissenspunkte, Wochenquests und Traktate
+- Mythic+-Schlüsselsteine
+- lebenslange Charakterstatistiken und Accountsumme
+- Einstellungen für Aktualisierung, Skalierung, Fenster und Minimap-Symbol
 
-- Charakterlevel und angelegte Gegenstandsstufe
-- Goldene Truhe aus Tier-11-Bountiful-Tiefen
-- alle fünf Nebelwappen von Abenteurer bis Mythisch
-- Große Schatzkammer für Mythic+ sowie Tiefen/Welt
-- tatsächliches beziehungsweise erwartetes Belohnungs-Itemlevel pro Slot
-- M+10 auf einen Blick: grünes `Ja` nach mindestens einem Abschluss auf +10 oder höher für die 318er Vault-Belohnung
-- bewusst **kein Raid-Tracking**
+Raid-Fortschritt und Raid-Vault werden bewusst nicht getrackt.
 
-### Midnight-Woche
+## Sieben kompakte Ansichten
 
-- aktive Midnight-Wochenquest mit Fortschritt, `Fertig – nicht abgegeben` und `Abgegeben`
-- Jagden auf Normal, Schwer und Albtraum
-- Ritualstätten mit Fortschritt
+Das Addon bündelt seinen Funktionsumfang in sieben kompakte Ansichten:
 
-### Berufe
+1. Übersicht
+2. Midnight-Woche
+3. Berufe
+4. Wappenquellen
+5. Schlüsselsteine
+6. Statistiken
+7. Einstellungen
 
-- Midnight-Skill beider Hauptberufe
-- freie Berufswissenspunkte
-- Wissenspunkte aus Gegenständen in Rucksack, normalen Taschen und Reagenzientasche
-- Berufs-Wochenquest mit Fortschritt und getrenntem Abgabezustand
-- Thalassischer Traktat
+Die Statistikansicht zeigt Charakterwerte und eine Accountsumme. Unter Einstellungen lassen sich Daten aktualisieren sowie Fenster, Skalierung und Minimap-Symbol steuern.
 
-### Wappenquellen
+## Aktuelle Version und Änderungen
 
-- Splitter von Dundun pro Charakter als sicherer Offline-Ressourcen-Snapshot mit dynamischem Maximum
-- Bestände aller fünf Saison-2-Nebelwappen
-- Goldene Truhe: viermal wöchentlich je 7 Mythische Nebelwappen
-- höchste sicher abgeschlossene Mythic+-Stufe; Mythische Nebelwappen ab +9
+WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch zu Patch. Die Beschreibung bleibt deshalb bewusst allgemein. Den genauen Stand jeder Version findest du hier:
 
-Ein unlesbarer oder geschützter API-Wert überschreibt keinen bekannten Dundun-Bestand. Der Tooltip nennt Datenstand und API-Reichweite; accountweite Werte werden nicht über Charaktere summiert.
+- [Versionen und Release-Changelogs auf Wago](https://addons.wago.io/addons/weekly-alt-tracker/versions)
+- [Vollständiger Changelog auf GitHub](https://github.com/Madchristian/weekly-alt-tracker/blob/main/CHANGELOG.md)
+- `CHANGELOG.md` direkt im Download
 
-### Schlüsselsteine
+Die ausführliche Installations-, Bedienungs- und Fehlerbehebungsanleitung liegt als `Anleitung.html` im Download.
 
-- aktueller Mythic+-Dungeon und Schlüsselsteinstufe pro Charakter
-- sicherer Offline-Snapshot
-- Schutz vor frühen, partiellen oder geschützten API-Antworten
+## Sichere Offline-Daten
 
-### Statistiken
+WoW erlaubt keinen Live-Zugriff auf ausgeloggte Charaktere. Jeder Charakter erscheint nach seinem ersten Login mit aktiviertem Addon und behält danach den letzten sicheren Snapshot.
 
-- Dashboard je Bereich statt Vergleichstabelle: eine feste Registerleiste unten wählt GESAMT oder einen Charakter
-- GESAMT bleibt ganz links angeheftet; ab vielen Charakteren blättern die Charakterreiter mit Pfeilen
-- alle dreizehn Werte des gewählten Bereichs gleichzeitig als Kennzahlkarten in drei Abschnitten: Inhalte, Überleben, Quests
-- jede Karte schneidet hart ab, kein Wert läuft in die Nachbarkarte
-- sehr große Werte auf der Karte abgekürzt, im Tooltip exakt
-- unter anderem absolvierte Tiefen, Tode, benutzte Heilsteine und Quests
-- betretene 5-Spieler-Dungeons (betreten, nicht abgeschlossen)
-- Midnight-Dungeons als Summe der Endboss-Siege aus acht Dungeons über drei Schwierigkeiten
-- Gesamtspielzeit je Charakter und als Accountsumme
-- letzter sicherer Offline-Snapshot je Charakter
-- Accountsumme nur aus bekannten Werten; vollständig unbekannt bleibt `-`
+Unbekannte, partielle oder geschützte API-Werte werden nicht als Null oder als erledigt erfunden. Ein unsicherer neuer Wert überschreibt keinen bereits bekannten sicheren Stand. Abgelaufene Wochenstände werden als alte Woche markiert.
 
-### Einstellungen
-
-- Daten aktualisieren und Fensterposition zurücksetzen
-- Minimap-Symbol ein- oder ausblenden
-- UI-Skalierung direkt im Addon wählen
-
-### Bedienung
-
-- eigenständige Midnight-Dark-Oberfläche in Deutsch (deDE) und Englisch (enUS/enGB)
-- sieben kompakte Ansichten
-- Minimap-Symbol: Linksklick öffnet oder schließt das Fenster
-- Minimap-Symbol per Drag verschiebbar
-- `ESC` schließt das Addon-Fenster wie ein Blizzard-Standardfenster
-- Charakterzeilen und Statistikreiter per Drag-and-drop accountweit umsortierbar; dieselbe Reihenfolge gilt in allen Ansichten
-- keine externen Bibliotheken
-- Abhängigkeiten: keine
+Alle Daten bleiben lokal in den SavedVariables. Das Addon enthält keine Telemetrie, Werbung oder Netzwerkkommunikation und benötigt keine externen Bibliotheken.
 
 ## Sprachen
 
-Die Oberfläche folgt automatisch der Sprache deines WoW-Clients:
+- deDE: vollständig deutsch
+- enUS / enGB: vollständig englisch
+- andere Clientsprachen: englischer Fallback
 
-- **deDE** - vollständig deutsch
-- **enUS / enGB** - vollständig englisch
-- jede andere Clientsprache verwendet sicher die englische Fassung
+Die Sprache folgt automatisch dem WoW-Client. Namen aus dem Spiel werden zur Laufzeit über die WoW-API lokalisiert.
 
-Eine eigene Spracheinstellung gibt es nicht. Namen aus dem Spiel - Klasse, Dungeon, Gegenstand, Beruf und Erfolg - kommen immer clientlokalisiert aus der WoW-API und werden nie vom Addon übersetzt. Eigene Übersetzungslabels speichert das Addon nicht mehr als Anzeigequelle: Es legt stabile IDs ab und lokalisiert sie erst beim Anzeigen, und diese Laufzeitauflösung hat Vorrang. Von der WoW-API gelieferte, bereits lokalisierte Namen können weiterhin im Snapshot stehen, dienen dort aber nur der Rückwärtskompatibilität und als Fallback. Nach einem Neustart von WoW mit der geänderten Clientsprache erscheinen deshalb auch bereits erfasste Charaktere in der neuen Sprache; ohne verfügbare Lokalisierung erscheint eine neutrale Dungeon-ID statt eines fremdsprachig gespeicherten Namens.
+## Bedienung
 
-## Manuelle Installation
+- `/wat` oder `/weeklyalt`: Fenster öffnen und schließen
+- Minimap-Symbol: Linksklick zum Öffnen, Ziehen zum Verschieben
+- `ESC`: Fenster schließen
+- Charakterzeilen und Statistikreiter: per Drag-and-drop accountweit sortieren
+
+## Installation
 
 1. ZIP herunterladen und entpacken.
-2. Den enthaltenen Ordner `WeeklyAltTracker` nach folgendem Verzeichnis kopieren:
-
-   `World of Warcraft\_retail_\Interface\AddOns`
-
-3. Prüfen, dass die Datei `WeeklyAltTracker.toc` direkt unter `AddOns\WeeklyAltTracker` liegt.
+2. Den Ordner `WeeklyAltTracker` nach `World of Warcraft\_retail_\Interface\AddOns` kopieren.
+3. Prüfen, dass `WeeklyAltTracker.toc` direkt unter `AddOns\WeeklyAltTracker` liegt.
 4. WoW neu starten oder `/reload` ausführen.
-5. Mit `/wat` oder dem Minimap-Symbol öffnen.
-
-Eine ausführliche, responsive Offline-Anleitung befindet sich als `Anleitung.html` direkt im Download.
-
-## Wichtige Hinweise
-
-- Jeder Charakter muss nach der Installation einmal eingeloggt werden, bevor sein Snapshot vollständig erscheint.
-- Die Goldene Truhe kann aufgrund einer Blizzard-Einschränkung erst erfasst werden, nachdem der Charakter mindestens einmal eine Tiefe betreten hat.
-- Unbekannte oder noch nicht geladene Werte erscheinen als `-` und werden nicht als echte Null erfunden.
-- `M+10` zeigt `Offen` nur bei sicher gelesenen Daten; bei unbekannter Stufe bleibt der Status `-`.
-- Bank und Kriegsmeutenbank werden beim Taschenwissen nicht gescannt.
-- Das Addon enthält keine Telemetrie, Werbung oder Netzwerkkommunikation.
-
-## Chatbefehle
-
-- `/wat` – Fenster ein-/ausblenden
-- `/weeklyalt` – gleichwertiger Alias
-
-Aktualisieren, Position, Skalierung und Minimap-Sichtbarkeit werden im Bereich
-**Einstellungen** gesteuert; öffentliche Slash-Unterbefehle gibt es ab 0.3.0
-nicht mehr.
 
 ## Lizenz
 
 Copyright © 2026 Christian. **All Rights Reserved.**
 
-Private, nicht kommerzielle Nutzung ist erlaubt. Veränderungen, Reuploads, Spiegelungen, Aufnahme in Addon-Pakete oder kommerzielle Verwertung sind ohne vorherige schriftliche Genehmigung nicht gestattet. Maßgeblich ist die Datei `LICENSE.txt` im Download.
+Private, nicht kommerzielle Nutzung ist erlaubt. Veränderungen, Reuploads, Spiegelungen, Aufnahme in Addon-Pakete oder kommerzielle Verwertung benötigen die vorherige schriftliche Genehmigung. Maßgeblich ist `LICENSE.txt` im Download.
 
 WeeklyAltTracker ist ein unabhängiges Fanprojekt und steht nicht in Verbindung mit Blizzard Entertainment.

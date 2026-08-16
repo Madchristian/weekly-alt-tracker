@@ -1,6 +1,15 @@
 # WeeklyAltTracker
 
-Ein eigenständiges WoW-Retail-Addon für Midnight 12.1.0 und Saison 2. Es speichert den Wochenfortschritt accountweit als Offline-Snapshots und zeigt mehrere Charaktere in einer kompakten Midnight-Dark-Oberfläche.
+Ein eigenständiges Addon für World of Warcraft Retail. Es speichert den Fortschritt accountweit als sichere Offline-Snapshots und zeigt mehrere Charaktere in einer kompakten Midnight-Dark-Oberfläche.
+
+## Aktuelle Version und Änderungen
+
+WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch zu Patch. Diese README beschreibt den grundsätzlichen Funktionsumfang; den genauen Stand jeder Version dokumentieren:
+
+- der vollständige [`CHANGELOG.md`](CHANGELOG.md),
+- die [GitHub-Releases](https://github.com/Madchristian/weekly-alt-tracker/releases),
+- die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
+- die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
 Eine ausführliche Installations-, Bedienungs- und Fehlerbehebungsanleitung befindet sich in `Anleitung.html`. Die Nutzungsbedingungen stehen in `LICENSE.txt`; WeeklyAltTracker wird unter **All Rights Reserved** veröffentlicht.
 
@@ -232,7 +241,7 @@ Das GitHub-Release wird mit dem automatisch bereitgestellten `GITHUB_TOKEN` erst
 
 Das Addon ist auf Wago Addons veröffentlicht: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). Die Projekt-ID `ZKxZJkNk` steht als `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` und ist auch auf der Projektseite sichtbar.
 
-Version 0.3.0 wurde über den tagbasierten BigWigs-Packager als Stable für Retail-Patch 12.0.7 veröffentlicht und öffentlich bytegenau verifiziert. Version 0.3.1 korrigiert die Position des Minimap-Symbols, sodass es tangential außerhalb statt innerhalb des Minimap-Randes sitzt. Version 0.4.0 erweitert die Statistikseite von neun auf dreizehn lebenslange Werte und legt sie in zwei Bänder. Version 0.4.1 ist ein reiner UI-Hotfix darauf: drei thematisch gruppierte Bänder statt zwei und hart abschneidende Zellrahmen. Version 0.4.2 ersetzt die Vergleichstabelle vollständig durch ein Dashboard je Bereich: eine feste Registerleiste mit angeheftetem GESAMT und je einem Charakterreiter, darüber alle dreizehn Werte gleichzeitig als Kennzahlkarten in drei Abschnitten.
+Die [Wago-Projektseite](https://addons.wago.io/addons/weekly-alt-tracker) stellt die aktuellen Stable-, Beta- und Alpha-Versionen bereit. Release-spezifische Änderungen stehen im jeweiligen Versions-Changelog und in der vollständigen [`CHANGELOG.md`](CHANGELOG.md); die allgemeine Projektbeschreibung bleibt bewusst versionsunabhängig.
 
 Das Secret `WAGO_API_TOKEN` ist im Repository unter *Settings → Secrets and variables → Actions* hinterlegt. Der Tokenwert gehört ausschließlich in dieses Secret und niemals in das Repository. Damit lädt jeder künftige `v*`-Tag über den BigWigs-Packager automatisch sowohl zum GitHub-Release als auch zu Wago hoch.
 
@@ -240,9 +249,9 @@ Das Secret `WAGO_API_TOKEN` ist im Repository unter *Settings → Secrets and va
 
 Die projektseitigen CurseForge-Texte liegen versioniert unter `curseforge/`:
 
-- `PROJECT-en.md` – englischer Titel, Kurzbeschreibung und Beschreibung. CurseForge verlangt Englisch als Projektsprache.
-- `PROJECT-de.md` – deutsche Zusatzfassung derselben Beschreibung.
-- `CHANGELOG-0.8.0-en.md` und `CHANGELOG-0.8.0-de.md` – Änderungsprotokoll zum aktuellen Release. Die Protokolle der Vorversionen (`CHANGELOG-0.7.0-*`, `CHANGELOG-0.6.1-*`, `CHANGELOG-0.6.0-*`, `CHANGELOG-0.5.0-*`, `CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) bleiben als Historie erhalten.
+- `PROJECT-en.md` – allgemeine englische Projektbeschreibung für CurseForge.
+- `PROJECT-de.md` – inhaltsgleiche deutsche Zusatzfassung.
+- `CHANGELOG-<version>-en.md` und `CHANGELOG-<version>-de.md` – release-spezifische Änderungsprotokolle; veröffentlichte Vorversionen bleiben unverändert als Historie erhalten.
 
 Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mit ausgeliefert.
 

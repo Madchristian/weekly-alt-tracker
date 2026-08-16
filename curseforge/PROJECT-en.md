@@ -1,13 +1,10 @@
 # CurseForge project metadata (English)
 
-CurseForge requires English as the project language. This file holds the exact
-texts for the project page. It is documentation only and is not shipped with the
-addon (`.pkgmeta` ignores `curseforge/`).
+CurseForge requires English as the project language. This file contains the project-page copy. It is documentation only and is not shipped with the addon (`.pkgmeta` ignores `curseforge/`).
 
 Official project: https://www.curseforge.com/wow/addons/weeklyalttracker
 
-Project ID: `1616769` (`## X-Curse-Project-ID: 1616769` in
-`WeeklyAltTracker.toc`). Licence: **All Rights Reserved**.
+Project ID: `1616769`. Licence: **All Rights Reserved**.
 
 ---
 
@@ -17,115 +14,71 @@ WeeklyAltTracker
 
 ## Summary
 
-Account-wide weekly progress for all your characters in WoW Midnight Season 2: Great Vault, Mistcrests, Midnight activities, professions and Mythic+ keystones.
+Account-wide weekly progress for your WoW Retail characters: Great Vault, activities, professions, currencies, keystones, and statistics.
 
 ## Description
 
-WeeklyAltTracker collects the weekly progress of every character on your account
-and shows it in one compact comparison window. It stores an offline snapshot per
-character, so you can see where each alt stands without logging in.
+WeeklyAltTracker collects progress from your WoW Retail characters and shows it in one compact interface. The addon stores a safe offline snapshot for each character, so you can check the last known state of your alts without logging into every character.
 
-The addon is standalone: no Ace3, no external libraries, no telemetry, no network
-calls. Everything stays in your local SavedVariables.
+### What it tracks
 
-### Languages
-
-The interface is fully bilingual and follows your WoW client automatically:
-
-- **deDE** - fully German
-- **enUS / enGB** - fully English
-- every other client language falls back safely to English
-
-There is no separate language setting. Names that come from the game - class,
-dungeon, item, profession and achievement - are never translated by the addon;
-they are always taken from the WoW API in your client's language. The addon's own
-translation labels are no longer stored as the display source: the snapshot
-keeps stable IDs that are localized at display time and take precedence.
-Client-localized names supplied by the WoW API may still sit in the snapshot,
-where they serve backwards compatibility as a fallback. After restarting WoW
-with the changed client language, already-recorded characters appear in the new
-language too; with no localization available you get a neutral dungeon ID
-instead of a name stored in another language.
-
-### Seven views
-
-**Overview** - character level, equipped item level, Gilded Stash (0/4 per week),
-all five Season 2 Mistcrests, Great Vault slots for Delves/World and
-Mythic+, plus a dedicated `M+10 / 318` column showing whether a dungeon at +10 or
-higher has been safely completed.
-
-**Midnight Week** - the active Midnight weekly quest with variant and progress,
-with separate `Ready to turn in` and `Turned in` states, plus hunts on Normal,
-Hard and Nightmare (4/6/5), and Ritual Sites progress.
-
-**Professions** - Midnight skill for both primary professions, free knowledge
-points, unused knowledge points still sitting in your bags with a per-item
-tooltip breakdown, profession weekly progress with a separate turn-in state,
-and the Thalassian Treatise.
-
-**Crest Sources** - each character's Shard of Dundun balance as a safe offline
-resource snapshot with a dynamic maximum, Gilded Stash, all five Season 2
-Mistcrests, and Mythic+ from +9 as a repeatable source of Myth Mistcrests.
-Obsolete Season 1 sources are not presented as current rewards. Unreadable API
-values never overwrite a known Dundun balance; account-wide values are not
-summed across characters.
-
-**Keystones** - the currently owned Mythic+ keystone per character with dungeon
-name and level as an offline snapshot.
-
-**Statistics** - a per-scope dashboard instead of a comparison table. A fixed
-register bar along the bottom selects the scope: pinned at the far left is
-TOTAL (the account total), and to its right one tab per character. With many
-characters the character tabs page horizontally via explicit arrow buttons
-while TOTAL always stays pinned. Above it all thirteen lifetime values of the
-selected scope appear simultaneously as metric cards in three sections
-(content, survival, quests): completed
-delves, deaths, quests, healthstones used, 5-player
-dungeons entered (entered, not completed), the Midnight dungeons as a sum of
-final boss kills across eight dungeons and three difficulties, and total
-playtime. Logged-out characters keep their last
-snapshot; the account total adds only safely known values and shows `-` rather
-than an invented zero when every value is unknown. Every card clips hard so no
-value can bleed into its neighbour; very large numbers are abbreviated on the
-card and stated exactly in the tooltip.
-
-**Settings** - refresh data, reset the window position, show or hide the
-minimap button, and change the UI scale directly inside the addon.
-
-### Honest data
-
-Unknown is never invented as zero. An API value that cannot be read safely is
-shown as `-`, and a partial or protected response never overwrites a snapshot
-that was already read successfully. The repeatable crest sources have no
-retroactive per-source weekly counter, so the addon does not invent numbers for
-runs it never observed.
+- weekly activities and account-wide character comparison
+- Great Vault progress for Mythic+ and Delves/World
+- seasonal currencies and supported sources
+- professions, knowledge points, weekly quests, and treatises
+- Mythic+ keystones
+- lifetime character statistics and account totals
+- settings for refresh, scale, window position, and the minimap button
 
 Raid progress and the raid vault are deliberately not tracked.
 
-### Commands
+### Seven views
 
-- `/wat` - show/hide the window
-- `/weeklyalt` - equivalent alias
+1. Overview
+2. Midnight Week
+3. Professions
+4. Crest Sources
+5. Keystones
+6. Statistics
+7. Settings
 
-The minimap button opens the window on left click and can be dragged around the
-minimap edge. `ESC` closes the addon like a standard Blizzard window. Character
-rows and Statistics tabs can be reordered account-wide by drag-and-drop; the
-same order applies to every view and survives restarts. Refresh, position, scale
-and button visibility are controlled in
-the **Settings** section; there are no public slash subcommands from 0.3.0 on.
+Statistics shows character values and account totals. Settings provides refresh controls, window options, scale presets, and minimap-button visibility.
 
-### Notes
+### Current version and changes
 
-The Gilded Stash counter comes from a UI widget that normally only exists in or
-near a delve, so enter a delve once per character to record it. Logged-out
-characters cannot be queried live by WoW; each character appears after its first
-login with the addon enabled.
+WoW activities, currencies, rewards, and thresholds change between patches. This project description is therefore intentionally general. Exact changes and currently supported content are listed:
+
+- in the changelog for each CurseForge file
+- in the full [`CHANGELOG.md`](https://github.com/Madchristian/weekly-alt-tracker/blob/main/CHANGELOG.md)
+- in `CHANGELOG.md` inside the download
+
+The addon folder also contains a detailed offline guide named `Guide.en.html`.
+
+### Safe offline data
+
+WoW does not give addons live access to logged-out characters. A character appears after its first login with the addon enabled and then keeps its last safe snapshot.
+
+Unknown, partial, or protected API values are never invented as zero or complete. An uncertain new value does not overwrite a previously known safe state. Expired weekly snapshots are marked as old week.
+
+All data stays in local SavedVariables. The addon has no telemetry, advertising, or network communication and requires no external libraries.
+
+### Languages
+
+- deDE: full German interface
+- enUS / enGB: full English interface
+- other client languages: English fallback
+
+The language follows the WoW client automatically. Names supplied by the game are localized at display time through the WoW API.
+
+### Usage
+
+- `/wat` or `/weeklyalt`: open and close the window
+- minimap button: left click to open, drag to move
+- `ESC`: close the window
+- character rows and Statistics tabs: drag to set one account-wide order
 
 ### Licence
 
-All Rights Reserved. Distribution is authorised only through the author's
-official Wago and CurseForge project pages. See `LICENSE.txt` in the addon
-folder. Data provenance is disclosed in `THIRD_PARTY_NOTICES.md`.
+All Rights Reserved. Private, non-commercial use is allowed. Public distribution is authorized only through project pages approved by the author. `LICENSE.txt` in the addon folder is authoritative.
 
-WeeklyAltTracker is an independent fan project and is not affiliated with
-Blizzard Entertainment.
+WeeklyAltTracker is an independent fan project and is not affiliated with Blizzard Entertainment.
