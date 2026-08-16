@@ -186,7 +186,7 @@ function WAT:ScanMidnightWeekly()
     return ReadPoolQuestState(Data.META_QUESTS)
 end
 
-local function CountCompletedPool(pool)
+local function CountCompletedPool(pool, goal)
     if type(pool) ~= "table" then return nil end
     local count = 0
     local matched = {}
@@ -198,7 +198,7 @@ local function CountCompletedPool(pool)
             matched[#matched + 1] = questID
         end
     end
-    local goal = SafeNumber(Data.PREY_GOAL)
+    goal = SafeNumber(goal)
     if not goal then return nil end
     if count > goal then count = goal end
     return {
@@ -210,10 +210,12 @@ local function CountCompletedPool(pool)
     }
 end
 
+-- Saison-2-Wochenziele je Jagdschwierigkeit getrennt (Data.PREY_GOAL_*):
+-- Coiled Isle erhoeht Schwer und Albtraum ueber Normal hinaus.
 function WAT:ScanPrey()
-    local normal = CountCompletedPool(Data.PREY_NORMAL)
-    local hard = CountCompletedPool(Data.PREY_HARD)
-    local nightmare = CountCompletedPool(Data.PREY_NIGHTMARE)
+    local normal = CountCompletedPool(Data.PREY_NORMAL, Data.PREY_GOAL_NORMAL)
+    local hard = CountCompletedPool(Data.PREY_HARD, Data.PREY_GOAL_HARD)
+    local nightmare = CountCompletedPool(Data.PREY_NIGHTMARE, Data.PREY_GOAL_NIGHTMARE)
     if not normal or not hard or not nightmare then return nil end
     return {
         normal = normal,
@@ -473,18 +475,6 @@ function WAT:ScanProfessions(previousProgress, previousWeekly, allowRemoval)
         if allowRemoval ~= true then PreserveMissingProfessions(professions, previousWeekly) end
     end
     return professions, progress
-end
-
-local function AchievementCompleted(achievementID, perCharacter)
-    if not GetAchievementInfo or type(achievementID) ~= "number" then return nil end
-    local result = { pcall(GetAchievementInfo, achievementID) }
-    if not result[1] then return nil end
-    local completed = SafeBoolean(result[5])
-    local wasEarnedByMe = SafeBoolean(result[14])
-    if perCharacter then
-        return wasEarnedByMe
-    end
-    return completed
 end
 
 -- ---------------------------------------------------------------------------
@@ -792,143 +782,50 @@ function WAT:ScanStatistics(character)
     if scanned then store.scanned = now end
 end
 
+-- Hoechste sicher ABGESCHLOSSENE Mythisch-Plus-Schluesselsteinstufe aus dem
+-- M+-Vault: nur Slots mit lesbarem progress >= threshold zaehlen als
+-- Abschluss. Ein unlesbarer oder nur teilweise gefuellter Slot liefert weder
+-- eine erfundene Stufe noch blockiert er die Auswertung der uebrigen Slots -
+-- er liefert schlicht keinen Beitrag.
+local function HighestUnlockedKeyLevel(vault)
+    if type(vault) ~= "table" or type(vault.slots) ~= "table" then return nil end
+    local highest
+    for _, slot in ipairs(vault.slots) do
+        if type(slot) == "table" then
+            local progress = SafeNumber(slot.progress)
+            local threshold = SafeNumber(slot.threshold)
+            local level = SafeNumber(slot.level)
+            if progress and threshold and progress >= threshold and level then
+                if not highest or level > highest then highest = level end
+            end
+        end
+    end
+    return highest
+end
+
+-- Saison 2 kennt nur noch eine wiederholbare Wappenquelle jenseits der
+-- Goldenen Truhe: Mythische Nebelwappen ab Schluesselsteinstufe +9
+-- (Data.MYTHIC_PLUS_MYTH_MIN_LEVEL). Die frueheren Saison-1-Quellen
+-- (Heroische Showdowns, Rissiger Schluesselstein, Nullaeus T11,
+-- Helden-zu-Mythisch-Tausch, Ritualstaetten T6) sind mit Saison 2 entfallen
+-- und wurden ersatzlos entfernt statt mit veralteten Werten weitergefuehrt.
 function WAT:ScanCrestSources(character)
     if type(character) ~= "table" then return end
-    character.season = type(character.season) == "table" and character.season or {}
-    character.season.crestSources = type(character.season.crestSources) == "table"
-        and character.season.crestSources or {}
-    local season = character.season.crestSources
-
-    local crackedID = SafeNumber(Data.CRACKED_KEYSTONE_QUEST_ID)
-    if crackedID then
-        local completed = QuestCompleted(crackedID)
-        if completed ~= nil then
-            season.crackedKeystone = {
-                questID = crackedID,
-                completed = completed,
-                active = QuestOnLog(crackedID),
-                mythReward = SafeNumber(Data.CRACKED_KEYSTONE_MYTH_REWARD),
-                heroReward = SafeNumber(Data.CRACKED_KEYSTONE_HERO_REWARD),
-                updated = time(),
-            }
-        end
-    end
-
-    local nullaeusID = SafeNumber(Data.NULLAEUS_T11_ACHIEVEMENT_ID)
-    if nullaeusID then
-        local completed = AchievementCompleted(nullaeusID, true)
-        if completed ~= nil then
-            season.nullaeusT11 = {
-                achievementID = nullaeusID,
-                completed = completed,
-                mythReward = SafeNumber(Data.NULLAEUS_T11_MYTH_REWARD),
-                updated = time(),
-            }
-        end
-    end
-
     character.weekly = type(character.weekly) == "table" and character.weekly or {}
     local weekly = character.weekly
     weekly.crestSources = type(weekly.crestSources) == "table" and weekly.crestSources or {}
     local sources = weekly.crestSources
-    local exchangeID = SafeNumber(Data.HERO_TO_MYTH_ACHIEVEMENT_ID)
-    -- Ein sicheres false darf weder zu nil kollabieren noch vom alten Snapshot überschrieben werden.
-    local exchangeUnlocked
-    if exchangeID then exchangeUnlocked = AchievementCompleted(exchangeID, false) end
-    local hero = type(weekly.crests) == "table" and weekly.crests.hero or nil
-    local heroQuantity = type(hero) == "table" and SafeNumber(hero.quantity) or nil
-    local previousExchange = type(sources.heroToMyth) == "table" and sources.heroToMyth or nil
-    if exchangeUnlocked == nil and previousExchange then
-        exchangeUnlocked = SafeBoolean(previousExchange.unlocked)
-    end
-    if heroQuantity == nil and previousExchange then
-        heroQuantity = SafeNumber(previousExchange.heroQuantity)
-    end
-    local heroCost = SafeNumber(Data.HERO_TO_MYTH_HERO_COST)
-    local mythReward = SafeNumber(Data.HERO_TO_MYTH_MYTH_REWARD)
-    local potential
-    if exchangeUnlocked == true and heroQuantity and heroCost and heroCost > 0 and mythReward then
-        potential = math.floor(heroQuantity / heroCost) * mythReward
-    end
-    sources.heroToMyth = {
-        achievementID = exchangeID,
-        unlocked = exchangeUnlocked,
-        heroQuantity = heroQuantity,
-        mythPotential = potential,
-        updated = time(),
-    }
 
-    -- Heroische Showdowns (Val/Naigtal): Hauptslot- und Folgeslot-Pool sind
-    -- je eine eigene, atomare ReadPoolQuestState-Auswertung, damit hoechstens
-    -- EIN Zustand je Slot entsteht und ein teilweise unlesbarer Pool keinen
-    -- sicheren Same-Week-Vorwert herabstuft (Invarianten 1/2).
-    local previousShowdown = type(sources.heroicShowdowns) == "table" and sources.heroicShowdowns or nil
-    local mainState = ReadPoolQuestState(Data.HEROIC_SHOWDOWN_MAIN_QUESTS, true)
-    local followupState = ReadPoolQuestState(Data.HEROIC_SHOWDOWN_FOLLOWUP_QUESTS, true)
-    local mainObserved = mainState ~= nil
-    local followupObserved = followupState ~= nil
-
-    if mainState == nil and previousShowdown and type(previousShowdown.main) == "table" then
-        mainState = previousShowdown.main
-    end
-    if followupState == nil and previousShowdown and type(previousShowdown.followup) == "table" then
-        followupState = previousShowdown.followup
-    end
-
-    -- Bewusst kein "and ... or nil": SafeBoolean(false) waere selbst falsy und
-    -- das or-Glied wuerde ein sicheres false wieder zu nil kollabieren lassen.
-    local mainDone
-    if type(mainState) == "table" then mainDone = SafeBoolean(mainState.turnedIn) end
-    local followupDone
-    if type(followupState) == "table" then followupDone = SafeBoolean(followupState.turnedIn) end
-
-    local mythPerSlot = SafeNumber(Data.HEROIC_SHOWDOWN_MYTH_PER_SLOT)
-    local maxMyth = SafeNumber(Data.HEROIC_SHOWDOWN_MAX_MYTH)
-    local earned
-    if mainDone ~= nil and followupDone ~= nil and mythPerSlot then
-        earned = 0
-        if mainDone then earned = earned + mythPerSlot end
-        if followupDone then earned = earned + mythPerSlot end
-        if maxMyth and earned > maxMyth then earned = maxMyth end
-    end
-
-    local showdownUpdated
-    if mainObserved or followupObserved then
-        showdownUpdated = time()
-    elseif previousShowdown then
-        showdownUpdated = previousShowdown.updated
-    end
-
-    sources.heroicShowdowns = {
-        main = mainState,
-        followup = followupState,
-        mainDone = mainDone,
-        followupDone = followupDone,
-        earned = earned,
-        maximum = maxMyth,
-        mythPerSlot = mythPerSlot,
-        updated = showdownUpdated,
-    }
-
-    local highestKeyLevel
-    local vault = weekly.mythicPlusVault
-    if type(vault) == "table" and type(vault.slots) == "table" then
-        for _, slot in ipairs(vault.slots) do
-            local level = type(slot) == "table" and SafeNumber(slot.level) or nil
-            if level and (not highestKeyLevel or level > highestKeyLevel) then highestKeyLevel = level end
-        end
-    end
+    local highest = HighestUnlockedKeyLevel(weekly.mythicPlusVault)
     sources.mythicPlus = {
-        minimumEligibleLevel = 9,
-        highestObservedLevel = highestKeyLevel,
+        minimumEligibleLevel = SafeNumber(Data.MYTHIC_PLUS_MYTH_MIN_LEVEL),
+        highestUnlockedLevel = highest,
         repeatable = true,
-        updated = time(),
-    }
-    sources.ritualT6 = {
-        mythPerRun = SafeNumber(Data.RITUAL_T6_MYTH_PER_RUN),
-        repeatable = true,
-        ledgerAvailable = false,
-        updated = time(),
+        -- Kein frischer Zeitstempel ohne sicheren Abschluss. Falls ein Slot
+        -- lesbar freigeschaltet ist, gehört der Datenstand zum Vault-Snapshot
+        -- und nicht zum Zeitpunkt dieses abgeleiteten Scans.
+        updated = highest and type(weekly.mythicPlusVault) == "table"
+            and SafeNumber(weekly.mythicPlusVault.updated) or nil,
     }
 end
 

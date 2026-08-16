@@ -103,8 +103,11 @@ def main() -> int:
             and toc_version.group(1) == core_version.group(1),
             "TOC- und Core-Version müssen übereinstimmen")
 
-    for currency_id, label in [(3343, "Champion"), (3345, "Held"), (3347, "Mythisch")]:
+    for currency_id, label in [(3442, "Abenteurer"), (3443, "Veteran"), (3444, "Champion"),
+                               (3445, "Held"), (3446, "Mythisch")]:
         require(str(currency_id) in data, f"Currency-ID {currency_id} ({label}) fehlt")
+    require("CopyNumber(previousEntry.currencyID) == currencyID" in scanner,
+            "Same-Week-Wappenvorwerte dürfen nur bei exakt passender currencyID erhalten bleiben")
     require("DUNDUN_CURRENCY_ID = 3376" in data, "Dundun-Splitter-Currency-ID 3376 fehlt")
     require("ReadDundun" in scanner and "resources.dundun" in scanner,
             "Dundun-Splitter-Scan fehlt in Scanner.lua")
@@ -119,30 +122,19 @@ def main() -> int:
     require(len(meta) == 15 and len(set(meta)) == 15, "Meta-Weekly-Pool muss 15 eindeutige IDs enthalten")
     require({93889, 93909, 95843}.issubset(meta), "Bestätigte Meta-IDs 93889/93909/95843 fehlen")
 
-    for name in ("PREY_NORMAL", "PREY_HARD", "PREY_NIGHTMARE"):
+    for name in ("PREY_NORMAL", "PREY_HARD"):
         pool = ids(table_body(data, name))
         require(len(pool) == 30 and len(set(pool)) == 30, f"{name} muss 30 eindeutige IDs enthalten")
-    require("PREY_GOAL = 4" in data, "Jagd-Wochenziel 4 fehlt")
+    nightmare = ids(table_body(data, "PREY_NIGHTMARE"))
+    require(len(nightmare) == 34 and len(set(nightmare)) == 34,
+            "PREY_NIGHTMARE muss 34 eindeutige IDs einschließlich vier 12.1-Jagden enthalten")
+    require({95021, 95022, 95023, 95024}.issubset(nightmare),
+            "vier bestätigte 12.1-Albtraumjagden fehlen")
+    for token in ("PREY_GOAL_NORMAL = 4", "PREY_GOAL_HARD = 6", "PREY_GOAL_NIGHTMARE = 5"):
+        require(token in data, f"Saison-2-Jagd-Wochenziel fehlt: {token}")
     require("RITUAL_QUEST_ID = 95843" in data, "Ritualstätten-Quest 95843 fehlt")
-    require("CRACKED_KEYSTONE_QUEST_ID = 92600" in data, "Rissiger-Schlüsselstein-Quest 92600 fehlt")
-    require("NULLAEUS_T11_ACHIEVEMENT_ID = 61798" in data, "Nullaeus-T11-Erfolg 61798 fehlt")
-    require("HERO_TO_MYTH_ACHIEVEMENT_ID = 42769" in data, "Helden-zu-Mythisch-Erfolg 42769 fehlt")
-
-    showdown_main = ids(table_body(data, "HEROIC_SHOWDOWN_MAIN_QUESTS"))
-    showdown_followup = ids(table_body(data, "HEROIC_SHOWDOWN_FOLLOWUP_QUESTS"))
-    require(set(showdown_main) == {96714, 96718},
-            f"Heroische-Showdowns-Hauptslot-Pool muss genau {{96714, 96718}} sein, gefunden: {showdown_main}")
-    require(set(showdown_followup) == {97081, 97087, 97083, 97086},
-            "Heroische-Showdowns-Folgeslot-Pool muss genau {97081, 97087, 97083, 97086} sein, "
-            f"gefunden: {showdown_followup}")
-    require(len(showdown_main) == len(set(showdown_main)) == 2,
-            "Hauptslot-Pool muss zwei eindeutige IDs enthalten")
-    require(len(showdown_followup) == len(set(showdown_followup)) == 4,
-            "Folgeslot-Pool muss vier eindeutige IDs enthalten")
-    require(not (set(showdown_main) & set(showdown_followup)),
-            "Haupt- und Folgeslot-Pool der Heroischen Showdowns dürfen sich nicht überschneiden")
-    require("HEROIC_SHOWDOWN_MYTH_PER_SLOT = 5" in data, "Mythisch-Belohnung je Showdown-Slot (5) fehlt")
-    require("HEROIC_SHOWDOWN_MAX_MYTH = 10" in data, "Wochenmaximum der Heroischen Showdowns (10) fehlt")
+    require("GILDED_MYTH_PER_STASH = 7" in data, "Saison-2-Ertrag der Goldenen Truhe fehlt")
+    require("MYTHIC_PLUS_MYTH_MIN_LEVEL = 9" in data, "M+-Mindeststufe für Mythische Nebelwappen fehlt")
 
     weekly_prof = table_body(data, "PROFESSION_WEEKLIES")
     treatises = table_body(data, "PROFESSION_TREATISES")
@@ -179,12 +171,10 @@ def main() -> int:
 
     for token in ("ScanMidnightWeekly", "ScanPrey", "ScanRitualSites", "ScanProfessions", "ScanCrestSources"):
         require(token in activities, f"Aktivitätsscanner fehlt: {token}")
-    require("character.season" in activities, "Saisonquellen dürfen nicht im Wochenreset verloren gehen")
-    for token in ("heroicShowdowns", "HEROIC_SHOWDOWN_MAIN_QUESTS", "HEROIC_SHOWDOWN_FOLLOWUP_QUESTS",
-                  "mainDone", "followupDone"):
-        require(token in activities, f"Heroische-Showdowns-Scan fehlt: {token}")
-    require("weekly.heroicShowdowns" not in activities and "season.heroicShowdowns" not in activities,
-            "Heroische Showdowns müssen unter weekly.crestSources liegen, nicht als eigener Container")
+    for token in ("HighestUnlockedKeyLevel", "highestUnlockedLevel", "minimumEligibleLevel"):
+        require(token in activities, f"Saison-2-M+-Quellenscan fehlt: {token}")
+    for obsolete in ("heroicShowdowns", "crackedKeystone", "nullaeusT11", "heroToMyth"):
+        require(obsolete not in activities, f"veraltete Saison-1-Quelle noch im Scan: {obsolete}")
     for api in ("IsQuestFlaggedCompleted", "GetQuestObjectives", "GetQuestProgressBarPercent", "GetProfessions", "GetProfessionInfo",
                 "GetProfessionInfoBySkillLineID", "GetCurrencyInfoForSkillLine", "numAvailable",
                 "GetContainerNumSlots", "GetContainerItemInfo"):
@@ -290,8 +280,6 @@ def main() -> int:
             "Berufsscans müssen bei partiellen API-Antworten atomar fehlschlagen")
     require("IsSafe(objectives)" in activities and "IsSafe(objective)" in activities,
             "Quest-Objective-Container müssen Secret-safe geprüft werden")
-    require("previousExchange" in activities,
-            "Helden-zu-Mythisch darf sicheren Same-Week-Status bei API-Ausfall nicht verlieren")
 
     for event in ("QUEST_LOG_UPDATE", "QUEST_TURNED_IN", "SKILL_LINES_CHANGED", "SKILL_LINE_SPECS_RANKS_CHANGED",
                   "TRAIT_CONFIG_UPDATED", "ACHIEVEMENT_EARNED",
@@ -315,12 +303,12 @@ def main() -> int:
 
     de_dict = dictionary_body("deDE")
     en_dict = dictionary_body("enUS")
-    for label in ("Übersicht", "Midnight-Woche", "Berufe", "Wappenquellen", "Goldene Truhe", "Dämmerwappen",
-                  "Champion", "Held", "Mythisch", "Jagd", "Ritualstätten", "Thalassischer Traktat",
+    for label in ("Übersicht", "Midnight-Woche", "Berufe", "Wappenquellen", "Goldene Truhe", "Nebelwappen",
+                  "Abenteurer", "Veteran", "Champion", "Held", "Mythisch", "Jagd", "Ritualstätten", "Thalassischer Traktat",
                   "Gegenstandsstufe", "bis Gegenstandsstufe", "alte Woche", "unbekannt"):
         require(label in de_dict, f"Deutscher UI-Text fehlt im deDE-Wörterbuch: {label}")
     for label in ("Overview", "Midnight Week", "Professions", "Crest Sources", "Gilded Stash",
-                  "Twilight Crest", "Champion", "Hero", "Myth", "Hunt", "Ritual Sites",
+                  "Mistcrest", "Adventurer", "Veteran", "Champion", "Hero", "Myth", "Hunt", "Ritual Sites",
                   "Thalassian Treatise", "Item Level", "up to Item Level", "old week", "unknown"):
         require(label in en_dict, f"Englischer UI-Text fehlt im enUS-Wörterbuch: {label}")
 
@@ -646,12 +634,11 @@ def main() -> int:
 
     for token in ('key = "mythic10"', 'label = L("COL_MYTHIC10")', "MythicPlusTenText"):
         require(token in ui, f"M+10-Status in der Übersicht fehlt: {token}")
-    for token in ('key = "heroicShowdown"', 'label = L("COL_HEROIC_SHOWDOWN")', "HeroicShowdownText"):
-        require(token in ui, f"Heroische-Showdowns-Spalte im Wappenquellen-Panel fehlt: {token}")
+    for token in ('key = "mythicPlusKey"', 'key = "crestAdventurer"', 'key = "crestVeteran"',
+                  'key = "crestChampion"', 'key = "crestHero"', 'key = "crestMyth"'):
+        require(token in ui, f"Saison-2-Spalte im Wappenquellen-Panel fehlt: {token}")
     for name, body in (("deDE", de_dict), ("enUS", en_dict)):
-        require("COL_HEROIC_SHOWDOWN" in body, f"Spaltenkopf der Heroischen Showdowns fehlt in {name}")
-    for name, body in (("deDE", de_dict), ("enUS", en_dict)):
-        require('COL_MYTHIC10 = "M+10\\n272 ILVL"' in body,
+        require('COL_MYTHIC10 = "M+10\\n318 ILVL"' in body,
                 f"M+10-Spaltenkopf fehlt in {name}")
     for token in ("CreateMinimapButton", "UpdateMinimapButtonPosition", "minimapAngle",
                   "RegisterForClicks", "OnDragStart", "OnDragStop", "SetMask"):

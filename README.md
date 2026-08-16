@@ -1,6 +1,6 @@
 # WeeklyAltTracker
 
-Ein eigenständiges WoW-Retail-Addon für Midnight 12.0.7. Es speichert den Wochenfortschritt accountweit als Offline-Snapshots und zeigt mehrere Charaktere in einer kompakten Midnight-Dark-Oberfläche.
+Ein eigenständiges WoW-Retail-Addon für Midnight 12.1.0 und Saison 2. Es speichert den Wochenfortschritt accountweit als Offline-Snapshots und zeigt mehrere Charaktere in einer kompakten Midnight-Dark-Oberfläche.
 
 Eine ausführliche Installations-, Bedienungs- und Fehlerbehebungsanleitung befindet sich in `Anleitung.html`. Die Nutzungsbedingungen stehen in `LICENSE.txt`; WeeklyAltTracker wird unter **All Rights Reserved** veröffentlicht.
 
@@ -25,13 +25,15 @@ Der Slash-Befehl `/wat` ist in beiden Sprachen identisch; nur seine Ausgabe ist 
 ### Übersicht
 
 - Goldene Truhe aus Tier-11-Bountiful-Tiefen: 0/4 pro Woche
-- Champion-Dämmerwappen, Währungs-ID 3343
-- Heldendämmerwappen, Währungs-ID 3345
-- Mythische Dämmerwappen, Währungs-ID 3347
+- Abenteurer-Nebelwappen, Währungs-ID 3442
+- Veteranen-Nebelwappen, Währungs-ID 3443
+- Champion-Nebelwappen, Währungs-ID 3444
+- Helden-Nebelwappen, Währungs-ID 3445
+- Mythische Nebelwappen, Währungs-ID 3446
 - Große Schatzkammer für Tiefen/Welt: Slots 2/4/8
 - Große Schatzkammer für Mythisch+: Slots 1/4/8
 - Pro Vault-Slot: Fortschritt, Tier/Schlüsselsteinstufe, Status und Belohnungs-Gegenstandsstufe
-- Eigene Übersichtsspalte `M+10 / 272`: `Ja`, sobald mindestens ein Dungeon auf +10 oder höher sicher abgeschlossen wurde
+- Eigene Übersichtsspalte `M+10 / 318`: `Ja`, sobald mindestens ein Dungeon auf +10 oder höher sicher abgeschlossen wurde
 - Tatsächliche Belohnungen erscheinen als „Gegenstandsstufe …“, Prognosen als „bis Gegenstandsstufe …“
 - Charakterlevel, angelegte Gegenstandsstufe und letzter Snapshot
 - Raid-Fortschritt und Raid-Vault sind bewusst nicht enthalten
@@ -39,7 +41,7 @@ Der Slash-Befehl `/wat` ist in beiden Sprachen identisch; nur seine Ausgabe ist 
 ### Midnight-Woche
 
 - Aktive Midnight-Wochenquest samt Variante und Fortschritt; die Anzeige unterscheidet aktiv mit Fortschritt (z. B. `3/5`) von erledigt (Ziel im Log erfüllt oder bereits abgegeben) anhand des echten Quest-API-Zustands
-- Jagden auf Normal, Schwer und Albtraum, jeweils 0/4
+- Jagden auf Normal, Schwer und Albtraum mit den Saison-2-Zielen 4/6/5
 - Ritualstätten samt Prozentfortschritt
 
 ### Berufe
@@ -59,15 +61,11 @@ Unterstützt werden Alchemie, Schmiedekunst, Ingenieurskunst, Inschriftenkunde, 
 ### Wappenquellen
 
 - Splitter von Dundun pro Charakter als Offline-Ressourcen-Snapshot, mit dynamischem Maximum wie `5/8`
-- Goldene Truhe: wöchentlich, vier Abschlüsse mit je 5 Mythischen Dämmerwappen
-- Heroische Showdowns in Val oder Naigtal: eine Hauptquest und eine Folgequest pro Woche mit je 5 Mythischen Dämmerwappen aus dem jeweiligen Riftstalker-Cache, maximal 10; alle sechs Questvarianten werden als zwei Slots ohne Doppelzählung erfasst
-- Rissiger Schlüsselstein, Quest 92600: einmalig 20 Mythische und 20 Heldendämmerwappen
-- Nullaeus auf Tier 11, Erfolg 61798: einmalig 30 Mythische Dämmerwappen
-- Ritualstätten Tier 6: wiederholbar, 5 Mythische Dämmerwappen pro Abschluss
-- Mythisch+ ab +9: wiederholbare Quelle; das Addon zeigt die höchste sicher beobachtete Stufe
-- Helden-zu-Mythisch-Tausch nach Erfolg 42769: 30 Heldendämmerwappen ergeben 10 Mythische Dämmerwappen; angezeigt wird nur das tauschbare Potential
+- Bestände aller fünf Saison-2-Nebelwappen pro Charakter
+- Goldene Truhe: wöchentlich, vier Abschlüsse mit je 7 Mythischen Nebelwappen
+- Mythisch+ ab +9 als wiederholbare Quelle Mythischer Nebelwappen; angezeigt wird nur die höchste sicher abgeschlossene Stufe
 
-Die wiederholbaren Quellen besitzen keinen rückwirkenden quellenspezifischen Wochenzähler. Das Addon erfindet daher keine Anzahl für Läufe, die außerhalb seiner Beobachtung stattfanden.
+Die Quellenansicht zeigt keine veralteten Saison-1-Belohnungen als aktuelle Nebelwappen an. Ein alter Dämmerwappen-Snapshot wird nur übernommen, wenn seine Währungs-ID exakt zur aktuellen Definition passt; andernfalls bleibt der neue Wert unbekannt.
 
 Der Dundun-Bestand liegt bewusst außerhalb des Wochenresets. Ein unlesbarer oder geschützter API-Wert überschreibt keinen bekannten Bestand. Der Tooltip nennt Datenstand und API-Reichweite; accountweite Werte werden nicht über Charaktere summiert.
 
@@ -167,11 +165,11 @@ Berufsskill, freie Wissenspunkte und Taschenwissen werden als nichtwöchentliche
 
 Der Zähler der Goldenen Truhe ist kein normaler Quest- oder Währungswert. Blizzard stellt ihn über ein UI-Widget bereit, das normalerweise nur in oder bei einer Tiefe existiert. Deshalb mit jedem Charakter mindestens einmal eine Tiefe betreten. Ein erfolgreich erfasster Stand wird außerhalb der Tiefe nicht mit einem fehlenden Wert überschrieben.
 
-Die Midnight-Questpools wurden aus aktuellen lokalen Addon-Referenzen ermittelt. Zwei Kernquests sind zusätzlich durch eine für Interface 120007 markierte Referenz bestätigt; der vollständige Pool war dort jedoch nicht formal für 12.0.7 markiert. Deshalb bleibt ein unlesbarer oder nicht sicher ermittelbarer Zustand `unbekannt`, statt als erledigt oder offen erfunden zu werden.
+Die Midnight-Questpools wurden aus aktuellen lokalen Addon-Referenzen ermittelt und für 12.1 um die vier bestätigten Albtraumjagden der Gewundenen Insel ergänzt. Deshalb bleibt ein unlesbarer oder nicht sicher ermittelbarer Zustand `unbekannt`, statt als erledigt oder offen erfunden zu werden.
 
 Vault-Belohnungs-Itemlevel können von Blizzard abhängig vom UI-/Cachezustand zeitweise nicht geliefert werden. Der letzte sichere Wert bleibt dann erhalten; unbekannt erscheint als `-`.
 
-Die Übersicht zeigt `M+10` grün als `Ja`, sobald die Blizzard-Schatzkammer mindestens einen freigeschalteten Slot mit Schlüsselsteinstufe +10 oder höher meldet. Das entspricht in Midnight Saison 1 der 272er Belohnungsstufe der Großen Schatzkammer. `Offen` bedeutet sicher noch nicht erreicht; `-` bedeutet unbekannt.
+Die Übersicht zeigt `M+10` grün als `Ja`, sobald die Blizzard-Schatzkammer mindestens einen freigeschalteten Slot mit Schlüsselsteinstufe +10 oder höher meldet. Das entspricht in Midnight Saison 2 der 318er Belohnungsstufe (Mythisch 1/6) der Großen Schatzkammer. `Offen` bedeutet sicher noch nicht erreicht; `-` bedeutet unbekannt.
 
 ## Testablauf im Spiel
 
@@ -180,7 +178,7 @@ Die Übersicht zeigt `M+10` grün als `Ja`, sobald die Blizzard-Schatzkammer min
 3. Im Bereich `Einstellungen` eine Skalierungsstufe wählen, das Minimap-Symbol aus- und wieder einblenden und die Position zurücksetzen.
 4. Große Schatzkammer öffnen und im Bereich `Einstellungen` auf `Jetzt aktualisieren` klicken.
 5. Vault-Zeile berühren und Itemlevel pro Slot prüfen.
-6. Nach einem Abschluss auf +10 oder höher in der Übersicht `M+10 / 272` auf grünes `Ja` prüfen.
+6. Nach einem Abschluss auf +10 oder höher in der Übersicht `M+10 / 318` auf grünes `Ja` prüfen.
 7. Eine Tier-11-Bountiful-Tiefe betreten und danach die Goldene Truhe kontrollieren.
 8. Questlog öffnen beziehungsweise eine Midnight-Aktivität erledigen und den Bereich `Midnight-Woche` prüfen.
 9. Im Bereich `Berufe` Skill, `Frei / Tasche`, Berufs-Wochenquest und Traktat kontrollieren; die Zeile für Itemdetails berühren.
@@ -244,13 +242,13 @@ Die projektseitigen CurseForge-Texte liegen versioniert unter `curseforge/`:
 
 - `PROJECT-en.md` – englischer Titel, Kurzbeschreibung und Beschreibung. CurseForge verlangt Englisch als Projektsprache.
 - `PROJECT-de.md` – deutsche Zusatzfassung derselben Beschreibung.
-- `CHANGELOG-0.7.0-en.md` und `CHANGELOG-0.7.0-de.md` – Änderungsprotokoll zum aktuellen Release. Die Protokolle der Vorversionen (`CHANGELOG-0.6.1-*`, `CHANGELOG-0.6.0-*`, `CHANGELOG-0.5.0-*`, `CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) bleiben als Historie erhalten.
+- `CHANGELOG-0.8.0-en.md` und `CHANGELOG-0.8.0-de.md` – Änderungsprotokoll zum aktuellen Release. Die Protokolle der Vorversionen (`CHANGELOG-0.7.0-*`, `CHANGELOG-0.6.1-*`, `CHANGELOG-0.6.0-*`, `CHANGELOG-0.5.0-*`, `CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) bleiben als Historie erhalten.
 
 Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mit ausgeliefert.
 
 #### Automatische Paketierung und manueller Fallback
 
-CurseForge Automatic Packaging ist über den Repository-Webhook mit dem öffentlichen GitHub-Repository verbunden. `Package all commits` bleibt deaktiviert; normale Tags wie `v0.7.0` erzeugen Releases, Tags mit `beta` beziehungsweise `alpha` die entsprechenden Vorabkanäle. Es gibt bewusst keinen parallelen automatischen Upload per `CF_API_KEY`, damit ein Tag nicht doppelt veröffentlicht wird.
+CurseForge Automatic Packaging ist über den Repository-Webhook mit dem öffentlichen GitHub-Repository verbunden. `Package all commits` bleibt deaktiviert; normale Tags wie `v0.8.0` erzeugen Releases, Tags mit `beta` beziehungsweise `alpha` die entsprechenden Vorabkanäle. Es gibt bewusst keinen parallelen automatischen Upload per `CF_API_KEY`, damit ein Tag nicht doppelt veröffentlicht wird.
 
 Der separate Workflow `.github/workflows/curseforge-package.yml` (**Build CurseForge ZIP**) bleibt ausschließlich als manueller Fallback. Er erzeugt ein hochladbares ZIP als Actions-Artefakt, hat nur Leserechte, kennt kein `CF_API_KEY` und lädt nirgendwohin hoch.
 

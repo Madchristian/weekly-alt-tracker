@@ -19,7 +19,7 @@ EXPECTED_VERSION gehoert zur Liste der Stellen, die vor jedem Tag von Hand
 angeglichen werden (TOC, Core.lua, Anleitung, Guides, READMEs, Changelogs).
 
 Aufruf:
-    python tools/verify_package.py dist/WeeklyAltTracker-0.7.0.zip
+    python tools/verify_package.py dist/WeeklyAltTracker-0.8.0.zip
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 PACKAGE_FOLDER = "WeeklyAltTracker"
-EXPECTED_VERSION = "0.7.0"
+EXPECTED_VERSION = "0.8.0"
 
 # Identisch zu EXPECTED_PACKAGE in tools/check.py - bewusst doppelt gefuehrt,
 # damit dieses Skript das ZIP auch ohne check.py allein pruefen kann.
@@ -57,8 +57,8 @@ EXPECTED_FILES = {
 }
 
 EXPECTED_TOC_FIELDS = {
-    "Version": "0.7.0",
-    "Interface": "120007, 120100",
+    "Version": "0.8.0",
+    "Interface": "120100",
     "X-Wago-ID": "ZKxZJkNk",
     "X-Curse-Project-ID": "1616769",
     "X-License": "All Rights Reserved",

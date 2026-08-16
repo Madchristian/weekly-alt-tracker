@@ -449,6 +449,30 @@ assert(freshCharacter.resources == nil or freshCharacter.resources.dundun == nil
     "ohne jede API darf niemals eine erfundene Dundun-Menge entstehen")
 C_CurrencyInfo = savedCurrencyInfo
 
+-- Saisonwechsel: Ein API-Ausfall darf alte Dämmerwappen mit denselben
+-- Speicherschlüsseln niemals als neue Nebelwappen ausgeben. Nur ein Vorwert mit
+-- exakt passender Currency-ID darf erhalten bleiben.
+WAT.Data.CRESTS = {
+    adventurer = { currencyID = 3442 }, veteran = { currencyID = 3443 },
+    champion = { currencyID = 3444 }, hero = { currencyID = 3445 }, myth = { currencyID = 3446 },
+}
+C_CurrencyInfo = { GetCurrencyInfo = function() return nil end }
+local legacyCrests = { weekly = { crests = {
+    champion = { currencyID = 3343, quantity = 120 },
+    hero = { currencyID = 3345, quantity = 60 },
+    myth = { currencyID = 3347, quantity = 15 },
+} } }
+WAT:ScanCharacter(legacyCrests, "runtime-test")
+assert(legacyCrests.weekly.crests == nil,
+    "alte Dämmerwappen dürfen bei API-Ausfall nicht als Saison-2-Nebelwappen erhalten bleiben")
+
+local matchingCrests = { weekly = { crests = {
+    myth = { currencyID = 3446, quantity = 23 },
+} } }
+WAT:ScanCharacter(matchingCrests, "runtime-test")
+assert(matchingCrests.weekly.crests.myth.quantity == 23,
+    "ein Same-Week-Vorwert mit exakt passender Currency-ID muss API-Ausfall überleben")
+
 print("LUA RUNTIME OK: Vault, Schlüsselstein +12, Secret-Erhalt, kein Schlüsselstein,"
     .. " konservative Vault-Summary und lückensichere Vorschau-Itemlevel,"
     .. " sprachneutraler GetVaultSummary-Vertrag in deDE/enUS"
@@ -456,4 +480,5 @@ print("LUA RUNTIME OK: Vault, Schlüsselstein +12, Secret-Erhalt, kein Schlüsse
     .. " Dundun-Splitter (3376) als Offline-Ressourcen-Snapshot: bekannte Menge+Maximum,"
     .. " echte Null, unbekanntes Maximum, API-Ausfall/nil/Secret-Container/Secret-Menge"
     .. " erhalten den Vorwert, optionale Secret-Felder entwerten die Menge nicht,"
-    .. " keine erfundene Menge ganz ohne API")
+    .. " keine erfundene Menge ganz ohne API, Saisonwechsel verwirft alte 3343/3345/3347"
+    .. " und erhält nur exakt passende Nebelwappen-Currency-IDs")

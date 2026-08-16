@@ -13,7 +13,7 @@ import test_runtime  # noqa: E402  - kanonische Harnessmenge, eine Quelle der Wa
 ROOT = Path(__file__).resolve().parents[1]
 TOC = ROOT / "WeeklyAltTracker.toc"
 IMMUTABLE_RELEASE_VERSIONS = (
-    "0.7.0", "0.6.1", "0.6.0", "0.5.0", "0.4.2", "0.4.1", "0.4.0", "0.3.1",
+    "0.8.0", "0.7.0", "0.6.1", "0.6.0", "0.5.0", "0.4.2", "0.4.1", "0.4.0", "0.3.1",
     "0.3.0", "0.2.6", "0.2.5", "0.2.4",
 )
 
@@ -38,8 +38,8 @@ def check_toc() -> list[Path]:
         return []
     text = TOC.read_text(encoding="utf-8")
     required = {
-        "## Interface: 120007, 120100",
-        "## Version: 0.7.0",
+        "## Interface: 120100",
+        "## Version: 0.8.0",
         "## X-License: All Rights Reserved",
         "## X-Wago-ID: ZKxZJkNk",
         "## X-Curse-Project-ID: 1616769",

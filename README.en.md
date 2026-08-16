@@ -1,6 +1,6 @@
 # WeeklyAltTracker
 
-A standalone WoW Retail addon for Midnight 12.0.7. It stores weekly progress account-wide as offline snapshots and shows several characters in a compact Midnight-dark interface.
+A standalone WoW Retail addon for Midnight 12.1.0 and Season 2. It stores weekly progress account-wide as offline snapshots and shows several characters in a compact Midnight-dark interface.
 
 A detailed installation, usage and troubleshooting guide is in `Guide.en.html`. The terms of use are in `LICENSE.txt`; WeeklyAltTracker is published under **All Rights Reserved**.
 
@@ -25,13 +25,15 @@ The slash command `/wat` is identical in both languages; only its output is tran
 ### Overview
 
 - Gilded Stash from Tier 11 Bountiful Delves: 0/4 per week
-- Champion Twilight Crest, currency ID 3343
-- Hero Twilight Crest, currency ID 3345
-- Myth Twilight Crest, currency ID 3347
+- Adventurer Mistcrest, currency ID 3442
+- Veteran Mistcrest, currency ID 3443
+- Champion Mistcrest, currency ID 3444
+- Hero Mistcrest, currency ID 3445
+- Myth Mistcrest, currency ID 3446
 - Great Vault for Delves/World: slots 2/4/8
 - Great Vault for Mythic+: slots 1/4/8
 - Per vault slot: progress, tier/keystone level, state and reward item level
-- Dedicated overview column `M+10 / 272`: `Yes` as soon as at least one dungeon has been safely completed at +10 or higher
+- Dedicated overview column `M+10 / 318`: `Yes` as soon as at least one dungeon has been safely completed at +10 or higher
 - Actual rewards appear as "Item Level …", forecasts as "up to Item Level …"
 - Character level, equipped item level and last snapshot
 - Raid progress and the raid vault are deliberately not included
@@ -39,7 +41,7 @@ The slash command `/wat` is identical in both languages; only its output is tran
 ### Midnight Week
 
 - Active Midnight weekly quest including variant and progress; the display distinguishes active with progress (e.g. `3/5`) from done (objective met in the quest log or already turned in) based on the real quest API state
-- Hunts on Normal, Hard and Nightmare, 0/4 each
+- Hunts on Normal, Hard and Nightmare with the Season 2 goals 4/6/5
 - Ritual Sites including percentage progress
 
 ### Professions
@@ -59,15 +61,11 @@ Supported are Alchemy, Blacksmithing, Engineering, Inscription, Jewelcrafting, L
 ### Crest Sources
 
 - Shards of Dundun per character as an offline resource snapshot, with a dynamic maximum such as `5/8`
-- Gilded Stash: weekly, four completions with 5 Myth Twilight Crests each
-- Heroic Showdowns in Val or Naigtal: one main quest and one follow-up quest per week, each granting 5 Myth Dawncrests through its Riftstalker reward cache, for a maximum of 10; all six quest variants are grouped into two slots without double counting
-- Cracked Keystone, quest 92600: once, 20 Myth and 20 Hero Twilight Crests
-- Nullaeus on Tier 11, achievement 61798: once, 30 Myth Twilight Crests
-- Ritual Sites Tier 6: repeatable, 5 Myth Twilight Crests per completion
-- Mythic+ from +9: repeatable source; the addon shows the highest safely observed level
-- Hero-to-Myth exchange after achievement 42769: 30 Hero Twilight Crests yield 10 Myth Twilight Crests; only the exchangeable potential is shown
+- Balances of all five Season 2 Mistcrests per character
+- Gilded Stash: weekly, four completions with 7 Myth Mistcrests each
+- Mythic+ from +9 as a repeatable source of Myth Mistcrests; only the highest safely completed level is shown
 
-The repeatable sources have no retroactive per-source weekly counter. The addon therefore does not invent a number for runs that happened outside its observation.
+The source view never presents obsolete Season 1 rewards as current Mistcrests. An old Dawncrest snapshot is retained only when its currency ID exactly matches the current definition; otherwise the new value remains unknown.
 
 The Dundun balance deliberately lives outside the weekly reset. An unreadable or protected API value never overwrites a known balance. The tooltip states data age and API scope; account-wide values are never summed across characters.
 
@@ -169,11 +167,11 @@ Profession skill, free knowledge points and bag knowledge are stored as a non-we
 
 The Gilded Stash counter is not a normal quest or currency value. Blizzard exposes it through a UI widget that normally exists only inside or near a delve. Therefore enter a delve at least once with every character. A successfully recorded state is not overwritten with a missing value outside the delve.
 
-The Midnight quest pools were determined from current local addon references. Two core quests are additionally confirmed by a reference marked for interface 120007; the full pool was not formally marked for 12.0.7 there. An unreadable or not safely determinable state therefore stays `unknown` instead of being invented as done or open.
+The Midnight quest pools were determined from current local addon references and extended for 12.1 with the four confirmed Coiled Isle Nightmare hunts. An unreadable or not safely determinable state therefore stays `unknown` instead of being invented as done or open.
 
 Vault reward item levels can temporarily be unavailable from Blizzard depending on UI/cache state. The last safe value is then kept; unknown appears as `-`.
 
-The overview shows `M+10` in green as `Yes` as soon as the Blizzard vault reports at least one unlocked slot with keystone level +10 or higher. In Midnight season 1 this corresponds to the 272 reward level of the Great Vault. `Open` means safely not yet reached; `-` means unknown.
+The overview shows `M+10` in green as `Yes` as soon as the Blizzard vault reports at least one unlocked slot with keystone level +10 or higher. In Midnight Season 2 this corresponds to the 318 reward level (Myth 1/6) of the Great Vault. `Open` means safely not yet reached; `-` means unknown.
 
 ## In-game test procedure
 
@@ -182,7 +180,7 @@ The overview shows `M+10` in green as `Yes` as soon as the Blizzard vault report
 3. In the `Settings` section pick a scale step, hide and show the minimap button again and reset the position.
 4. Open the Great Vault and click `Refresh now` in the `Settings` section.
 5. Hover the vault row and check the item level per slot.
-6. After a completion at +10 or higher, check `M+10 / 272` in the overview for a green `Yes`.
+6. After a completion at +10 or higher, check `M+10 / 318` in the overview for a green `Yes`.
 7. Enter a Tier 11 Bountiful Delve and afterwards check the Gilded Stash.
 8. Open the quest log or complete a Midnight activity and check the `Midnight Week` section.
 9. In the `Professions` section check skill, `Free / Bags`, profession weekly and treatise; hover the row for item details.
@@ -248,13 +246,13 @@ The project-side CurseForge texts are versioned under `curseforge/`:
 
 - `PROJECT-en.md` – English title, summary and description. CurseForge requires English as the project language.
 - `PROJECT-de.md` – German additional version of the same description.
-- `CHANGELOG-0.7.0-en.md` and `CHANGELOG-0.7.0-de.md` – change log for the current release. The logs of the previous versions (`CHANGELOG-0.6.1-*`, `CHANGELOG-0.6.0-*`, `CHANGELOG-0.5.0-*`, `CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
+- `CHANGELOG-0.8.0-en.md` and `CHANGELOG-0.8.0-de.md` – change log for the current release. The logs of the previous versions (`CHANGELOG-0.7.0-*`, `CHANGELOG-0.6.1-*`, `CHANGELOG-0.6.0-*`, `CHANGELOG-0.5.0-*`, `CHANGELOG-0.4.2-*`, `CHANGELOG-0.4.1-*`, `CHANGELOG-0.4.0-*`, `CHANGELOG-0.3.1-*`, `CHANGELOG-0.3.0-*`, `CHANGELOG-0.2.6-*`) are kept as history.
 
 The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 
 #### Automatic packaging and manual fallback
 
-CurseForge Automatic Packaging is connected to the public GitHub repository through the repository webhook. `Package all commits` stays disabled; normal tags such as `v0.7.0` produce releases, while tags containing `beta` or `alpha` use the corresponding prerelease channel. There is deliberately no parallel automatic `CF_API_KEY` upload, preventing duplicate files for one tag.
+CurseForge Automatic Packaging is connected to the public GitHub repository through the repository webhook. `Package all commits` stays disabled; normal tags such as `v0.8.0` produce releases, while tags containing `beta` or `alpha` use the corresponding prerelease channel. There is deliberately no parallel automatic `CF_API_KEY` upload, preventing duplicate files for one tag.
 
 The separate workflow `.github/workflows/curseforge-package.yml` (**Build CurseForge ZIP**) remains a manual fallback only. It produces an uploadable ZIP as an Actions artifact, has read-only permissions, knows no `CF_API_KEY`, and uploads nowhere.
 

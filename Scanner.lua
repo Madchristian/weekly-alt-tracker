@@ -83,7 +83,13 @@ local function ReadCrest(currencyID)
     }
 end
 
-local function ReadCrests(previous, legacyMyth)
+-- Ein Same-Week-Vorwert wird nur uebernommen, wenn seine currencyID exakt zur
+-- aktuellen Wappendefinition passt. Saison-2-Nebelwappen benutzen neue
+-- Currency-IDs (3442-3446), teilen sich aber ihre Schluessel (champion, hero,
+-- myth) mit den alten Saison-1-Dämmerwappen (3343/3345/3347). Ohne diese
+-- Pruefung wuerde ein API-Ausfall einen alten Saison-1-Bestand unter dem
+-- neuen Wappenschluessel weiterleben lassen - eine stille Falschaussage.
+local function ReadCrests(previous)
     local definitions = WAT.Data and WAT.Data.CRESTS
     if type(definitions) ~= "table" then return nil end
     local result = {}
@@ -92,13 +98,19 @@ local function ReadCrests(previous, legacyMyth)
         local snapshot = currencyID and ReadCrest(currencyID) or nil
         if snapshot then
             result[key] = snapshot
-        elseif type(previous) == "table" and type(previous[key]) == "table" then
-            result[key] = previous[key]
-        elseif key == "myth" and type(legacyMyth) == "table" then
-            result[key] = legacyMyth
+        else
+            local previousEntry = type(previous) == "table" and previous[key] or nil
+            if currencyID and type(previousEntry) == "table"
+                    and CopyNumber(previousEntry.currencyID) == currencyID then
+                result[key] = previousEntry
+            end
         end
     end
-    if next(result) == nil then return nil end
+    -- Eine leere Tabelle bedeutet: Definitionen waren vorhanden, aber weder
+    -- frische noch currencyID-kompatible Vorwerte. Der Aufrufer muss dann einen
+    -- möglicherweise alten Saison-Snapshot bewusst entfernen. nil bleibt für
+    -- einen fehlenden Definitionsvertrag reserviert.
+    if next(result) == nil then return {} end
     result.updated = time()
     return result
 end
@@ -352,11 +364,8 @@ function WAT:ScanCharacter(character, reason)
         }
     end
 
-    local crests = ReadCrests(weekly.crests, weekly.mythCrests)
-    if crests then
-        weekly.crests = crests
-        if type(crests.myth) == "table" then weekly.mythCrests = crests.myth end
-    end
+    local crests = ReadCrests(weekly.crests)
+    if crests then weekly.crests = next(crests) and crests or nil end
 
     self:ScanKeystone(character, reason ~= "PLAYER_LOGIN" and reason ~= "PLAYER_ENTERING_WORLD")
 

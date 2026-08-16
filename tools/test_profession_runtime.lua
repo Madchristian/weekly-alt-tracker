@@ -124,7 +124,7 @@ local removedWeekly, removed = WAT:ScanProfessions(progress, weekly, true)
 assert(removed[2] == nil and removedWeekly[2] == nil,
     "bestätigtes SKILL_LINES_CHANGED muss einen abgelegten zweiten Beruf entfernen")
 
--- Sichere false-Zustände in Activities.lua: QuestOnLog, Midnight/Ritual und heroToMyth.
+-- Sichere false-Zustände in Activities.lua: QuestOnLog, Midnight und Ritual.
 -- Kein GetLogIndexForQuestID: der Fallback darf ein sicheres false nicht ersetzen.
 local onQuest = {}
 local questCompleted = {}
@@ -188,179 +188,17 @@ assert(type(activeRitual) == "table" and activeRitual.active == true,
     "geloggte Ritualstätten-Quest muss weiterhin als aktiv erkannt werden")
 onQuest[WAT.Data.RITUAL_QUEST_ID] = nil
 
-local exchangeID = WAT.Data.HERO_TO_MYTH_ACHIEVEMENT_ID
-local achievementCompleted = false
-function GetAchievementInfo(achievementID)
-    -- Rückgabeform von GetAchievementInfo: (4) completed, (13) wasEarnedByMe.
-    return achievementID, "Erfolg", 10, achievementCompleted, 1, 1, 2026,
-        "Beschreibung", 0, "icon", "", false, achievementCompleted, nil
-end
-
-local exchangeCharacter = {
-    weekly = {
-        crestSources = {
-            heroToMyth = { achievementID = exchangeID, unlocked = true, heroQuantity = 60 },
-        },
-    },
-}
-WAT:ScanCrestSources(exchangeCharacter)
-local exchange = exchangeCharacter.weekly.crestSources.heroToMyth
-assert(exchange.unlocked == false,
-    "sicher nicht erfüllter Tausch-Erfolg muss gesperrt bleiben, erhalten " .. tostring(exchange.unlocked))
-assert(exchange.mythPotential == nil,
-    "gesperrter Tausch darf kein Mythisch-Potential ausweisen")
-
-local noApiCharacter = {
-    weekly = {
-        crestSources = {
-            heroToMyth = { achievementID = exchangeID, unlocked = false, heroQuantity = 60 },
-        },
-    },
-}
-GetAchievementInfo = nil
-WAT:ScanCrestSources(noApiCharacter)
-assert(noApiCharacter.weekly.crestSources.heroToMyth.unlocked == false,
-    "unlesbarer Erfolg darf einen sicheren gesperrt-Snapshot nicht auf unbekannt zurücksetzen")
-
-local freshCharacter = { weekly = {} }
-WAT:ScanCrestSources(freshCharacter)
-assert(freshCharacter.weekly.crestSources.heroToMyth.unlocked == nil,
-    "ohne Snapshot und ohne API muss der Tauschstatus unbekannt (nil) bleiben")
-
--- ---------------------------------------------------------------------------
--- Heroische Showdowns (Val/Naigtal): zwei alternative Hauptslot- und vier
--- alternative Folgeslot-Quests (je zwei pro Hauptslot-Variante). Pro Woche ist
--- je Slot genau eine Variante abschliessbar; jeder abgeschlossene Slot gibt 5
--- Mythische Wappen, macht maximal 10. Unbekannt darf nie zu 0/false werden,
--- und ein anschliessend unlesbarer Scan darf einen sicheren Vorwert nicht
--- ersetzen - dasselbe Muster wie beim Helden-zu-Mythisch-Tausch oben.
--- ---------------------------------------------------------------------------
-
-local MAIN_VAL, MAIN_NAIGTAL = 96714, 96718
-local FOLLOWUP_DISRUPT_VAL, FOLLOWUP_DISRUPT_NAIGTAL = 97081, 97087
-local FOLLOWUP_ENEMIES_VAL, FOLLOWUP_ENEMIES_NAIGTAL = 97083, 97086
-
-local function ContainsID(pool, questID)
-    for _, id in ipairs(pool) do
-        if id == questID then return true end
-    end
-    return false
-end
-for _, questID in ipairs({ MAIN_VAL, MAIN_NAIGTAL }) do
-    assert(ContainsID(WAT.Data.HEROIC_SHOWDOWN_MAIN_QUESTS, questID),
-        "Hauptslot-Pool fehlt Quest-ID " .. questID)
-end
-for _, questID in ipairs({ FOLLOWUP_DISRUPT_VAL, FOLLOWUP_DISRUPT_NAIGTAL,
-                           FOLLOWUP_ENEMIES_VAL, FOLLOWUP_ENEMIES_NAIGTAL }) do
-    assert(ContainsID(WAT.Data.HEROIC_SHOWDOWN_FOLLOWUP_QUESTS, questID),
-        "Folgeslot-Pool fehlt Quest-ID " .. questID)
-end
-assert(WAT.Data.HEROIC_SHOWDOWN_MYTH_PER_SLOT == 5, "Mythisch-Belohnung je Slot muss 5 sein")
-assert(WAT.Data.HEROIC_SHOWDOWN_MAX_MYTH == 10, "Wochenmaximum muss 10 sein")
-
-local showdownCharacter = { weekly = {} }
-WAT:ScanCrestSources(showdownCharacter)
-local showdown = showdownCharacter.weekly.crestSources.heroicShowdowns
-assert(type(showdown) == "table", "Heroische-Showdowns-Snapshot fehlt")
-assert(showdown.mainDone == false and showdown.followupDone == false,
-    "sicher offene Showdown-Slots dürfen nicht zu unbekannt kollabieren, erhalten "
-        .. tostring(showdown.mainDone) .. "/" .. tostring(showdown.followupDone))
-assert(showdown.earned == 0,
-    "ohne abgeschlossenen Slot müssen 0 Wappen gemeldet werden, erhalten " .. tostring(showdown.earned))
-assert(showdown.maximum == 10, "Wochenmaximum muss 10 sein, erhalten " .. tostring(showdown.maximum))
-
--- Hauptslot Val abgegeben (nicht mehr im Log): 5 Wappen.
-questCompleted[MAIN_VAL] = true
-WAT:ScanCrestSources(showdownCharacter)
-showdown = showdownCharacter.weekly.crestSources.heroicShowdowns
-assert(showdown.mainDone == true and type(showdown.main) == "table" and showdown.main.questID == MAIN_VAL,
-    "abgegebener Hauptslot Val muss als erledigt mit seiner questID gemeldet werden")
-assert(showdown.earned == 5,
-    "ein abgeschlossener Slot muss 5 Wappen ergeben, erhalten " .. tostring(showdown.earned))
-assert(showdown.followupDone == false, "Folgeslot bleibt offen, solange keine Folgequest abgegeben ist")
-
--- Keine Doppelzählung: beide Hauptslot-Varianten gleichzeitig als abgegeben
--- geflaggt (Edge Case) dürfen weiterhin nur EINEN Hauptslot zählen.
-questCompleted[MAIN_NAIGTAL] = true
-WAT:ScanCrestSources(showdownCharacter)
-showdown = showdownCharacter.weekly.crestSources.heroicShowdowns
-assert(showdown.earned == 5,
-    "beide Hauptslot-Varianten gleichzeitig abgegeben dürfen nicht doppelt zählen, erhalten "
-        .. tostring(showdown.earned))
-questCompleted[MAIN_NAIGTAL] = nil
-
--- Folgeslot Naigtal (Dangerous Enemies) abgegeben: beide Slots erledigt, 10 Wappen.
-questCompleted[FOLLOWUP_ENEMIES_NAIGTAL] = true
-WAT:ScanCrestSources(showdownCharacter)
-showdown = showdownCharacter.weekly.crestSources.heroicShowdowns
-assert(showdown.followupDone == true and type(showdown.followup) == "table"
-    and showdown.followup.questID == FOLLOWUP_ENEMIES_NAIGTAL,
-    "abgegebener Folgeslot muss als erledigt mit seiner questID gemeldet werden")
-assert(showdown.earned == 10,
-    "beide abgeschlossenen Slots müssen 10 Wappen ergeben, erhalten " .. tostring(showdown.earned))
-
--- Eine sicher abgegebene Variante muss im selben Slot Vorrang vor einer
--- anderen, nur aktiven Variante haben. Sonst würde ein bereits verdienter
--- Folgeslot fälschlich wieder auf offen/0 zurückgestuft.
-onQuest[FOLLOWUP_DISRUPT_VAL] = true
-WAT:ScanCrestSources(showdownCharacter)
-local completedAndActiveShowdown = showdownCharacter.weekly.crestSources.heroicShowdowns
-assert(completedAndActiveShowdown.earned == 10 and completedAndActiveShowdown.followupDone == true
-    and completedAndActiveShowdown.followup.questID == FOLLOWUP_ENEMIES_NAIGTAL,
-    "abgegebene Slotvariante muss vor einer nur aktiven Alternative gewinnen")
-onQuest[FOLLOWUP_DISRUPT_VAL] = nil
-
--- Atomarer Variantenpool: eine lesbare aktive Folgequest neben nur EINER
--- unlesbaren Alternativ-ID darf den sicheren abgegebenen Vorwert nicht auf
--- aktiv/0 zurückstufen. Der ganze Folgeslot gilt in diesem Scan als unbekannt.
-local safeCompletionGetter = C_QuestLog.IsQuestFlaggedCompleted
-onQuest[FOLLOWUP_DISRUPT_VAL] = true
-C_QuestLog.IsQuestFlaggedCompleted = function(questID)
-    if questID == FOLLOWUP_DISRUPT_NAIGTAL then return SECRET_VALUE end
-    return safeCompletionGetter(questID)
-end
-WAT:ScanCrestSources(showdownCharacter)
-local mixedUnknownShowdown = showdownCharacter.weekly.crestSources.heroicShowdowns
-assert(mixedUnknownShowdown.earned == 10 and mixedUnknownShowdown.followupDone == true
-    and mixedUnknownShowdown.followup.questID == FOLLOWUP_ENEMIES_NAIGTAL,
-    "teilweise unlesbarer Variantenpool darf sicheren Folgeslot nicht ersetzen")
-C_QuestLog.IsQuestFlaggedCompleted = safeCompletionGetter
-onQuest[FOLLOWUP_DISRUPT_VAL] = nil
-
--- Vorwertschutz: eine anschließend komplett unlesbare Quest-API darf den
--- sicheren Snapshot nicht auf unbekannt/0 zurücksetzen.
-local safeShowdownQuestLog = C_QuestLog
-C_QuestLog = {
-    IsOnQuest = function() return SECRET_VALUE end,
-    IsQuestFlaggedCompleted = function() return SECRET_VALUE end,
-    GetQuestObjectives = function() return SECRET_VALUE end,
-    GetQuestProgressBarPercent = function() return SECRET_VALUE end,
-}
-WAT:ScanCrestSources(showdownCharacter)
-local preservedShowdown = showdownCharacter.weekly.crestSources.heroicShowdowns
-assert(preservedShowdown.earned == 10 and preservedShowdown.mainDone == true
-    and preservedShowdown.followupDone == true,
-    "unlesbarer Folge-Scan darf den sicheren Heroische-Showdowns-Snapshot nicht ersetzen")
-
--- Ganz frischer Charakter ohne Vorwert und ohne lesbare API: unbekannt bleibt
--- unbekannt (nil), nie 0 oder false.
-local unknownShowdownCharacter = { weekly = {} }
-WAT:ScanCrestSources(unknownShowdownCharacter)
-local unknownShowdown = unknownShowdownCharacter.weekly.crestSources.heroicShowdowns
-assert(type(unknownShowdown) == "table", "Heroische-Showdowns-Container muss trotz unbekannter Slots existieren")
-assert(unknownShowdown.mainDone == nil and unknownShowdown.followupDone == nil,
-    "unbekannte Slots dürfen nicht zu false erfunden werden, erhalten "
-        .. tostring(unknownShowdown.mainDone) .. "/" .. tostring(unknownShowdown.followupDone))
-assert(unknownShowdown.earned == nil,
-    "unbekannte Slots dürfen keine erfundene Wappenmenge melden, erhalten " .. tostring(unknownShowdown.earned))
-assert(unknownShowdown.maximum == 10,
-    "das Wochenmaximum bleibt eine feste Konstante, auch bei unbekanntem Fortschritt")
-assert(unknownShowdown.updated == nil,
-    "ein vollständig unbekannter Showdown-Snapshot darf keinen frischen Zeitstempel vortäuschen")
-
-C_QuestLog = safeShowdownQuestLog
-questCompleted[MAIN_VAL] = nil
-questCompleted[FOLLOWUP_ENEMIES_NAIGTAL] = nil
+local sourceCharacter = { weekly = { mythicPlusVault = { slots = {
+    { progress = 1, threshold = 1, level = 7 },
+    { progress = 3, threshold = 4, level = 10 },
+    { progress = SECRET_VALUE, threshold = 8, level = 12 },
+} } } }
+WAT:ScanCrestSources(sourceCharacter)
+local mythicSource = sourceCharacter.weekly.crestSources.mythicPlus
+assert(mythicSource.minimumEligibleLevel == 9,
+    "Mythische Nebelwappen müssen ab +9 ausgewiesen werden")
+assert(mythicSource.highestUnlockedLevel == 7,
+    "nur sicher freigeschaltete Vault-Slots dürfen als Abschluss zählen")
 
 -- Persistenz-Regression: der Midnight-Weekly-Snapshot speichert die questID,
 -- aber niemals ein eigenes uebersetztes Label. Sonst stuende deutscher Text in
@@ -515,27 +353,16 @@ C_QuestLog.GetQuestObjectives = function(questID)
     return nil
 end
 
--- Heroische Showdowns nehmen an derselben Merge-Atomaritaet teil: der erste
--- Scan gibt den Hauptslot Val ab (5 Wappen), der zweite komplett unlesbare
--- Scan darf diesen sicheren Snapshot nicht auf unbekannt/0 zuruecksetzen.
-questCompleted[MAIN_VAL] = true
-
 local mergeCharacter = { professions = progress }
 WAT:ScanActivities(mergeCharacter, "PLAYER_LOGIN")
 local snapshotMidnight = mergeCharacter.weekly.midnightWeekly
 local snapshotProfessions = mergeCharacter.weekly.professions
 local snapshotWeeklyQuest = type(snapshotProfessions) == "table" and snapshotProfessions[1]
     and snapshotProfessions[1].weeklyQuest or nil
-local snapshotShowdown = mergeCharacter.weekly.crestSources
-    and mergeCharacter.weekly.crestSources.heroicShowdowns
 assert(type(snapshotMidnight) == "table" and snapshotMidnight.current == 3,
     "erster Scan muss einen brauchbaren Midnight-Snapshot liefern")
 assert(type(snapshotWeeklyQuest) == "table" and snapshotWeeklyQuest.current == 2,
     "erster Scan muss einen brauchbaren Berufs-Wochenquest-Snapshot liefern")
-assert(type(snapshotShowdown) == "table" and snapshotShowdown.earned == 5
-    and snapshotShowdown.mainDone == true,
-    "erster Scan muss einen brauchbaren Heroische-Showdowns-Snapshot liefern, erhalten "
-        .. tostring(snapshotShowdown and snapshotShowdown.earned))
 
 -- Zweiter Scan: die gesamte Quest-API wird unlesbar (Secret Value). Das darf
 -- weder einen falschen Fortschritt erfinden noch die sicheren Snapshots aus
@@ -552,21 +379,15 @@ assert(mergeCharacter.weekly.midnightWeekly == snapshotMidnight,
     "unlesbarer Folge-Scan darf den sicheren Midnight-Snapshot nicht ersetzen")
 assert(mergeCharacter.weekly.professions[1].weeklyQuest == snapshotWeeklyQuest,
     "unlesbarer Folge-Scan darf den sicheren Berufs-Wochenquest-Snapshot nicht ersetzen")
-assert(mergeCharacter.weekly.crestSources.heroicShowdowns.earned == 5
-    and mergeCharacter.weekly.crestSources.heroicShowdowns.mainDone == true,
-    "unlesbarer Folge-Scan darf den sicheren Heroische-Showdowns-Snapshot nicht ersetzen, erhalten "
-        .. tostring(mergeCharacter.weekly.crestSources.heroicShowdowns.earned))
 C_QuestLog = safeCQuestLog
 
 questCompleted[META_QUEST] = nil
 onQuest[META_QUEST] = nil
 questCompleted[PROF_WEEKLY_QUEST] = nil
 onQuest[PROF_WEEKLY_QUEST] = nil
-questCompleted[MAIN_VAL] = nil
 C_QuestLog.GetQuestObjectives = function() return nil end
 WAT.Data.PROFESSION_WEEKLIES[171] = nil
 
 print("LUA PROFESSION RUNTIME OK: echte Wissens-API, Skill 87/100, 14 frei, 5 Taschenpunkte, Slot-Erhalt,"
-    .. " QuestOnLog-false, heroToMyth-gesperrt, label-freier Midnight-Snapshot,"
-    .. " readyToTurnIn/turnedIn fuer Midnight- und Berufs-Wochenquest, atomarer Merge-Schutz und"
-    .. " Heroische Showdowns (6 Quest-IDs, 0/5/10, keine Doppelzaehlung, Vorwertschutz)")
+    .. " QuestOnLog-false, Saison-2-M+-Quellen ab +9, label-freier Midnight-Snapshot,"
+    .. " readyToTurnIn/turnedIn fuer Midnight- und Berufs-Wochenquest und atomarer Merge-Schutz")

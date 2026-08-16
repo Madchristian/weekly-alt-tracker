@@ -2,7 +2,7 @@
 
 **Dein Wochenfortschritt. Alle Charaktere. Eine kompakte Übersicht - deutsch und englisch.**
 
-WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 12.0.7 / Midnight**. Es speichert sichere Offline-Snapshots deiner Charaktere und zeigt die wichtigsten wöchentlichen Aufgaben, Schatzkammer-Slots, Berufe, Wissenspunkte, Wappenquellen und Mythic+-Schlüsselsteine accountweit an.
+WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 12.1.0 / Midnight Saison 2**. Es speichert sichere Offline-Snapshots deiner Charaktere und zeigt die wichtigsten wöchentlichen Aufgaben, Schatzkammer-Slots, Berufe, Wissenspunkte, Wappenquellen und Mythic+-Schlüsselsteine accountweit an.
 
 ## Funktionen
 
@@ -10,10 +10,10 @@ WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 1
 
 - Charakterlevel und angelegte Gegenstandsstufe
 - Goldene Truhe aus Tier-11-Bountiful-Tiefen
-- Champion-, Helden- und Mythische Wappen
+- alle fünf Nebelwappen von Abenteurer bis Mythisch
 - Große Schatzkammer für Mythic+ sowie Tiefen/Welt
 - tatsächliches beziehungsweise erwartetes Belohnungs-Itemlevel pro Slot
-- M+10 auf einen Blick: grünes `Ja` nach mindestens einem Abschluss auf +10 oder höher für die 272er Vault-Belohnung
+- M+10 auf einen Blick: grünes `Ja` nach mindestens einem Abschluss auf +10 oder höher für die 318er Vault-Belohnung
 - bewusst **kein Raid-Tracking**
 
 ### Midnight-Woche
@@ -33,14 +33,9 @@ WeeklyAltTracker ist ein eigenständiges Addon für **World of Warcraft Retail 1
 ### Wappenquellen
 
 - Splitter von Dundun pro Charakter als sicherer Offline-Ressourcen-Snapshot mit dynamischem Maximum
-- wöchentliche, einmalige beziehungsweise saisonale und wiederholbare Quellen
-- Goldene Truhe
-- Heroische Showdowns in Val oder Naigtal: zwei Wochenslots mit je 5 Mythischen Dämmerwappen aus Riftstalker-Belohnungs-Caches
-- Rissiger Schlüsselstein
-- Nullaeus T11
-- Ritualstätten T6
-- Mythic+ ab +9
-- Helden-zu-Mythisch-Tauschpotential
+- Bestände aller fünf Saison-2-Nebelwappen
+- Goldene Truhe: viermal wöchentlich je 7 Mythische Nebelwappen
+- höchste sicher abgeschlossene Mythic+-Stufe; Mythische Nebelwappen ab +9
 
 Ein unlesbarer oder geschützter API-Wert überschreibt keinen bekannten Dundun-Bestand. Der Tooltip nennt Datenstand und API-Reichweite; accountweite Werte werden nicht über Charaktere summiert.
 

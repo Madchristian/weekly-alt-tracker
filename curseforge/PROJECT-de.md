@@ -19,7 +19,7 @@ WeeklyAltTracker
 
 ## Kurzbeschreibung
 
-Accountweiter Wochenfortschritt für alle Charaktere in WoW Midnight: Schatzkammer, Goldene Truhe, Dämmerwappen, Midnight-Aktivitäten, Berufe und Mythic+-Schlüsselsteine.
+Accountweiter Wochenfortschritt für alle Charaktere in WoW Midnight Saison 2: Schatzkammer, Nebelwappen, Midnight-Aktivitäten, Berufe und Mythic+-Schlüsselsteine.
 
 ## Beschreibung
 
@@ -55,13 +55,13 @@ fremdsprachig gespeicherten Namens.
 ### Sieben Ansichten
 
 **Übersicht** - Charakterlevel, angelegte Gegenstandsstufe, Goldene Truhe (0/4
-pro Woche), Champion-, Helden- und Mythische Dämmerwappen, Schatzkammer-Slots
-für Tiefen/Welt und Mythic+ sowie eine eigene Spalte `M+10 / 272`, die zeigt, ob
+pro Woche), alle fünf Saison-2-Nebelwappen, Schatzkammer-Slots
+für Tiefen/Welt und Mythic+ sowie eine eigene Spalte `M+10 / 318`, die zeigt, ob
 ein Dungeon auf +10 oder höher sicher abgeschlossen wurde.
 
 **Midnight-Woche** - die aktive Midnight-Wochenquest samt Variante und
 Fortschritt, mit getrennten Zuständen für `Fertig – nicht abgegeben` und
-`Abgegeben`, dazu Jagden auf Normal, Schwer und Albtraum (je 0/4) und der
+`Abgegeben`, dazu Jagden auf Normal, Schwer und Albtraum (4/6/5) und der
 Fortschritt der Ritualstätten.
 
 **Berufe** - Midnight-Skill beider Hauptberufe, freie Wissenspunkte, noch nicht
@@ -69,12 +69,11 @@ benutzte Wissenspunkte in den Taschen samt Aufschlüsselung je Gegenstand im
 Tooltip, Berufs-Wochenquest mit Fortschritt und getrenntem Abgabezustand sowie
 Thalassischer Traktat.
 
-**Wappenquellen** - wöchentliche, einmalige/saisonale und wiederholbare Quellen:
-Splitter von Dundun je Charakter als sicherer Offline-Ressourcen-Snapshot mit
-dynamischem Maximum, Goldene Truhe, heroische Showdowns in Val oder Naigtal
-als zwei Wochenslots mit maximal 10 Mythischen Dämmerwappen, Rissiger
-Schlüsselstein, Nullaeus T11, Ritualstätten T6, Mythic+ ab +9 und das Tauschpotential von Helden- zu
-Mythischen Wappen. Unlesbare API-Werte überschreiben keinen bekannten
+**Wappenquellen** - Splitter von Dundun je Charakter als sicherer
+Offline-Ressourcen-Snapshot mit dynamischem Maximum, Goldene Truhe, alle fünf
+Saison-2-Nebelwappen und Mythic+ ab +9 als wiederholbare Quelle Mythischer
+Nebelwappen. Veraltete Saison-1-Quellen werden nicht als aktuelle Belohnungen
+dargestellt. Unlesbare API-Werte überschreiben keinen bekannten
 Dundun-Bestand; accountweite Werte werden nicht über Charaktere summiert.
 
 **Schlüsselsteine** - der aktuell besessene Mythic+-Schlüsselstein pro Charakter

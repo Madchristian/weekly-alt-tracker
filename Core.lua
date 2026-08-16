@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "0.7.0"
+WAT.version = "0.8.0"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -49,7 +49,10 @@ local function NormalizeDundunSnapshot(resources)
 
     local expectedID = WAT.Data and SafeNumber(WAT.Data.DUNDUN_CURRENCY_ID)
     local currencyID = SafeNumber(snapshot.currencyID)
-    if expectedID ~= nil and currencyID ~= expectedID then currencyID = nil end
+    if expectedID ~= nil and currencyID ~= expectedID then
+        resources.dundun = nil
+        return
+    end
     local maximum = SafeNumber(snapshot.maxQuantity)
     if maximum ~= nil and maximum <= 0 then maximum = nil end
     local weeklyMaximum = SafeNumber(snapshot.maxWeeklyQuantity)

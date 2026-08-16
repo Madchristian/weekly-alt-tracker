@@ -933,6 +933,9 @@ end
 
 do
     local WAT = Load("deDE")
+    -- Im echten TOC liegt Data.lua beim ADDON_LOADED/InitializeDatabase bereits
+    -- vor. Dieser isolierte Core-Harness bildet die relevante Invariante nach.
+    WAT.Data = { DUNDUN_CURRENCY_ID = 3376 }
     WeeklyAltTrackerDB = {
         version = 1,
         characters = {
@@ -971,6 +974,13 @@ do
                 guid = "Player-1084-0BADBAD1", name = "SecretDundun", realm = "Antonidas",
                 resources = { dundun = {
                     currencyID = 3376, quantity = SECRET_VALUE, maxQuantity = 8, updated = 500,
+                } },
+                weekly = {},
+            },
+            wrongCurrency = {
+                guid = "Player-1084-0BADBAD2", name = "Fremdwaehrung", realm = "Antonidas",
+                resources = { dundun = {
+                    currencyID = 9999, quantity = 42, maxQuantity = 100, updated = 500,
                 } },
                 weekly = {},
             },
@@ -1028,6 +1038,15 @@ do
             "resources-Container um einen unlesbaren Dundun-Snapshot muss erhalten bleiben")
         checkEqual(nestedBroken.resources.dundun, nil,
             "ein Dundun-Snapshot mit Secret-Menge muss beim Laden vollstaendig verworfen werden")
+    end
+
+    local wrongCurrency = WeeklyAltTrackerDB.characters["Player-1084-0BADBAD2"]
+    check(wrongCurrency ~= nil, "Datensatz mit fremder Currency-ID ging komplett verloren")
+    if wrongCurrency then
+        check(type(wrongCurrency.resources) == "table",
+            "resources-Container um eine fremde Currency-ID muss erhalten bleiben")
+        checkEqual(wrongCurrency.resources.dundun, nil,
+            "ein Dundun-Snapshot mit fremder Currency-ID muss vollstaendig verworfen werden")
     end
 end
 

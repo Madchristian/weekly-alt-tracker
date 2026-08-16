@@ -3,15 +3,31 @@ local _, WAT = ...
 local Data = {}
 WAT.Data = Data
 
--- Currency-IDs der Midnight-Dämmerwappen. Namen kommen zur Laufzeit lokalisiert
--- aus C_CurrencyInfo; labelKey verweist auf das eigene Kurzlabel in
--- Localization.lua. Der Kurzbuchstabe ist in beiden Sprachen identisch und
--- deshalb sprachneutral hier gespeichert.
+-- Currency-IDs der Saison-2-Nebelwappen (Mistcrests). Namen kommen zur
+-- Laufzeit lokalisiert aus C_CurrencyInfo; labelKey verweist auf das eigene
+-- Kurzlabel in Localization.lua. Der Kurzbuchstabe ist in beiden Sprachen
+-- identisch und deshalb sprachneutral hier gespeichert. Die IDs sind neue
+-- Saison-2-Currencies (Livebuild 12.1.0.69299) und teilen sich KEINE ID mit
+-- den alten Saison-1-Dämmerwappen (3343/3345/3347) - siehe Invariante zum
+-- Same-Week-Vorwert in Scanner.lua: ein alter Snapshot einer fremden
+-- currencyID darf nie unter einem neuen Wappenschlüssel weiterleben.
 Data.CRESTS = {
-    champion = { currencyID = 3343, short = "C", labelKey = "CREST_CHAMPION" },
-    hero = { currencyID = 3345, short = "H", labelKey = "CREST_HERO" },
-    myth = { currencyID = 3347, short = "M", labelKey = "CREST_MYTH" },
+    adventurer = { currencyID = 3442, short = "A", labelKey = "CREST_ADVENTURER" },
+    veteran = { currencyID = 3443, short = "V", labelKey = "CREST_VETERAN" },
+    champion = { currencyID = 3444, short = "C", labelKey = "CREST_CHAMPION" },
+    hero = { currencyID = 3445, short = "H", labelKey = "CREST_HERO" },
+    myth = { currencyID = 3446, short = "M", labelKey = "CREST_MYTH" },
 }
+
+-- Mythische Nebelwappen aus der Goldenen Truhe: 7 je Truhenabschluss
+-- (weiterhin maximal 4 Truhen pro Woche, siehe Scanner.lua).
+Data.GILDED_MYTH_PER_STASH = 7
+
+-- Ab dieser Mythisch-Plus-Stufe droppen Mythische Nebelwappen (aktuelle
+-- Currency-Beschreibung: Mythische Nebelwappen ab +9). Das Addon zeigt
+-- ausschliesslich die sicher abgeschlossene Schluesselsteinstufe, keine
+-- erfundene Wappenanzahl je Lauf.
+Data.MYTHIC_PLUS_MYTH_MIN_LEVEL = 9
 
 -- Currency-ID des Dundun-Splitters. Kein Wochenwert: der Bestand wird
 -- ausschließlich als Offline-Ressourcen-Snapshot je Charakter gehalten
@@ -35,7 +51,13 @@ function Data.MetaQuestLabelKey(questID)
     return "META_QUEST_" .. questID
 end
 
-Data.PREY_GOAL = 4
+-- Saison-2-Wochenziele je Jagdschwierigkeit. 12.1 erhöht das Gesamtziel von
+-- zwölf auf fünfzehn: Coiled Isle liefert zwei zusätzliche Schwer- und eine
+-- zusätzliche Albtraum-Jagd. Die Ziele bleiben deshalb je Schwierigkeit
+-- getrennt statt eines einzigen gemeinsamen Werts.
+Data.PREY_GOAL_NORMAL = 4
+Data.PREY_GOAL_HARD = 6
+Data.PREY_GOAL_NIGHTMARE = 5
 Data.PREY_NORMAL = {
     91095, 91096, 91097, 91098, 91099, 91100, 91101, 91102, 91103, 91104,
     91105, 91106, 91107, 91108, 91109, 91110, 91111, 91112, 91113, 91114,
@@ -46,41 +68,16 @@ Data.PREY_HARD = {
     91230, 91232, 91234, 91236, 91238, 91240, 91242, 91243, 91244, 91245,
     91246, 91247, 91248, 91249, 91250, 91251, 91252, 91253, 91254, 91255,
 }
+-- 95021-95024 sind die vier bestätigten neuen Coiled-Isle-Albtraum-Quest-IDs
+-- aus 12.1, ergänzt an den bestehenden Saison-1-Pool.
 Data.PREY_NIGHTMARE = {
     91211, 91213, 91215, 91217, 91219, 91221, 91223, 91225, 91227, 91229,
     91231, 91233, 91235, 91237, 91239, 91241, 91256, 91257, 91258, 91259,
     91260, 91261, 91262, 91263, 91264, 91265, 91266, 91267, 91268, 91269,
+    95021, 95022, 95023, 95024,
 }
 
 Data.RITUAL_QUEST_ID = 95843
-
--- Heroische Showdowns (Val/Naigtal): zwei alternative Hauptslot-Quests und
--- vier alternative Folgeslot-Quests (zwei je Hauptslot-Variante). Pro Woche
--- ist je Slot genau eine Variante abschliessbar. Jeder abgeschlossene Slot
--- gibt 5 Mythische Dämmerwappen über die jeweilige Riftstalker's Overflowing
--- Cache/Favor/Prize - macht maximal 10 pro Woche. Für PTR 12.1 bleibt der
--- Scan defensiv über die Quest-Completion-API: eine verschobene oder unbekannte
--- Variante liefert unbekannt, nie 0.
-Data.HEROIC_SHOWDOWN_MAIN_QUESTS = {
-    96714, 96718,
-}
-Data.HEROIC_SHOWDOWN_FOLLOWUP_QUESTS = {
-    97081, 97087, 97083, 97086,
-}
-Data.HEROIC_SHOWDOWN_MYTH_PER_SLOT = 5
-Data.HEROIC_SHOWDOWN_MAX_MYTH = 10
-
--- Weitere bestätigte Quellen für Mythische Dämmerwappen (Raid ausgeschlossen).
-Data.CRACKED_KEYSTONE_QUEST_ID = 92600
-Data.NULLAEUS_T11_ACHIEVEMENT_ID = 61798
-Data.HERO_TO_MYTH_ACHIEVEMENT_ID = 42769
-Data.GILDED_MYTH_PER_STASH = 5
-Data.RITUAL_T6_MYTH_PER_RUN = 5
-Data.CRACKED_KEYSTONE_MYTH_REWARD = 20
-Data.CRACKED_KEYSTONE_HERO_REWARD = 20
-Data.NULLAEUS_T11_MYTH_REWARD = 30
-Data.HERO_TO_MYTH_HERO_COST = 30
-Data.HERO_TO_MYTH_MYTH_REWARD = 10
 
 -- Charakterbezogene, additive WoW-Erfolgsstatistiken. Gelesen werden sie
 -- ausschließlich über GetStatistic(id) für den gerade eingeloggten Charakter.

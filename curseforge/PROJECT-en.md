@@ -17,7 +17,7 @@ WeeklyAltTracker
 
 ## Summary
 
-Account-wide weekly progress for all your characters in WoW Midnight: Great Vault, Gilded Stash, Twilight Crests, Midnight activities, professions and Mythic+ keystones.
+Account-wide weekly progress for all your characters in WoW Midnight Season 2: Great Vault, Mistcrests, Midnight activities, professions and Mythic+ keystones.
 
 ## Description
 
@@ -50,24 +50,23 @@ instead of a name stored in another language.
 ### Seven views
 
 **Overview** - character level, equipped item level, Gilded Stash (0/4 per week),
-Champion / Hero / Myth Twilight Crests, Great Vault slots for Delves/World and
-Mythic+, plus a dedicated `M+10 / 272` column showing whether a dungeon at +10 or
+all five Season 2 Mistcrests, Great Vault slots for Delves/World and
+Mythic+, plus a dedicated `M+10 / 318` column showing whether a dungeon at +10 or
 higher has been safely completed.
 
 **Midnight Week** - the active Midnight weekly quest with variant and progress,
 with separate `Ready to turn in` and `Turned in` states, plus hunts on Normal,
-Hard and Nightmare (0/4 each), and Ritual Sites progress.
+Hard and Nightmare (4/6/5), and Ritual Sites progress.
 
 **Professions** - Midnight skill for both primary professions, free knowledge
 points, unused knowledge points still sitting in your bags with a per-item
 tooltip breakdown, profession weekly progress with a separate turn-in state,
 and the Thalassian Treatise.
 
-**Crest Sources** - weekly, one-off/seasonal and repeatable sources: Gilded
-Stash, Heroic Showdowns in Val or Naigtal as two weekly slots worth up to 10
-Myth Dawncrests, Cracked Keystone, Nullaeus T11, Ritual Sites T6, Mythic+ from +9 and the
-Hero-to-Myth exchange potential, plus each character's Shard of Dundun balance
-as a safe offline resource snapshot with a dynamic maximum. Unreadable API
+**Crest Sources** - each character's Shard of Dundun balance as a safe offline
+resource snapshot with a dynamic maximum, Gilded Stash, all five Season 2
+Mistcrests, and Mythic+ from +9 as a repeatable source of Myth Mistcrests.
+Obsolete Season 1 sources are not presented as current rewards. Unreadable API
 values never overwrite a known Dundun balance; account-wide values are not
 summed across characters.
 

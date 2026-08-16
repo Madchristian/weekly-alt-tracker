@@ -66,15 +66,17 @@ local PANELS = {
         shortLabel = L("PANEL_OVERVIEW_SHORT"),
         description = L("PANEL_OVERVIEW_DESC"),
         columns = {
-            { key = "character", label = L("COL_CHARACTER"), width = 178, left = true },
+            { key = "character", label = L("COL_CHARACTER"), width = 160, left = true },
             { key = "level", label = L("COL_LEVEL"), width = 40 },
             { key = "itemLevel", label = L("COL_ITEM_LEVEL"), width = 56 },
             { key = "gilded", label = L("COL_GILDED"), width = 90 },
-            { key = "crests", label = L("COL_CRESTS"), width = 144 },
+            -- Fuenf Nebelwappen statt vormals drei Dämmerwappen brauchen mehr
+            -- Breite; character und updated wurden dafuer verschmaelert.
+            { key = "crests", label = L("COL_CRESTS"), width = 190 },
             { key = "world", label = L("COL_WORLD_VAULT"), width = 106 },
             { key = "mythic", label = L("COL_MYTHIC_VAULT"), width = 96 },
             { key = "mythic10", label = L("COL_MYTHIC10"), width = 70 },
-            { key = "updated", label = L("COL_UPDATED"), width = 128 },
+            { key = "updated", label = L("COL_UPDATED"), width = 110 },
         },
     },
     midnight = {
@@ -113,18 +115,19 @@ local PANELS = {
         description = L("PANEL_SOURCES_DESC"),
         columns = {
             { key = "character", label = L("COL_CHARACTER"), width = 150, left = true },
-            -- Dundun ist ein Ressourcen-Snapshot; die Heroic-Showdown-Spalte
-            -- dagegen ein echter Wochenwert. Alle Breiten ergeben zusammen
-            -- exakt CONTENT_WIDTH (920px), damit kein Kopf in Nachbarspalten
-            -- hineinragt und kein horizontaler Scrollbereich entsteht.
+            -- Dundun ist ein Ressourcen-Snapshot; der M+-Schlüssel und die fünf
+            -- Wappenbestände sind echte Wochenwerte. Alle Breiten ergeben
+            -- zusammen exakt CONTENT_WIDTH (920px), damit kein Kopf in
+            -- Nachbarspalten hineinragt und kein horizontaler Scrollbereich
+            -- entsteht.
             { key = "dundun", label = L("COL_DUNDUN"), width = 70 },
             { key = "gilded", label = L("COL_GILDED_WEEKLY"), width = 85 },
-            { key = "heroicShowdown", label = L("COL_HEROIC_SHOWDOWN"), width = 95 },
-            { key = "cracked", label = L("COL_CRACKED"), width = 105 },
-            { key = "nullaeus", label = L("COL_NULLAEUS"), width = 100 },
-            { key = "ritualFarm", label = L("COL_RITUAL_FARM"), width = 95 },
-            { key = "mythicFarm", label = L("COL_MYTHIC_FARM"), width = 80 },
-            { key = "exchange", label = L("COL_EXCHANGE"), width = 140 },
+            { key = "mythicPlusKey", label = L("COL_MYTHIC_KEY"), width = 95 },
+            { key = "crestAdventurer", label = L("COL_CREST_ADVENTURER"), width = 104 },
+            { key = "crestVeteran", label = L("COL_CREST_VETERAN"), width = 104 },
+            { key = "crestChampion", label = L("COL_CREST_CHAMPION"), width = 104 },
+            { key = "crestHero", label = L("COL_CREST_HERO"), width = 104 },
+            { key = "crestMyth", label = L("COL_CREST_MYTH"), width = 104 },
         },
     },
     keystones = {
@@ -288,8 +291,10 @@ end
 -- Reihenfolge und Farbe der Wappenspalte. Der Kurzbuchstabe kommt primär aus
 -- Data.CRESTS[key].short; die Buchstaben hier sind nur die Reserve, falls die
 -- Datentabelle fehlt oder unbrauchbar ist (keine zweite Wahrheit im Normalfall).
-local CREST_ORDER = { "champion", "hero", "myth" }
+local CREST_ORDER = { "adventurer", "veteran", "champion", "hero", "myth" }
 local CREST_DISPLAY = {
+    adventurer = { short = "A", color = "|cffb0bec9" },
+    veteran = { short = "V", color = "|cff8bd17c" },
     champion = { short = "C", color = "|cff79bdf2" },
     hero = { short = "H", color = "|cffb28cff" },
     myth = { short = "M", color = "|cffe0b6ff" },
@@ -318,17 +323,24 @@ local function CrestIcon(currencyID)
     return string.format("|T%d:12:12:0:0|t ", icon)
 end
 
+-- Der semantische Schlüssel allein genügt über einen Saisonwechsel nicht.
+-- Persistierte Mengen sind nur dann dieselbe Währung, wenn die gespeicherte
+-- Currency-ID exakt zur aktuellen Definition passt.
+local function CrestQuantity(crests, definitions, key)
+    local entry = type(crests) == "table" and crests[key] or nil
+    local definition = type(definitions) == "table" and definitions[key] or nil
+    if type(entry) ~= "table" or type(definition) ~= "table" then return nil end
+    if type(definition.currencyID) ~= "number" or entry.currencyID ~= definition.currencyID then return nil end
+    return type(entry.quantity) == "number" and entry.quantity or nil
+end
+
 local function CrestText(weekly, stale)
     if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
     local crests = type(weekly.crests) == "table" and weekly.crests or {}
     local definitions = WAT.Data and WAT.Data.CRESTS or {}
     local function Quantity(key)
-        local entry = crests[key]
-        if type(entry) == "table" and type(entry.quantity) == "number" then return tostring(entry.quantity) end
-        if key == "myth" and type(weekly.mythCrests) == "table"
-                and type(weekly.mythCrests.quantity) == "number" then
-            return tostring(weekly.mythCrests.quantity)
-        end
+        local quantity = CrestQuantity(crests, definitions, key)
+        if type(quantity) == "number" then return tostring(quantity) end
         return "-"
     end
     local parts = {}
@@ -416,14 +428,6 @@ local function RitualText(ritual, stale)
         local color = ritual.percent > 0 and COLORS.amber or COLORS.red
         return color .. math.floor(ritual.percent) .. "%|r"
     end
-    return COLORS.unknown .. "-|r"
-end
-
-local function SeasonalSourceText(source, reward)
-    if type(source) ~= "table" then return COLORS.unknown .. "-|r" end
-    if source.completed == true then return COLORS.green .. L("CELL_SEASONAL_DONE", reward) .. "|r" end
-    if source.active == true then return COLORS.amber .. L("CELL_SEASONAL_ACTIVE", reward) .. "|r" end
-    if source.completed == false then return COLORS.red .. L("CELL_SEASONAL_OPEN", reward) .. "|r" end
     return COLORS.unknown .. "-|r"
 end
 
@@ -546,15 +550,14 @@ end
 local function CrestTooltip(weekly)
     local crests = type(weekly.crests) == "table" and weekly.crests or {}
     local definitions = WAT.Data and WAT.Data.CRESTS or {}
-    for _, key in ipairs({ "champion", "hero", "myth" }) do
+    for _, key in ipairs(CREST_ORDER) do
         local entry = crests[key]
-        if key == "myth" and type(entry) ~= "table" then entry = weekly.mythCrests end
         local definition = definitions[key] or {}
         local label = type(definition.labelKey) == "string"
             and L("CREST_TOOLTIP_LABEL", L(definition.labelKey)) or L("CREST_GENERIC")
-        local quantity = type(entry) == "table" and entry.quantity
+        local quantity = CrestQuantity(crests, definitions, key)
         local value = type(quantity) == "number" and tostring(quantity) or "-"
-        if type(entry) == "table" and type(entry.earnedThisWeek) == "number"
+        if type(quantity) == "number" and type(entry) == "table" and type(entry.earnedThisWeek) == "number"
                 and type(entry.weeklyMaximum) == "number" and entry.weeklyMaximum > 0 then
             value = value .. L("CREST_WEEK_SUFFIX", entry.earnedThisWeek, entry.weeklyMaximum)
         end
@@ -768,8 +771,9 @@ local function ShowProfessionTooltip(character, weekly)
     end
 end
 
--- Der Erfolgsname wird niemals selbst uebersetzt, sondern sicher aus
--- GetAchievementInfo geholt. Ohne lesbaren Namen bleibt der generische Text.
+-- Erfolgsnamen stammen clientlokalisiert aus der WoW-API. Die Statistikseite
+-- verwendet diesen Helfer weiterhin; die Saison-2-Wappenquellen selbst sind
+-- nicht mehr an Erfolge gebunden.
 local function AchievementName(achievementID)
     if not GetAchievementInfo or type(achievementID) ~= "number" then return nil end
     local result = { pcall(GetAchievementInfo, achievementID) }
@@ -789,48 +793,8 @@ end
 -- Questtitel werden ausschliesslich zur Renderzeit aus dem Client gelesen.
 -- Schlaegt die API fehl, liefert einen Secret Value oder keinen Namen, bleibt
 -- die sprachneutrale Quest-ID sichtbar; ein englischer Name wird nie geraten.
-local function ShowdownQuestName(state)
-    local questID = type(state) == "table" and state.questID or nil
-    if type(questID) ~= "number" then return nil end
-    local getter = C_QuestLog and C_QuestLog.GetTitleForQuestID
-    if getter then
-        local ok, title = pcall(getter, questID)
-        if ok and not (issecretvalue and issecretvalue(title))
-                and type(title) == "string" and title ~= "" then
-            return title
-        end
-    end
-    return L("SRC_SHOWDOWN_QUEST_FALLBACK", questID)
-end
-
-local function ShowdownSlotText(state)
-    if type(state) ~= "table" then return L("STATUS_UNKNOWN") end
-    local questName = ShowdownQuestName(state)
-    if state.turnedIn == true then
-        return questName and L("SRC_SHOWDOWN_SLOT_DONE", questName) or L("STATUS_DONE")
-    end
-    if state.active == true then
-        return questName and L("SRC_SHOWDOWN_SLOT_ACTIVE", questName) or L("STATUS_ACTIVE")
-    end
-    if state.turnedIn == false then return L("STATUS_OPEN") end
-    return L("STATUS_UNKNOWN")
-end
-
-local function HeroicShowdownText(showdown, stale)
-    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
-    if type(showdown) ~= "table" or type(showdown.earned) ~= "number"
-            or type(showdown.maximum) ~= "number" then
-        return COLORS.unknown .. "-|r"
-    end
-    local color = stale and COLORS.stale or (showdown.earned >= showdown.maximum
-        and COLORS.green or (showdown.earned > 0 and COLORS.amber or COLORS.red))
-    return color .. string.format("%d/%d", showdown.earned, showdown.maximum) .. "|r"
-end
-
 local function ShowSourcesTooltip(character, weekly, stale)
     local data = WAT.Data or {}
-    local season = type(character.season) == "table" and character.season or {}
-    local seasonal = type(season.crestSources) == "table" and season.crestSources or {}
     local sources = type(weekly.crestSources) == "table" and weekly.crestSources or {}
     if stale then
         AddTooltipLine(L("TOOLTIP_WEEK_STATE"), L("TOOLTIP_WEEK_STALE"))
@@ -840,51 +804,12 @@ local function ShowSourcesTooltip(character, weekly, stale)
         and L("SRC_GILDED_VALUE", gilded.current, gilded.maximum, Constant(data.GILDED_MYTH_PER_STASH))
         or L("STATUS_UNKNOWN")
     AddTooltipLine(L("SRC_GILDED_WEEKLY"), gildedValue)
-    local showdown = sources.heroicShowdowns
-    local showdownValue = L("STATUS_UNKNOWN")
-    if type(showdown) == "table" and type(showdown.earned) == "number"
-            and type(showdown.maximum) == "number" then
-        showdownValue = L("SRC_SHOWDOWN_VALUE", showdown.earned, showdown.maximum,
-            type(showdown.mythPerSlot) == "number" and showdown.mythPerSlot
-                or Constant(data.HEROIC_SHOWDOWN_MYTH_PER_SLOT))
-    end
-    AddTooltipLine(L("SRC_SHOWDOWN"), showdownValue)
-    AddTooltipLine(L("SRC_SHOWDOWN_MAIN"),
-        type(showdown) == "table" and ShowdownSlotText(showdown.main) or L("STATUS_UNKNOWN"))
-    AddTooltipLine(L("SRC_SHOWDOWN_FOLLOWUP"),
-        type(showdown) == "table" and ShowdownSlotText(showdown.followup) or L("STATUS_UNKNOWN"))
-    local cracked = seasonal.crackedKeystone
-    local crackedText = L("STATUS_UNKNOWN")
-    if type(cracked) == "table" then
-        if cracked.completed then
-            crackedText = L("SRC_CRACKED_DONE", Constant(data.CRACKED_KEYSTONE_MYTH_REWARD),
-                Constant(data.CRACKED_KEYSTONE_HERO_REWARD))
-        else
-            crackedText = cracked.active and L("STATUS_ACTIVE") or L("STATUS_OPEN")
-        end
-    end
-    AddTooltipLine(L("SRC_CRACKED"), crackedText)
-    local nullaeus = seasonal.nullaeusT11
-    local nullaeusReward = Constant(data.NULLAEUS_T11_MYTH_REWARD)
-    AddTooltipLine(L("SRC_NULLAEUS"), type(nullaeus) == "table"
-        and (nullaeus.completed and L("SRC_NULLAEUS_DONE", nullaeusReward)
-            or L("SRC_NULLAEUS_OPEN", nullaeusReward)) or L("STATUS_UNKNOWN"))
-    AddTooltipLine(L("SRC_RITUAL_T6"), L("SRC_RITUAL_T6_VALUE", Constant(data.RITUAL_T6_MYTH_PER_RUN)))
+    CrestTooltip(weekly)
     local mythicPlus = sources.mythicPlus
-    local highest = type(mythicPlus) == "table" and mythicPlus.highestObservedLevel or nil
+    local highest = type(mythicPlus) == "table" and mythicPlus.highestUnlockedLevel or nil
+    local minimum = Constant(data.MYTHIC_PLUS_MYTH_MIN_LEVEL)
     AddTooltipLine(L("SRC_MYTHIC"), type(highest) == "number"
-        and L("SRC_MYTHIC_OBSERVED", highest) or L("SRC_MYTHIC_GENERIC"))
-    local exchange = sources.heroToMyth
-    local exchangeText = L("STATUS_UNKNOWN")
-    if type(exchange) == "table" and exchange.unlocked == false then
-        local name = AchievementName(data.HERO_TO_MYTH_ACHIEVEMENT_ID)
-        exchangeText = name and L("SRC_EXCHANGE_LOCKED", name) or L("SRC_EXCHANGE_LOCKED_GENERIC")
-    elseif type(exchange) == "table" and exchange.unlocked == true then
-        exchangeText = type(exchange.mythPotential) == "number"
-            and L("SRC_EXCHANGE_POTENTIAL", exchange.mythPotential)
-            or L("SRC_EXCHANGE_UNLOCKED_UNKNOWN")
-    end
-    AddTooltipLine(L("SRC_EXCHANGE"), exchangeText)
+        and L("SRC_MYTHIC_COMPLETED", highest, minimum) or L("SRC_MYTHIC_GENERIC", minimum))
     GameTooltip:AddLine(" ")
     ShowDundunTooltip(character)
     local easterEgg = EasterEggLine(character)
@@ -2270,33 +2195,29 @@ local function FillSources(row, character, weekly, stale)
     row.values.character:SetText(ClassColoredName(character, stale))
     row.values.dundun:SetText(DundunCellText(character.resources, stale))
     row.values.gilded:SetText(GildedSourceText(weekly, stale))
-    local season = type(character.season) == "table" and character.season or {}
-    local seasonal = type(season.crestSources) == "table" and season.crestSources or {}
-    row.values.cracked:SetText(SeasonalSourceText(seasonal.crackedKeystone, 20))
-    row.values.nullaeus:SetText(SeasonalSourceText(seasonal.nullaeusT11, 30))
-    local perRun = Constant(WAT.Data and WAT.Data.RITUAL_T6_MYTH_PER_RUN)
-    row.values.ritualFarm:SetText("|cff32e6c4" .. L("CELL_RITUAL_FARM", perRun) .. "|r")
     local sources = type(weekly.crestSources) == "table" and weekly.crestSources or {}
-    row.values.heroicShowdown:SetText(HeroicShowdownText(sources.heroicShowdowns, stale))
     local mythicPlus = sources.mythicPlus
-    local highest = type(mythicPlus) == "table" and mythicPlus.highestObservedLevel or nil
-    if type(highest) == "number" and highest >= 9 then
-        row.values.mythicFarm:SetText(COLORS.green .. L("CELL_MYTHIC_FARMABLE", highest) .. "|r")
-    elseif type(highest) == "number" then
-        row.values.mythicFarm:SetText(COLORS.red .. L("CELL_MYTHIC_MIN", highest) .. "|r")
-    else
-        row.values.mythicFarm:SetText(COLORS.unknown .. L("CELL_MYTHIC_FROM9") .. "|r")
+    local highest = type(mythicPlus) == "table" and mythicPlus.highestUnlockedLevel or nil
+    local minimum = WAT.Data and WAT.Data.MYTHIC_PLUS_MYTH_MIN_LEVEL or nil
+    local keyColor = COLORS.unknown
+    if type(highest) == "number" and type(minimum) == "number" then
+        keyColor = highest >= minimum and COLORS.green or COLORS.amber
     end
-    local exchange = sources.heroToMyth
-    if type(exchange) ~= "table" or exchange.unlocked == nil then
-        row.values.exchange:SetText(COLORS.unknown .. "-|r")
-    elseif exchange.unlocked == false then
-        row.values.exchange:SetText(COLORS.red .. L("STATUS_LOCKED") .. "|r")
-    elseif type(exchange.mythPotential) == "number" then
-        row.values.exchange:SetText(COLORS.green
-            .. L("CELL_EXCHANGE_POTENTIAL", exchange.mythPotential) .. "|r")
-    else
-        row.values.exchange:SetText(COLORS.amber .. L("STATUS_UNLOCKED") .. "|r")
+    row.values.mythicPlusKey:SetText(stale and COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r"
+        or type(highest) == "number" and keyColor .. "+" .. tostring(highest) .. "|r"
+        or COLORS.unknown .. "-|r")
+    local crests = type(weekly.crests) == "table" and weekly.crests or {}
+    local definitions = WAT.Data and WAT.Data.CRESTS or {}
+    local cellKeys = {
+        adventurer = "crestAdventurer", veteran = "crestVeteran", champion = "crestChampion",
+        hero = "crestHero", myth = "crestMyth",
+    }
+    for _, key in ipairs(CREST_ORDER) do
+        local quantity = CrestQuantity(crests, definitions, key)
+        local cell = row.values[cellKeys[key]]
+        cell:SetText(stale and COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r"
+            or type(quantity) == "number" and tostring(quantity)
+            or COLORS.unknown .. "-|r")
     end
 end
 

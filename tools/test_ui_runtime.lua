@@ -13,8 +13,11 @@ function issecretvalue(value) return value == SECRET_VALUE end
 
 -- Eindeutige Testsymbol-IDs je Wappen-Currency. Der Client liefert echte
 -- iconFileIDs; hier genügt, dass sie unterscheidbar sind.
-local CREST_ICON_IDS = { [3343] = 5872025, [3345] = 5872026, [3347] = 5872027 }
-local CREST_QUANTITIES = { [3343] = 120, [3345] = 60, [3347] = 15 }
+local CREST_ICON_IDS = {
+    [3442] = 5872023, [3443] = 5872024, [3444] = 5872025,
+    [3445] = 5872026, [3446] = 5872027,
+}
+local CREST_QUANTITIES = { [3442] = 200, [3443] = 160, [3444] = 120, [3445] = 60, [3446] = 15 }
 
 local function RealCurrencyInfo()
     return {
@@ -295,45 +298,19 @@ local function MakeWAT()
                         },
                         mythicPlusVault = {
                             slots = {
-                                { threshold = 1, progress = 1, level = 10, rewardItemLevel = 272 },
+                                { threshold = 1, progress = 1, level = 10, rewardItemLevel = 318 },
                             },
                             updated = 995,
                         },
                         crests = {
-                            champion = { quantity = 120 },
-                            hero = { quantity = 60 },
-                            myth = { quantity = 15 },
+                            adventurer = { quantity = 200, currencyID = 3442 },
+                            veteran = { quantity = 160, currencyID = 3443 },
+                            champion = { quantity = 120, currencyID = 3444 },
+                            hero = { quantity = 60, currencyID = 3445 },
+                            myth = { quantity = 15, currencyID = 3446 },
                         },
                         crestSources = {
-                            heroToMyth = { unlocked = false, heroQuantity = 60 },
-                            -- Realistischer Activities.lua-Snapshot: Hauptslot Val
-                            -- abgegeben (questID aus Data.HEROIC_SHOWDOWN_MAIN_QUESTS),
-                            -- Folgeslot offen ohne bekannte Variante. Kein Label, nur IDs.
-                            heroicShowdowns = {
-                                main = {
-                                    questID = 96714,
-                                    completed = true,
-                                    turnedIn = true,
-                                    readyToTurnIn = false,
-                                    active = false,
-                                    variantKnown = false,
-                                    updated = 995,
-                                },
-                                followup = {
-                                    completed = false,
-                                    turnedIn = false,
-                                    readyToTurnIn = false,
-                                    active = false,
-                                    variantKnown = false,
-                                    updated = 995,
-                                },
-                                mainDone = true,
-                                followupDone = false,
-                                earned = 5,
-                                maximum = 10,
-                                mythPerSlot = 5,
-                                updated = 995,
-                            },
+                            mythicPlus = { minimumEligibleLevel = 9, highestUnlockedLevel = 10, updated = 995 },
                         },
                     },
                 },
@@ -596,28 +573,64 @@ local function RunSuite(locale, expect)
 
     local sourcesRow = WAT.panels.sources.rows[1]
     assert(sourcesRow and sourcesRow.shown == true, context("Wappenquellen-Zeile fehlt"))
-    assert(string.find(sourcesRow.values.exchange.text or "", expect.locked, 1, true),
-        context("sicher gesperrter Helden-zu-Mythisch-Tausch muss als gesperrt erscheinen, erhalten "
-            .. tostring(sourcesRow.values.exchange.text)))
-    assert(string.find(sourcesRow.values.ritualFarm.text or "", expect.ritualFarm, 1, true),
-        context("Ritual-T6-Zelle nicht lokalisiert, erhalten "
-            .. tostring(sourcesRow.values.ritualFarm.text)))
+    assert(string.find(sourcesRow.values.mythicPlusKey.text or "", "+10", 1, true),
+        context("höchster sicher abgeschlossener M+-Key fehlt"))
 
-    -- Heroische Showdowns: ein abgeschlossener Slot von zwei muss als 5/10
-    -- erscheinen - sprachneutrale Ziffern, keine Uebersetzung noetig.
-    assert(sourcesRow.values.heroicShowdown
-            and string.find(sourcesRow.values.heroicShowdown.text or "", "5/10", 1, true),
-        context("Heroische-Showdowns-Zelle zeigt nicht 5/10, erhalten "
-            .. tostring(sourcesRow.values.heroicShowdown and sourcesRow.values.heroicShowdown.text)))
+    -- Eine sicher abgeschlossene Stufe unterhalb der Myth-Schwelle ist echter
+    -- Fortschritt, aber keine erfolgreiche Myth-Nebelwappenquelle. Sie darf
+    -- deshalb nicht grün wie ein Erfolg erscheinen.
+    local mythicSource = WAT.db.characters.test.weekly.crestSources.mythicPlus
+    mythicSource.highestUnlockedLevel = 7
+    WAT:RefreshUI()
+    local belowThreshold = WAT.panels.sources.rows[1].values.mythicPlusKey.text or ""
+    assert(string.find(belowThreshold, "+7", 1, true),
+        context("sicher abgeschlossene M+-Stufe +7 fehlt: " .. belowThreshold))
+    assert(not string.find(belowThreshold, "|cff64e68a", 1, true),
+        context("M+7 unterhalb der Myth-Schwelle darf nicht grün erscheinen: " .. belowThreshold))
+    assert(string.find(belowThreshold, "|cfff2c35b", 1, true),
+        context("M+7 unterhalb der Myth-Schwelle muss als Teilfortschritt bernstein erscheinen: "
+            .. belowThreshold))
+    mythicSource.highestUnlockedLevel = 10
+    WAT:RefreshUI()
+    sourcesRow = WAT.panels.sources.rows[1]
+
+    assert(string.find(sourcesRow.values.crestAdventurer.text or "", "200", 1, true)
+            and string.find(sourcesRow.values.crestMyth.text or "", "15", 1, true),
+        context("fünf Saison-2-Nebelwappenbestände fehlen"))
+
+    -- Alte Wochenwerte dürfen im Wappenquellen-Panel nicht wie aktuelle grüne
+    -- M+-Abschlüsse aussehen.
+    local savedIsStale = WAT.IsStale
+    WAT.IsStale = function() return true end
+    WAT:RefreshUI()
+    local staleSourcesRow = WAT.panels.sources.rows[1]
+    assert(string.find(staleSourcesRow.values.mythicPlusKey.text or "", expect.staleWeek, 1, true),
+        context("alter M+-Quellenstand wird nicht als alte Woche markiert, erhalten: "
+            .. tostring(staleSourcesRow.values.mythicPlusKey.text)))
+    WAT.IsStale = savedIsStale
+
+    -- Ein Snapshot aus Saison 1 darf unter dem gleichen semantischen Schlüssel
+    -- nicht als Saison-2-Nebelwappen erscheinen. Die gespeicherte Currency-ID
+    -- muss zur aktuellen Definition passen.
+    local champion = WAT.db.characters.test.weekly.crests.champion
+    champion.currencyID = 3343
+    WAT:RefreshUI()
+    local mismatchedOverview = WAT.panels.overview.rows[1].values.crests.text or ""
+    local mismatchedSources = WAT.panels.sources.rows[1]
+    assert(not string.find(mismatchedOverview, "120", 1, true),
+        context("altes Champion-Wappen wird in der Übersicht als Nebelwappen angezeigt: "
+            .. mismatchedOverview))
+    assert(not string.find(mismatchedSources.values.crestChampion.text or "", "120", 1, true),
+        context("altes Champion-Wappen wird in den Quellen als Nebelwappen angezeigt"))
+    mismatchedSources.scripts.OnEnter(mismatchedSources)
+    assert(not string.find(GameTooltip:TooltipText(), "\t120", 1, true),
+        context("altes Champion-Wappen wird im Tooltip als Nebelwappen angezeigt"))
+    champion.currencyID = 3444
+    WAT:RefreshUI()
 
     -- Die Spaltenbreiten des Wappenquellen-Panels bleiben trotz der neuen
     -- Spalte innerhalb von CONTENT_WIDTH.
     local sourcesColumns = WAT.panels.sources.columns
-    local heroicShowdownColumn
-    for _, column in ipairs(sourcesColumns) do
-        if column.key == "heroicShowdown" then heroicShowdownColumn = column end
-    end
-    assert(heroicShowdownColumn ~= nil, context("Heroische-Showdowns-Spalte fehlt im Wappenquellen-Panel"))
     local sourcesWidthTotal = 0
     for _, column in ipairs(sourcesColumns) do sourcesWidthTotal = sourcesWidthTotal + column.width end
     assert(sourcesWidthTotal <= 920,
@@ -627,7 +640,7 @@ local function RunSuite(locale, expect)
     assert(overviewRow and overviewRow.shown == true, context("Übersichtszeile fehlt"))
     assert(overviewRow.values.mythic10
             and string.find(overviewRow.values.mythic10.text or "", expect.yes, 1, true),
-        context("M+10-Abschluss für die 272er Belohnung wird nicht auf einen Blick angezeigt"))
+        context("M+10-Abschluss für die 318er Belohnung wird nicht auf einen Blick angezeigt"))
 
     -- Midnight-Weekly: das Label entsteht aus der questID, nicht aus einem
     -- gespeicherten Text.
@@ -640,9 +653,6 @@ local function RunSuite(locale, expect)
     local header = WAT.panels.overview.columns
     assert(header[1].label == expect.colCharacter,
         context("Spaltenkopf nicht lokalisiert: " .. tostring(header[1].label)))
-    assert(heroicShowdownColumn.label == expect.colHeroicShowdown,
-        context("Heroische-Showdowns-Spaltenkopf nicht lokalisiert: "
-            .. tostring(heroicShowdownColumn.label)))
 
     -- Tooltips in beiden Sprachen.
     local overviewTooltipRow = WAT.panels.overview.rows[1]
@@ -672,42 +682,12 @@ local function RunSuite(locale, expect)
     local sourcesTooltipRow = WAT.panels.sources.rows[1]
     sourcesTooltipRow.scripts.OnEnter(sourcesTooltipRow)
     local sourcesTooltip = GameTooltip:TooltipText()
-    -- Der Erfolgsname wird nie selbst übersetzt, sondern aus GetAchievementInfo
-    -- übernommen. Er muss deshalb in beiden Sprachen unverändert auftauchen.
-    assert(string.find(sourcesTooltip, expect.achievement, 1, true),
-        context("Erfolgsname kommt nicht aus GetAchievementInfo, erhalten: " .. sourcesTooltip))
-
-    -- Ohne lesbaren Erfolgsnamen bleibt der generische Text; kein geratener Name.
-    local savedAchievementInfo = GetAchievementInfo
-    GetAchievementInfo = function() error("kein Erfolg lesbar") end
-    sourcesTooltipRow.scripts.OnEnter(sourcesTooltipRow)
-    local genericTooltip = GameTooltip:TooltipText()
-    assert(string.find(genericTooltip, expect.lockedGeneric, 1, true),
-        context("ohne lesbaren Erfolgsnamen fehlt der generische Text, erhalten: " .. genericTooltip))
-    GetAchievementInfo = savedAchievementInfo
-
-    -- Heroische Showdowns: der abgegebene Hauptslot muss den echten,
-    -- clientlokalisierten Questtitel nennen (nie einen unlokalisierten
-    -- englischen Namen), der offene Folgeslot bleibt ohne Variante.
-    assert(string.find(sourcesTooltip, expect.done, 1, true)
-            and string.find(sourcesTooltip, expect.showdownTitle, 1, true),
-        context("Heroischer-Showdown-Hauptslot nennt nicht den Client-Questtitel, erhalten: "
-            .. sourcesTooltip))
-    assert(string.find(sourcesTooltip, expect.open, 1, true),
-        context("Heroischer-Showdown-Folgeslot muss als offen erscheinen, erhalten: " .. sourcesTooltip))
-
-    -- Ohne lesbaren Questtitel bleibt ein sprachneutraler ID-Ersatztext -
-    -- niemals ein fest verdrahteter englischer Questname.
-    local savedGetTitleForQuestID = C_QuestLog.GetTitleForQuestID
-    C_QuestLog.GetTitleForQuestID = function() error("kein Questtitel lesbar") end
-    sourcesTooltipRow.scripts.OnEnter(sourcesTooltipRow)
-    local showdownFallbackTooltip = GameTooltip:TooltipText()
-    assert(string.find(showdownFallbackTooltip, "96714", 1, true),
-        context("ohne lesbaren Questtitel fehlt der sprachneutrale ID-Ersatztext, erhalten: "
-            .. showdownFallbackTooltip))
-    assert(not string.find(showdownFallbackTooltip, expect.showdownTitle, 1, true),
-        context("ohne lesbaren Questtitel darf der vorherige Client-Titel nicht hängen bleiben"))
-    C_QuestLog.GetTitleForQuestID = savedGetTitleForQuestID
+    assert(string.find(sourcesTooltip, "+10", 1, true)
+            and string.find(sourcesTooltip, "+9", 1, true),
+        context("Saison-2-M+-Quellentooltip fehlt, erhalten: " .. sourcesTooltip))
+    assert(string.find(sourcesTooltip, "200", 1, true)
+            and string.find(sourcesTooltip, "15", 1, true),
+        context("Saison-2-Nebelwappenbestände fehlen im Tooltip"))
 
     -- -----------------------------------------------------------------------
     -- Statistiken: Dashboard je Bereich statt Vergleichstabelle
@@ -1320,13 +1300,15 @@ local function RunSuite(locale, expect)
 
     WAT:SetActiveTab("overview")
 
-    -- Wappensymbole: jede der drei Currencies muss ihr eigenes iconFileID aus
+    -- Wappensymbole: jede der fünf Currencies muss ihr eigenes iconFileID aus
     -- C_CurrencyInfo als Inline-Texturmarkup in der echten Übersicht zeigen.
     local crestText = overviewRow.values.crests.text or ""
     for _, case in ipairs({
-        { key = "champion", currencyID = 3343 },
-        { key = "hero", currencyID = 3345 },
-        { key = "myth", currencyID = 3347 },
+        { key = "adventurer", currencyID = 3442 },
+        { key = "veteran", currencyID = 3443 },
+        { key = "champion", currencyID = 3444 },
+        { key = "hero", currencyID = 3445 },
+        { key = "myth", currencyID = 3446 },
     }) do
         local icon = CREST_ICON_IDS[case.currencyID]
         assert(string.find(crestText, "|T" .. icon .. ":", 1, true),
@@ -1342,7 +1324,7 @@ local function RunSuite(locale, expect)
     local plainText = WAT.panels.overview.rows[1].values.crests.text or ""
     assert(not string.find(plainText, "|T", 1, true),
         context("ohne C_CurrencyInfo darf kein Texturmarkup entstehen, erhalten: " .. plainText))
-    for _, expected in ipairs({ "C 120", "H 60", "M 15" }) do
+    for _, expected in ipairs({ "A 200", "V 160", "C 120", "H 60", "M 15" }) do
         assert(string.find(plainText, expected, 1, true),
             context("Plain-Text-Fallback fehlt: " .. expected .. ", erhalten: " .. plainText))
     end
@@ -1357,8 +1339,8 @@ local function RunSuite(locale, expect)
         {
             name = "Secret Value / falscher Typ / negativ",
             getter = function(currencyID)
-                if currencyID == 3343 then return { quantity = 120, iconFileID = SECRET_VALUE } end
-                if currencyID == 3345 then return { quantity = 60, iconFileID = "keineZahl" } end
+                if currencyID == 3442 then return { quantity = 200, iconFileID = SECRET_VALUE } end
+                if currencyID == 3443 then return { quantity = 160, iconFileID = "keineZahl" } end
                 return { quantity = 15, iconFileID = -1 }
             end,
         },
@@ -1383,8 +1365,8 @@ local function RunSuite(locale, expect)
         {
             name = "falscher Container statt Tabelle",
             getter = function(currencyID)
-                if currencyID == 3343 then return "keineTabelle" end
-                if currencyID == 3345 then return 12345 end
+                if currencyID == 3442 then return "keineTabelle" end
+                if currencyID == 3443 then return 12345 end
                 return true
             end,
         },
@@ -1404,7 +1386,7 @@ local function RunSuite(locale, expect)
         local text = WAT.panels.overview.rows[1].values.crests.text or ""
         assert(not string.find(text, "|T", 1, true),
             context("'" .. case.name .. "' darf kein Texturmarkup erzeugen, erhalten: " .. text))
-        for _, expected in ipairs({ "C 120", "H 60", "M 15" }) do
+        for _, expected in ipairs({ "A 200", "V 160", "C 120", "H 60", "M 15" }) do
             assert(string.find(text, expected, 1, true),
                 context("Plain-Text-Fallback bei '" .. case.name .. "' fehlt: " .. expected
                     .. ", erhalten: " .. text))
@@ -2696,13 +2678,11 @@ RunDundunLocaleSuite("frFR", {
     "Panra holds the line, Cataline keeps him in the Light",
 })
 RunEasterEggSuite()
-RunHeroicShowdownSuite()
 
-print("LUA UI RUNTIME OK: 7/7 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10,"
-    .. " Heroische Showdowns (0/5/10, Strich ohne Snapshot, Client-Questtitel,"
-    .. " kein Locale-Text im Snapshot),"
-    .. " offene Berufs-Wochenquest, gesperrter Wappentausch und Wappensymbole"
-    .. " (3343/3345/3347) inklusive 8 Fehlerfälle, short aus Data.CRESTS,"
+print("LUA UI RUNTIME OK: 7/7 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10/318,"
+    .. " Saison-2-Wappenquellen mit M+ ab +9 und fünf Nebelwappenbeständen,"
+    .. " offene Berufs-Wochenquest und Wappensymbole"
+    .. " (3442/3443/3444/3445/3446) inklusive 8 Fehlerfälle, short aus Data.CRESTS,"
     .. " keine iconFileID und kein Locale-Text in der DB, questID schlägt Legacy-Label,"
     .. " Dungeon-ID statt fremdsprachigem Namen, Statistiken als Bereichs-Dashboard"
     .. " statt Vergleichstabelle: 13 Kennzahlkarten in drei gleichzeitig sichtbaren"
