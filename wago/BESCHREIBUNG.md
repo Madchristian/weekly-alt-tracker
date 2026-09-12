@@ -7,6 +7,7 @@ WeeklyAltTracker ist ein eigenständiges Addon für World of Warcraft Retail. Es
 ## Was das Addon abdeckt
 
 - Wochenaktivitäten und accountweiter Charaktervergleich
+- recherchierte Wochenquests der aktiven Saison für PvE und Berufe mit Status je Charakter
 - Große Schatzkammer für Mythic+ und Tiefen/Welt
 - saisonale Währungen und ihre unterstützten Quellen
 - Berufe, Wissenspunkte, Wochenquests und Traktate
@@ -16,17 +17,20 @@ WeeklyAltTracker ist ein eigenständiges Addon für World of Warcraft Retail. Es
 
 Raid-Fortschritt und Raid-Vault werden bewusst nicht getrackt.
 
-## Sieben kompakte Ansichten
+## Acht kompakte Ansichten
 
-Das Addon bündelt seinen Funktionsumfang in sieben kompakte Ansichten:
+Das Addon bündelt seinen Funktionsumfang in acht kompakte Ansichten:
 
 1. Übersicht
 2. Midnight-Woche
-3. Berufe
-4. Wappenquellen
-5. Schlüsselsteine
-6. Statistiken
-7. Einstellungen
+3. Wochenquests
+4. Berufe
+5. Wappenquellen
+6. Schlüsselsteine
+7. Statistiken
+8. Einstellungen
+
+Die Ansicht Wochenquests zeigt die recherchierten und belegten Wochenquests der aktiven Saison als kompakte Tabelle mit Quest, Bereich, Charakter, Status, Fortschritt und Stand, dazu Filter für Charakter, Kategorie, Status und Titel sowie eine Sortierung nach jeder Spalte, auf- oder absteigend. Details wie Ort, Questgeber, Voraussetzung, Belohnung, Rotation und Quest-ID stehen im Zeilen-Tooltip; unsichere Angaben sind als solche gekennzeichnet, einen erfundenen Gesamtzähler gibt es nicht.
 
 Die Statistikansicht zeigt Charakterwerte und eine Accountsumme. Unter Einstellungen lassen sich Daten aktualisieren sowie Fenster, Skalierung und Minimap-Symbol steuern.
 

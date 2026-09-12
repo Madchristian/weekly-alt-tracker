@@ -132,11 +132,13 @@ C_QuestLog = {
     IsOnQuest = function(questID) return onQuest[questID] == true end,
     IsQuestFlaggedCompleted = function(questID) return questCompleted[questID] == true end,
     GetQuestObjectives = function() return nil end,
-    GetQuestProgressBarPercent = function(questID)
-        if onQuest[questID] == true then return 40 end
-        return nil
-    end,
 }
+-- Die Fortschrittsleiste ist im Client global (Blizzard_QuestObjectiveTracker.lua,
+-- live 12.1.0), nicht Teil von C_QuestLog.
+function GetQuestProgressBarPercent(questID)
+    if onQuest[questID] == true then return 40 end
+    return nil
+end
 
 -- Echter Berufs-Wochenquest-Pool über den realen ScanProfessions-Pfad (Alchemie, 171).
 local ALCHEMY_WEEKLY_QUEST = 90001
@@ -368,18 +370,20 @@ assert(type(snapshotWeeklyQuest) == "table" and snapshotWeeklyQuest.current == 2
 -- weder einen falschen Fortschritt erfinden noch die sicheren Snapshots aus
 -- dem ersten Scan ersetzen.
 local safeCQuestLog = C_QuestLog
+local safeProgressBar = GetQuestProgressBarPercent
 C_QuestLog = {
     IsOnQuest = function() return SECRET_VALUE end,
     IsQuestFlaggedCompleted = function() return SECRET_VALUE end,
     GetQuestObjectives = function() return SECRET_VALUE end,
-    GetQuestProgressBarPercent = function() return SECRET_VALUE end,
 }
+GetQuestProgressBarPercent = function() return SECRET_VALUE end
 WAT:ScanActivities(mergeCharacter, "PLAYER_LOGIN")
 assert(mergeCharacter.weekly.midnightWeekly == snapshotMidnight,
     "unlesbarer Folge-Scan darf den sicheren Midnight-Snapshot nicht ersetzen")
 assert(mergeCharacter.weekly.professions[1].weeklyQuest == snapshotWeeklyQuest,
     "unlesbarer Folge-Scan darf den sicheren Berufs-Wochenquest-Snapshot nicht ersetzen")
 C_QuestLog = safeCQuestLog
+GetQuestProgressBarPercent = safeProgressBar
 
 questCompleted[META_QUEST] = nil
 onQuest[META_QUEST] = nil

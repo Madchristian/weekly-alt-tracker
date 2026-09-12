@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#070b10">
-  <meta name="description" content="English guide for WeeklyAltTracker 0.8.0: installation, features, languages, first steps and troubleshooting.">
-  <title>WeeklyAltTracker 0.8.0 &ndash; Guide</title>
+  <meta name="description" content="English guide for WeeklyAltTracker 0.9.0: installation, features, languages, first steps and troubleshooting.">
+  <title>WeeklyAltTracker 0.9.0 &ndash; Guide</title>
   <style>
     :root {
       --bg: #070b10;
@@ -536,7 +536,7 @@
     <div class="topbar-inner">
       <a class="brand" href="#start" aria-label="Back to the top of the guide">
         <span class="brand-mark" aria-hidden="true">W</span>
-        <span>WeeklyAltTracker<small>GUIDE &middot; 0.8.0</small></span>
+        <span>WeeklyAltTracker<small>GUIDE &middot; 0.9.0</small></span>
       </a>
       <nav class="nav" aria-label="Table of contents">
         <a href="#installation">Installation</a>
@@ -555,7 +555,7 @@
         <h1>Your week.<br><span class="hero-accent">All characters.</span></h1>
         <p class="lead">WeeklyAltTracker brings the Great Vault, Midnight activities, professions, knowledge points, crest sources and Mythic+ keystones together in one compact overview.</p>
         <div class="badges" aria-label="Version information">
-          <span class="badge live">Release 0.8.0</span>
+          <span class="badge live">Release 0.9.0</span>
           <span class="badge">Retail 12.1.0</span>
           <span class="badge">German &amp; English</span>
           <span class="badge">No dependencies</span>
@@ -583,7 +583,7 @@
       <div class="install-grid">
         <article class="step">
           <h3>Download the ZIP</h3>
-          <p>Download <strong>WeeklyAltTracker-0.8.0.zip</strong> from the official project page or directly from the author.</p>
+          <p>Download <strong>WeeklyAltTracker-0.9.0.zip</strong> from the official project page or directly from the author.</p>
         </article>
         <article class="step">
           <h3>Extract the archive</h3>
@@ -661,7 +661,7 @@
 
     <section class="section" id="features">
       <div class="section-head">
-        <div><p class="kicker">Feature set</p><h2>Seven views. One weekly picture.</h2></div>
+        <div><p class="kicker">Feature set</p><h2>Eight views. One weekly picture.</h2></div>
         <p class="section-intro">The interface stays deliberately compact. Each view answers one concrete question instead of squeezing all data into one overly wide table.</p>
       </div>
 
@@ -669,35 +669,40 @@
         <article class="feature">
           <span class="feature-index">01</span>
           <h3>Overview</h3>
-          <div><p>Compares character level, equipped item level, Gilded Stash, all five Season 2 Mistcrests and the unlocked Great Vault slots for Mythic+ and Delves/World. The dedicated column <strong>M+10 / 318</strong> shows immediately whether at least one dungeon has been completed at +10 or higher for the 318 vault reward.</p><div class="feature-tags"><span>M+10 / 318</span><span>Vault item level</span><span>Offline snapshot</span><span>no raid</span></div></div>
+          <div><p>Compares character level, equipped item level and the unlocked Great Vault slots for Mythic+ and Delves/World. The dedicated column <strong>M+10 / 318</strong> shows immediately whether at least one dungeon has been completed at +10 or higher for the 318 vault reward. Gilded Stash and Mistcrests are no longer duplicated here; they live only under <strong>Crest Sources</strong>.</p><div class="feature-tags"><span>M+10 / 318</span><span>Vault item level</span><span>Offline snapshot</span><span>no raid</span></div></div>
         </article>
         <article class="feature">
           <span class="feature-index">02</span>
           <h3>Midnight Week</h3>
-          <div><p>Shows the active Midnight weekly quest with progress such as 3/5 and distinguishes <strong>Ready to turn in</strong> from <strong>Turned in</strong>. It also tracks hunts on Normal, Hard and Nightmare and the progress of the Ritual Sites.</p><div class="feature-tags"><span>Weekly progress</span><span>Ready to turn in</span><span>Hunts 4 / 6 / 5</span><span>Ritual Sites</span></div></div>
+          <div><p>Shows the active Midnight weekly quest with progress such as 3/5 and distinguishes <strong>Ready to turn in</strong> from <strong>Turned in</strong>. It also tracks hunts on Normal, Hard and Nightmare and the progress of the Ritual Sites. If Lady Liadrin offers the Ritual Sites themselves as the weekly quest, the ritual column only refers to the weekly quest instead of counting the same progress twice.</p><div class="feature-tags"><span>Weekly progress</span><span>Ready to turn in</span><span>Hunts 4 / 6 / 5</span><span>Ritual Sites</span></div></div>
         </article>
         <article class="feature">
           <span class="feature-index">03</span>
+          <h3>Weekly Quests</h3>
+          <div><p>Lists 52 researched catalog entries with 83 unique quest IDs of the active season (currently Midnight Season 2) for PvE and primary professions as a compact table with six fixed columns: quest, area, character, status, progress and last update. Filters select the character (default: the logged-in one, optionally all), the category (All, PvE, Professions), the status and a title. The sort bar above the right edge of the table or a click on a column header sorts by any column, ascending or descending; without a deliberate choice the default order stays, and unknown values and old weeks always stay at the end. The status reads <strong>Open</strong> (neither accepted nor turned in &ndash; explicitly not &ldquo;offered this week&rdquo;), <strong>Active</strong>, <strong>Ready to turn in</strong> (only from the quest-wide completion check, never from a single finished objective), <strong>Turned in</strong> or <strong>Unknown</strong>. Several objectives appear as completed objectives / objective count, never as a sum of different units. Location, quest giver, requirement, reward, cadence, rotation and quest ID live in the row tooltip; uncertain rewards and rotating offers are marked as such. Safely foreign professions are hidden, an unknown profession membership stays visible. Offline states from old weeks or seasons appear grey with a hint instead of as current progress. The row <strong>Purging the Vaults</strong> (95520) carries a narrow gold stripe and the badge <strong>Hero via map</strong>: the quest can award a delve map whose extra trove in a Tier 8 or higher delve contains Hero equipment &ndash; at most one map per week and character, shared with every map source, without a counter and without a guaranteed Hero chest from the quest itself. The small <strong>Info: Prey hero chest</strong> button left of the sort bar explains the separate Nightmare hunt bonus: with a Tormented Soul the next Nightmare prey hunt also awards a Hero chest, from Preyhunter's Journey rank 9 and at most once per week and character &ndash; not a weekly quest, not a quest reward and without a progress display. Both hints only apply to the season they are verified for. There is deliberately no global weeklies counter, and no raid and no PvP.</p><div class="feature-tags"><span>Season catalog</span><span>Five states</span><span>Filters</span><span>Hero hints</span><span>no raid/PvP</span></div></div>
+        </article>
+        <article class="feature">
+          <span class="feature-index">04</span>
           <h3>Professions</h3>
           <div><p>Records the Midnight skill of both primary professions, free knowledge points, knowledge points from items in your bags, and the Thalassian Treatise. Profession weeklies likewise show active progress and distinguish ready-to-turn-in quests from quests already turned in.</p><div class="feature-tags"><span>Skill</span><span>Free / Bags</span><span>Weekly status</span><span>Treatises</span></div></div>
         </article>
         <article class="feature">
-          <span class="feature-index">04</span>
+          <span class="feature-index">05</span>
           <h3>Crest Sources</h3>
           <div><p>Shows the Shard of Dundun balance, Gilded Stash, all five Season 2 Mistcrests and the highest safely completed Mythic+ level per character. Myth Mistcrests from Mythic+ begin at +9. Obsolete Season 1 sources are not presented as current rewards, and unreadable API values never overwrite a safe matching snapshot.</p><div class="feature-tags"><span>Dundun</span><span>5 Mistcrests</span><span>M+ from +9</span><span>no raid</span></div></div>
         </article>
         <article class="feature">
-          <span class="feature-index">05</span>
+          <span class="feature-index">06</span>
           <h3>Keystones</h3>
           <div><p>Stores dungeon name and level of the currently owned Mythic+ keystone per character. Safe data is preserved when API responses arrive early or protected.</p><div class="feature-tags"><span>Dungeon</span><span>Level</span><span>Data age</span></div></div>
         </article>
         <article class="feature">
-          <span class="feature-index">06</span>
+          <span class="feature-index">07</span>
           <h3>Statistics</h3>
           <div><p>Since 0.4.0 shows thirteen lifetime values &ndash; delves, dungeons, playtime, deaths, healthstones and quests. Since 0.4.2 the page is no longer a side-by-side comparison of all characters but a <strong>per-scope dashboard</strong>: a fixed register bar along the bottom selects the scope &ndash; pinned at the far left is <strong>TOTAL</strong> (the account total), and to its right one tab per known character. From the eighth character onwards the character tabs live in a horizontally paged viewport with explicit arrow buttons; <strong>TOTAL</strong> always stays pinned and never pages away. The active character tab carries its class colour, the active TOTAL tab the turquoise of the interface. Above the bar all thirteen values of the selected scope are shown <em>simultaneously</em> as metric cards in three sections: <strong>content</strong> (delves, Midnight delves, dungeons entered, Midnight dungeons, playtime), <strong>survival</strong> (deaths total, in dungeons, in raids, from falling, healthstones) and <strong>quests</strong> (completed, daily, abandoned). Every card visibly binds a concise label to a prominent value and clips hard &ndash; no value can bleed into its neighbour, at any scale preset. Very large lifetime values are abbreviated on the card (for example <em>123T</em>); the tooltip still states the exact full value, small values stay exact and playtime is never abbreviated. <strong>Dungeons entered</strong> counts 5-player dungeons <em>entered</em>, not completed; the tooltip says so explicitly. <strong>Midnight dungeons</strong> is not a single Blizzard statistic but the sum of the 24 final boss statistics of the eight Midnight dungeons across Normal, Heroic and Mythic &ndash; it only appears when all 24 components are safely readable. Only safely known values are summed; if no value is known, &ldquo;&minus;&rdquo; is shown and never an invented zero.</p><div class="feature-tags"><span>Dashboard</span><span>TOTAL</span><span>Delves</span><span>Dungeons</span><span>Playtime</span><span>Deaths</span><span>Quests</span></div></div>
         </article>
         <article class="feature">
-          <span class="feature-index">07</span>
+          <span class="feature-index">08</span>
           <h3>Settings</h3>
           <div><p>Bundles every option: refresh, reset the window position, show or hide the minimap button and six fixed scale steps from 70% to 150%. There is deliberately no function to delete the database.</p><div class="feature-tags"><span>Scale</span><span>Minimap</span><span>Position</span></div></div>
         </article>
@@ -792,7 +797,7 @@
   </main>
 
   <footer>
-    <div><strong>WeeklyAltTracker 0.8.0</strong><br>For WoW Retail 12.1.0 &middot; Midnight</div>
+    <div><strong>WeeklyAltTracker 0.9.0</strong><br>For WoW Retail 12.1.0 &middot; Midnight</div>
     <div>Copyright &copy; 2026 Christian. All Rights Reserved.<br>Independent fan project, not affiliated with Blizzard Entertainment.<br>Game icons shown are Blizzard client assets and are only referenced at runtime, not shipped. Data provenance and references are disclosed in <code>THIRD_PARTY_NOTICES.md</code> inside the addon folder.</div>
   </footer>
 

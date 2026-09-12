@@ -23,6 +23,7 @@ WeeklyAltTracker collects progress from your WoW Retail characters and shows it 
 ### What it tracks
 
 - weekly activities and account-wide character comparison
+- researched weekly quests of the active season for PvE and professions with the status per character
 - Great Vault progress for Mythic+ and Delves/World
 - seasonal currencies and supported sources
 - professions, knowledge points, weekly quests, and treatises
@@ -32,15 +33,18 @@ WeeklyAltTracker collects progress from your WoW Retail characters and shows it 
 
 Raid progress and the raid vault are deliberately not tracked.
 
-### Seven views
+### Eight views
 
 1. Overview
 2. Midnight Week
-3. Professions
-4. Crest Sources
-5. Keystones
-6. Statistics
-7. Settings
+3. Weekly Quests
+4. Professions
+5. Crest Sources
+6. Keystones
+7. Statistics
+8. Settings
+
+Weekly Quests lists the researched and verified weekly quests of the active season as a compact table with quest, area, character, status, progress and last update, plus filters for character, category, status and title and sorting by any column, ascending or descending. The status reads Open, Active, Ready to turn in, Turned in or Unknown. Location, quest giver, requirement, reward, rotation and quest ID live in the row tooltip; rotating offers and uncertain details are marked as such, and there is no invented overall counter.
 
 Statistics shows character values and account totals. Settings provides refresh controls, window options, scale presets, and minimap-button visibility.
 

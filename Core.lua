@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "0.8.0"
+WAT.version = "0.9.0"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -29,9 +29,12 @@ local function SafeTable(value)
     return type(value) == "table" and value or nil
 end
 
+-- Ein sicher gelesenes false bleibt false (Invariante 1). Die fruehere Form
+-- "type(value) == 'boolean' and value or nil" liess false zu nil kollabieren.
 local function SafeBoolean(value)
     if issecretvalue and issecretvalue(value) then return nil end
-    return type(value) == "boolean" and value or nil
+    if type(value) ~= "boolean" then return nil end
+    return value
 end
 
 -- SavedVariables koennen aus einer aelteren Preview, einer manuellen Aenderung
@@ -85,10 +88,100 @@ local VALID_POINTS = {
     BOTTOMLEFT = true, BOTTOM = true, BOTTOMRIGHT = true,
 }
 
+-- Additiv: der Wochenquest-Katalog (weekly.catalog) ist ein eigener,
+-- versionierter Container. Beim Laden wird er fail-closed geprueft: ein
+-- unlesbarer oder fremdschematiger Container verschwindet ganz, ungueltige
+-- Eintraege einzeln, unbrauchbare Felder feldweise. Saison und Definition
+-- werden hier bewusst NICHT gegen den aktiven Katalog geprueft: ein
+-- Offline-Stand einer alten Saison bleibt physisch erhalten, Scanner und
+-- Renderer pruefen die Identitaet selbst. Aus einem fehlenden Katalog wird
+-- nichts angelegt, und ein Legacy-completed wird nie zu turnedIn.
+local MAX_CATALOG_OBJECTIVES = 20
+
+local function SafeCount(value, positive)
+    local number = SafeNumber(value)
+    if number == nil or number ~= number or number == math.huge or number % 1 ~= 0 then return nil end
+    if number < 0 or (positive and number == 0) then return nil end
+    return number
+end
+
+local function NormalizeCatalogObjectives(list)
+    list = SafeTable(list)
+    if not list then return nil end
+    local result = {}
+    for index = 1, MAX_CATALOG_OBJECTIVES + 1 do
+        local raw = list[index]
+        if issecretvalue and issecretvalue(raw) then return nil end
+        if raw == nil then break end
+        if index > MAX_CATALOG_OBJECTIVES then return nil end
+        local objective = SafeTable(raw)
+        local finished = objective and SafeBoolean(objective.finished)
+        if finished == nil then return nil end
+        local entry = { finished = finished }
+        local current, required = SafeCount(objective.current), SafeCount(objective.required, true)
+        if current ~= nil and required ~= nil and current <= required then
+            entry.current, entry.required = current, required
+        end
+        result[index] = entry
+    end
+    if #result == 0 then return nil end
+    return result
+end
+
+local function NormalizeCatalogEntry(raw)
+    raw = SafeTable(raw)
+    if not raw then return nil end
+    local definitionVersion = SafeCount(raw.definitionVersion, true)
+    local turnedIn = SafeBoolean(raw.turnedIn)
+    local active = SafeBoolean(raw.active)
+    if not definitionVersion or (turnedIn == nil and active == nil) then return nil end
+    local percent = SafeNumber(raw.percent)
+    if percent ~= nil and (percent ~= percent or percent < 0 or percent > 100) then percent = nil end
+    return {
+        definitionVersion = definitionVersion,
+        questID = SafeCount(raw.questID, true),
+        turnedIn = turnedIn,
+        active = active,
+        readyToTurnIn = SafeBoolean(raw.readyToTurnIn),
+        objectives = NormalizeCatalogObjectives(raw.objectives),
+        percent = percent,
+        updated = SafeCount(raw.updated, true),
+    }
+end
+
+local function NormalizeWeeklyCatalog(weekly)
+    local raw = weekly.catalog
+    if not (issecretvalue and issecretvalue(raw)) and raw == nil then return end
+    -- Ohne Data.lua fehlt der Schemavertrag; dann bleibt der Container
+    -- unberuehrt und wird erst vom Scanner/Renderer geprueft.
+    local expectedSchema = WAT.Data and SafeNumber(WAT.Data.WEEKLY_CATALOG_SCHEMA) or nil
+    if expectedSchema == nil then return end
+    raw = SafeTable(raw)
+    local entries = raw and SafeTable(raw.entries)
+    local seasonKey = raw and SafeString(raw.seasonKey)
+    if not raw or not entries or not seasonKey or seasonKey == ""
+            or SafeNumber(raw.schemaVersion) ~= expectedSchema then
+        weekly.catalog = nil
+        return
+    end
+    local normalized = {}
+    for key, entry in pairs(entries) do
+        local safeKey = SafeString(key)
+        if safeKey and safeKey ~= "" then normalized[safeKey] = NormalizeCatalogEntry(entry) end
+    end
+    weekly.catalog = {
+        schemaVersion = expectedSchema,
+        seasonKey = seasonKey,
+        revision = SafeCount(raw.revision, true),
+        entries = normalized,
+    }
+end
+
 local function NormalizeCharacter(record, oldKey)
     if issecretvalue and issecretvalue(record) then return nil end
     if type(record) ~= "table" then return nil end
     record.weekly = SafeTable(record.weekly) or {}
+    NormalizeWeeklyCatalog(record.weekly)
     record.season = SafeTable(record.season) or {}
     record.professions = SafeTable(record.professions) or {}
     -- Additiv: eine 0.2.6-Datenbank kennt noch keine Statistiken. Der Container
@@ -170,6 +263,7 @@ function WAT:InitializeDatabase()
     settings.minimapHidden = minimapHidden
     local activeTab = SafeString(settings.activeTab)
     settings.activeTab = (activeTab == "overview" or activeTab == "midnight"
+        or activeTab == "weeklies"
         or activeTab == "professions" or activeTab == "sources" or activeTab == "keystones"
         or activeTab == "statistics" or activeTab == "settings")
         and activeTab or "overview"

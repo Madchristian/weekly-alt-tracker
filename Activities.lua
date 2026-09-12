@@ -21,63 +21,224 @@ local function SafeBoolean(value)
     return value
 end
 
-local function QuestCompleted(questID)
-    local getter = C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted
+-- Liest eine Funktion aus C_QuestLog. Namensraum und Feld koennen fehlen, ein
+-- Secret Value oder ein Fremdtyp sein, und eine Metatable kann schon beim
+-- Lesen werfen. pcall schuetzt nur den Aufruf - deshalb wird auch das Feld
+-- geschuetzt gelesen und vor jedem Aufruf als Funktion geprueft.
+local function QuestLogFunction(name)
+    local namespace = C_QuestLog
+    if not IsSafe(namespace) or type(namespace) ~= "table" then return nil end
+    local ok, fn = pcall(function() return namespace[name] end)
+    if not ok or not IsSafe(fn) or type(fn) ~= "function" then return nil end
+    return fn
+end
+
+-- API-Cache genau eines ScanActivities-Laufs. Er memoisiert jede Beobachtung
+-- je API und Quest-ID, auch eine unbekannte: der Wrapper unterscheidet
+-- "gelesen, aber nil" von "noch nicht gelesen". So wird die Ueberschneidung
+-- von Ritual-, Meta- und Katalogpool nur einmal gefragt. Ausserhalb eines
+-- Scans ist er nil - Direktaufrufe lesen frisch, nichts lebt ueber Events.
+local scanCache
+
+local function CachedValue(bucketName, questID, reader)
+    if not scanCache or not IsSafe(questID) or type(questID) ~= "number" then return reader(questID) end
+    local bucket = scanCache[bucketName]
+    if not bucket then
+        bucket = {}
+        scanCache[bucketName] = bucket
+    end
+    local hit = bucket[questID]
+    if hit == nil then
+        hit = { value = reader(questID) }
+        bucket[questID] = hit
+    end
+    return hit.value
+end
+
+local function ReadQuestCompleted(questID)
+    local getter = QuestLogFunction("IsQuestFlaggedCompleted")
     if not getter then return nil end
     local ok, value = pcall(getter, questID)
     if not ok then return nil end
     return SafeBoolean(value)
 end
 
-local function QuestOnLog(questID)
-    if C_QuestLog and C_QuestLog.IsOnQuest then
-        local ok, value = pcall(C_QuestLog.IsOnQuest, questID)
+local function QuestCompleted(questID)
+    return CachedValue("completed", questID, ReadQuestCompleted)
+end
+
+local function ReadQuestOnLog(questID)
+    local isOnQuest = QuestLogFunction("IsOnQuest")
+    if isOnQuest then
+        local ok, value = pcall(isOnQuest, questID)
         -- Ein sicheres false muss erhalten bleiben; nur Secret/Fehler bleibt nil.
         if ok then
             local safe = SafeBoolean(value)
             if safe ~= nil then return safe end
         end
     end
-    if C_QuestLog and C_QuestLog.GetLogIndexForQuestID then
-        local ok, index = pcall(C_QuestLog.GetLogIndexForQuestID, questID)
+    local getLogIndex = QuestLogFunction("GetLogIndexForQuestID")
+    if getLogIndex then
+        local ok, index = pcall(getLogIndex, questID)
         index = ok and SafeNumber(index) or nil
         if index ~= nil then return index > 0 end
     end
     return nil
 end
 
-local function ReadQuestProgress(questID)
-    local current, required, finished
-    local getter = C_QuestLog and C_QuestLog.GetQuestObjectives
-    if getter then
-        local ok, objectives = pcall(getter, questID)
-        if ok and IsSafe(objectives) and type(objectives) == "table" then
+local function QuestOnLog(questID)
+    return CachedValue("onLog", questID, ReadQuestOnLog)
+end
+
+-- Questweite Abgabebereitschaft. Verifiziert gegen Blizzards generierte
+-- API-Dokumentation (Blizzard_APIDocumentationGenerated/QuestLogDocumentation
+-- .lua, Gethe/wow-ui-source, Branch live = 12.1.0 (69587); Datei zuletzt in
+-- 12.0.5 (67088) geaendert): C_QuestLog.IsComplete(questID) liefert
+-- isComplete als nicht-nilable bool, SecretArguments = AllowedWhenUntainted.
+-- Gefragt wird nur fuer eine sicher im Log stehende, sicher nicht abgegebene
+-- Quest. Ein fertiges erstes Ziel ist ausdruecklich KEIN Questabschluss, und
+-- ohne lesbares IsComplete bleibt die Bereitschaft unbekannt.
+local function ReadQuestIsComplete(questID)
+    local getter = QuestLogFunction("IsComplete")
+    if not getter then return nil end
+    local ok, value = pcall(getter, questID)
+    if not ok then return nil end
+    return SafeBoolean(value)
+end
+
+local function QuestIsComplete(questID)
+    return CachedValue("isComplete", questID, ReadQuestIsComplete)
+end
+
+-- Rohantwort von GetQuestObjectives, einmal je Scan und Quest-ID. Ob die
+-- einzelnen Ziele sicher lesbar sind, entscheidet erst der jeweilige Leser.
+local function ReadObjectivesRaw(questID)
+    local getter = QuestLogFunction("GetQuestObjectives")
+    if not getter then return nil end
+    local ok, objectives = pcall(getter, questID)
+    if not ok or not IsSafe(objectives) or type(objectives) ~= "table" then return nil end
+    return objectives
+end
+
+local function QuestObjectives(questID)
+    return CachedValue("objectives", questID, ReadObjectivesRaw)
+end
+
+-- Fortschrittsleiste einer Quest. Blizzard fuehrt sie als GLOBALE Funktion
+-- GetQuestProgressBarPercent(questID), nicht im Namensraum C_QuestLog: die
+-- generierte QuestLogDocumentation.lua kennt sie nicht, der Objective-Tracker
+-- ruft sie global auf (Blizzard_ObjectiveTracker/Blizzard_QuestObjectiveTracker
+-- .lua, Zeilen 229/239 in Gethe/wow-ui-source 8ea15b61e45c = live 12.1.0
+-- (69587)). Fehlt die Funktion, ist sie ein Secret Value, wirft sie oder
+-- liefert sie keine endliche Zahl, ist der Wert unbekannt (nil).
+local function ReadProgressPercentRaw(questID)
+    local getter = GetQuestProgressBarPercent
+    if not IsSafe(getter) or type(getter) ~= "function" then return nil end
+    local ok, value = pcall(getter, questID)
+    if not ok then return nil end
+    value = SafeNumber(value)
+    if value == nil or value ~= value then return nil end
+    return value
+end
+
+local function QuestProgressPercent(questID)
+    return CachedValue("percent", questID, ReadProgressPercentRaw)
+end
+
+-- Erstes lesbares numerisches Ziel, sonst Prozent: der bestehende Vertrag der
+-- Midnight- und Berufsseite. Die Iteration laeuft geschuetzt, und das Paar
+-- wird nur gemeinsam uebernommen - ein werfendes Ziel bricht den Scan nicht ab
+-- und hinterlaesst keinen halben Wert.
+local function ReadQuestProgressTable(questID)
+    local result = {}
+    local objectives = QuestObjectives(questID)
+    if IsSafe(objectives) and type(objectives) == "table" then
+        pcall(function()
             for _, objective in ipairs(objectives) do
                 if IsSafe(objective) and type(objective) == "table" then
                     local objectiveCurrent = SafeNumber(objective.numFulfilled)
                     local objectiveRequired = SafeNumber(objective.numRequired)
                     if objectiveCurrent ~= nil and objectiveRequired and objectiveRequired > 0 then
-                        current = objectiveCurrent
-                        required = objectiveRequired
-                        finished = SafeBoolean(objective.finished)
+                        local objectiveFinished = SafeBoolean(objective.finished)
+                        result.current, result.required = objectiveCurrent, objectiveRequired
+                        result.finished = objectiveFinished
                         break
                     end
                 end
             end
-        end
+        end)
     end
-
-    local percent
-    if current == nil and C_QuestLog and C_QuestLog.GetQuestProgressBarPercent then
-        local ok, value = pcall(C_QuestLog.GetQuestProgressBarPercent, questID)
-        value = ok and SafeNumber(value) or nil
+    if result.current == nil then
+        local value = QuestProgressPercent(questID)
         if value ~= nil then
-            percent = math.max(0, math.min(100, value))
-            current = percent
-            required = 100
+            result.percent = math.max(0, math.min(100, value))
+            result.current = result.percent
+            result.required = 100
         end
     end
-    return current, required, finished, percent
+    return result
+end
+
+local function ReadQuestProgress(questID)
+    local progress = CachedValue("legacyProgress", questID, ReadQuestProgressTable)
+    return progress.current, progress.required, progress.finished, progress.percent
+end
+
+local MAX_CATALOG_OBJECTIVES = 20
+
+-- Nicht-negative, endliche Ganzzahl. NaN, Unendlich, Bruch und negative Werte
+-- fallen heraus.
+local function ObjectiveCount(value)
+    if not IsSafe(value) or type(value) ~= "number" then return nil end
+    if value ~= value or value < 0 or value == math.huge or value % 1 ~= 0 then return nil end
+    return value
+end
+
+-- Alle Ziele einer Quest, atomar: ein Secret-, Fremdtyp- oder werfendes Ziel
+-- verwirft den ganzen Fortschritt (nil), statt eine Teilmenge als vollstaendig
+-- auszugeben. Ein sicher gelesenes Ziel mit unbrauchbarem Zahlenpaar (Nenner 0,
+-- Stand ueber Nenner, NaN, Bruch) behaelt sein finished, aber ohne Zahlen:
+-- Paare werden nur gemeinsam geschrieben. Verschiedene Ziele werden nie zu
+-- einer Summe verrechnet - die Anzeige nennt erfuellte Ziele / Zielanzahl.
+local function ReadCatalogObjectives(objectives)
+    local result = {}
+    local index = 1
+    while true do
+        local objective = objectives[index]
+        if not IsSafe(objective) then return nil end
+        if objective == nil then break end
+        if type(objective) ~= "table" or index > MAX_CATALOG_OBJECTIVES then return nil end
+        local finished = objective.finished
+        local current = objective.numFulfilled
+        local required = objective.numRequired
+        if not IsSafe(finished) or not IsSafe(current) or not IsSafe(required) then return nil end
+        if type(finished) ~= "boolean" then return nil end
+        local entry = { finished = finished }
+        current, required = ObjectiveCount(current), ObjectiveCount(required)
+        if current ~= nil and required ~= nil and required > 0 and current <= required then
+            entry.current, entry.required = current, required
+        end
+        result[index] = entry
+        index = index + 1
+    end
+    return result
+end
+
+-- Fortschritt eines Katalogeintrags: nil = unlesbar (ein sicherer Vorwert
+-- derselben Woche und derselben aktiven Quest darf dann bleiben), sonst eine
+-- Tabelle mit objectives ODER percent. Prozent nur fuer Quests ohne Zielliste:
+-- dort steckt der ganze Fortschritt in der Prozentleiste, ein unlesbarer
+-- Prozentwert (API fehlt, wirft, Secret, keine Zahl von 0 bis 100) ist damit
+-- ein unlesbarer Fortschritt und kein "nichts zu zeigen". Eine 0 ist gueltig.
+local function ReadCatalogProgress(questID)
+    local objectives = QuestObjectives(questID)
+    if not IsSafe(objectives) or type(objectives) ~= "table" then return nil end
+    local ok, result = pcall(ReadCatalogObjectives, objectives)
+    if not ok or type(result) ~= "table" then return nil end
+    if #result > 0 then return { objectives = result } end
+    local percent = QuestProgressPercent(questID)
+    if percent == nil or percent < 0 or percent > 100 then return nil end
+    return { percent = percent }
 end
 
 local function CandidateIsBetter(candidate, best)
@@ -829,8 +990,499 @@ function WAT:ScanCrestSources(character)
     }
 end
 
-function WAT:ScanActivities(character, reason)
-    if type(character) ~= "table" then return end
+-- ---------------------------------------------------------------------------
+-- Wochenquest-Katalog
+--
+-- Definitionen kommen ausschliesslich aus Data.WEEKLY_CATALOGS der aktiven
+-- Saison (siehe Data.lua); dieser Block kennt keine einzige Quest-ID. Der
+-- Validator ist fail-closed je Eintrag und liefert eine KOPIE, damit spaetere
+-- Aenderungen an den Datentabellen keinen laufenden Scan beeinflussen.
+-- ---------------------------------------------------------------------------
+
+local CATALOG_KINDS = { quest = true, pool = true }
+local CATALOG_CATEGORIES = { pve = true, profession = true }
+local CATALOG_CADENCES = { flag = true, guide = true, unverified = true }
+local CATALOG_REQUIRED_KEYS = { "titleKey", "infoKey", "groupKey" }
+local CATALOG_OPTIONAL_KEYS = { "zoneKey", "giverKey", "requirementKey", "rewardKey",
+                                "variantLabelPrefix", "rotationGroup" }
+local CATALOG_OPTIONAL_NUMBERS = { "requirementLevel", "rewardPoints" }
+
+local function PositiveInteger(value)
+    if not IsSafe(value) or type(value) ~= "number" then return nil end
+    if value ~= value or value <= 0 or value == math.huge or value % 1 ~= 0 then return nil end
+    return value
+end
+
+local function NonEmptyString(value)
+    if not IsSafe(value) or type(value) ~= "string" or value == "" then return nil end
+    return value
+end
+
+-- Kopie einer dichten, nichtleeren Liste; nil bei Luecken, Zusatzschluesseln
+-- oder einem unlesbaren Container.
+local function DenseListCopy(list)
+    if not IsSafe(list) or type(list) ~= "table" then return nil end
+    local ok, copy = pcall(function()
+        local total = 0
+        for _ in pairs(list) do total = total + 1 end
+        local result, count = {}, 0
+        while list[count + 1] ~= nil do
+            count = count + 1
+            result[count] = list[count]
+        end
+        if count == 0 or count ~= total then return nil end
+        return result
+    end)
+    if not ok then return nil end
+    return copy
+end
+
+local function ValidateCatalogEntry(raw, claimed)
+    if not IsSafe(raw) or type(raw) ~= "table" then return nil end
+    local ok, definition = pcall(function()
+        local key = NonEmptyString(raw.key)
+        local kind = NonEmptyString(raw.kind)
+        local category = NonEmptyString(raw.category)
+        local cadence = NonEmptyString(raw.cadence)
+        local definitionVersion = PositiveInteger(raw.definitionVersion)
+        if not key or not definitionVersion or not CATALOG_KINDS[kind or ""]
+                or not CATALOG_CATEGORIES[category or ""] or not CATALOG_CADENCES[cadence or ""] then
+            return nil
+        end
+        local ids = DenseListCopy(raw.questIDs)
+        if not ids then return nil end
+        local seen = {}
+        for index, questID in ipairs(ids) do
+            local id = PositiveInteger(questID)
+            if not id or seen[id] or claimed[id] then return nil end
+            seen[id] = true
+            ids[index] = id
+        end
+        if kind == "quest" and #ids ~= 1 then return nil end
+        if kind == "pool" and #ids < 2 then return nil end
+        local professionID
+        if category == "profession" then
+            professionID = PositiveInteger(raw.professionID)
+            if not professionID then return nil end
+        elseif raw.professionID ~= nil then
+            return nil
+        end
+        local copy = {
+            key = key, definitionVersion = definitionVersion, kind = kind, category = category,
+            cadence = cadence, questIDs = ids, professionID = professionID,
+        }
+        for _, field in ipairs(CATALOG_REQUIRED_KEYS) do
+            copy[field] = NonEmptyString(raw[field])
+            if not copy[field] then return nil end
+        end
+        for _, field in ipairs(CATALOG_OPTIONAL_KEYS) do
+            if raw[field] ~= nil then
+                copy[field] = NonEmptyString(raw[field])
+                if not copy[field] then return nil end
+            end
+        end
+        for _, field in ipairs(CATALOG_OPTIONAL_NUMBERS) do
+            if raw[field] ~= nil then
+                copy[field] = PositiveInteger(raw[field])
+                if not copy[field] then return nil end
+            end
+        end
+        if raw.noteKeys ~= nil then
+            local notes = DenseListCopy(raw.noteKeys)
+            if not notes then return nil end
+            for _, noteKey in ipairs(notes) do
+                if not NonEmptyString(noteKey) then return nil end
+            end
+            copy.noteKeys = notes
+        end
+        return copy
+    end)
+    if not ok then return nil end
+    return definition
+end
+
+-- Validiert eine Saisondefinition gegen Schema und erwarteten Saisonschluessel.
+-- Ungueltiger Kopf: nil. Ungueltige Eintraege: einzeln verworfen und gezaehlt
+-- (skipped); eine bereits von einem frueheren Eintrag gezaehlte Quest-ID macht
+-- den spaeteren Eintrag ungueltig - keine doppelte Zaehlung.
+function WAT:ValidateWeeklyCatalog(raw, seasonKey)
+    local expectedSchema = PositiveInteger(Data.WEEKLY_CATALOG_SCHEMA)
+    seasonKey = NonEmptyString(seasonKey)
+    if not expectedSchema or not seasonKey or not IsSafe(raw) or type(raw) ~= "table" then return nil end
+    local ok, header = pcall(function()
+        return { schema = raw.schemaVersion, season = raw.seasonKey, revision = raw.revision,
+                 labelKey = raw.labelKey, entries = raw.entries }
+    end)
+    if not ok or type(header) ~= "table" then return nil end
+    if PositiveInteger(header.schema) ~= expectedSchema or NonEmptyString(header.season) ~= seasonKey then
+        return nil
+    end
+    local revision = PositiveInteger(header.revision)
+    local labelKey = NonEmptyString(header.labelKey)
+    local entries = header.entries
+    if not revision or not labelKey or not IsSafe(entries) or type(entries) ~= "table" then return nil end
+    local okCount, total, count = pcall(function()
+        local all = 0
+        for _ in pairs(entries) do all = all + 1 end
+        local dense = 0
+        while entries[dense + 1] ~= nil do dense = dense + 1 end
+        return all, dense
+    end)
+    if not okCount then return nil end
+
+    local catalog = {
+        schemaVersion = expectedSchema, seasonKey = seasonKey, revision = revision,
+        labelKey = labelKey, entries = {}, byKey = {}, skipped = total - count,
+    }
+    local claimed = {}
+    for index = 1, count do
+        local okEntry, rawEntry = pcall(function() return entries[index] end)
+        local definition = okEntry and ValidateCatalogEntry(rawEntry, claimed) or nil
+        if definition and not catalog.byKey[definition.key] then
+            for _, questID in ipairs(definition.questIDs) do claimed[questID] = definition.key end
+            catalog.entries[#catalog.entries + 1] = definition
+            catalog.byKey[definition.key] = definition
+        else
+            catalog.skipped = catalog.skipped + 1
+        end
+    end
+    return catalog
+end
+
+-- Der freigegebene Katalog der aktiven Saison oder nil plus Grund:
+-- "missing" (keine Definition) bzw. "invalid" (Kopf ungueltig). Es gibt
+-- ausdruecklich keinen Rueckfall auf eine andere Saison.
+function WAT:GetActiveWeeklyCatalog()
+    local seasonKey = NonEmptyString(Data.ACTIVE_WEEKLY_SEASON)
+    local catalogs = Data.WEEKLY_CATALOGS
+    if not seasonKey or not IsSafe(catalogs) or type(catalogs) ~= "table" then return nil, "missing" end
+    local ok, raw = pcall(function() return catalogs[seasonKey] end)
+    if not ok or not IsSafe(raw) or raw == nil then return nil, "missing" end
+    local catalog = self:ValidateWeeklyCatalog(raw, seasonKey)
+    if not catalog then return nil, "invalid" end
+    return catalog
+end
+
+-- ---------------------------------------------------------------------------
+-- Held-Hinweise (Data.WEEKLY_HERO_REWARDS)
+--
+-- Read-only und ohne jede API: validiert die Anzeige-Metadaten genau der
+-- Saison des uebergebenen, bereits validierten Katalogs. Fail-closed je
+-- Datensatz, Verwerfungen werden gezaehlt. Eine Markierung gilt nur fuer die
+-- exakt kompatible Definition: gleicher Schluessel, gleiche definitionVersion,
+-- Art "quest" mit genau dieser Quest-ID. Ein Aktivitaetsbonus mit Quest-ID ist
+-- ungueltig - er ist nie eine annehmbare Quest.
+-- ---------------------------------------------------------------------------
+
+local HERO_HIGHLIGHT_DELIVERIES = { delveMap = true }
+local HERO_BONUS_DELIVERIES = { huntBonus = true }
+local HERO_CAP_SCOPES = { character = true }
+
+-- Gemeinsame statische Belege beider Arten; nil, sobald einer fehlt.
+local function HeroEvidence(raw, copy)
+    copy.rewardItemID = PositiveInteger(raw.rewardItemID)
+    copy.minimumDelveTier = PositiveInteger(raw.minimumDelveTier)
+    copy.capMaximum = PositiveInteger(raw.capMaximum)
+    copy.capScope = NonEmptyString(raw.capScope)
+    if not copy.rewardItemID or not copy.minimumDelveTier or not copy.capMaximum
+            or not HERO_CAP_SCOPES[copy.capScope or ""] then
+        return nil
+    end
+    return copy
+end
+
+local function ValidateHeroHighlight(raw, catalog)
+    if not IsSafe(raw) or type(raw) ~= "table" then return nil end
+    local ok, highlight = pcall(function()
+        local entryKey = NonEmptyString(raw.entryKey)
+        local definition = entryKey and catalog.byKey[entryKey] or nil
+        local questID = PositiveInteger(raw.questID)
+        local delivery = NonEmptyString(raw.delivery)
+        if type(definition) ~= "table" or definition.kind ~= "quest" or not questID
+                or definition.questIDs[1] ~= questID
+                or PositiveInteger(raw.definitionVersion) ~= definition.definitionVersion
+                or not HERO_HIGHLIGHT_DELIVERIES[delivery or ""] then
+            return nil
+        end
+        return HeroEvidence(raw, {
+            entryKey = entryKey, definitionVersion = definition.definitionVersion,
+            questID = questID, delivery = delivery,
+        })
+    end)
+    if not ok then return nil end
+    return highlight
+end
+
+local function ValidateHeroBonus(raw)
+    if not IsSafe(raw) or type(raw) ~= "table" then return nil end
+    local ok, bonus = pcall(function()
+        local questID = raw.questID
+        if not IsSafe(questID) or questID ~= nil then return nil end
+        local key = NonEmptyString(raw.key)
+        local delivery = NonEmptyString(raw.delivery)
+        local sourceItemID = PositiveInteger(raw.sourceItemID)
+        local minimumJourneyRank = PositiveInteger(raw.minimumJourneyRank)
+        if not key or not HERO_BONUS_DELIVERIES[delivery or ""] or not sourceItemID or not minimumJourneyRank then
+            return nil
+        end
+        return HeroEvidence(raw, {
+            key = key, delivery = delivery, sourceItemID = sourceItemID, minimumJourneyRank = minimumJourneyRank,
+        })
+    end)
+    if not ok then return nil end
+    return bonus
+end
+
+-- Kopie einer Held-Liste: ein fehlendes Feld ist leer, ein unlesbares oder
+-- lueckenhaftes macht den ganzen Block ungueltig (nil).
+local function HeroList(value)
+    if not IsSafe(value) then return nil end
+    if value == nil then return {} end
+    if type(value) ~= "table" then return nil end
+    local okEmpty, empty = pcall(function() return next(value) == nil end)
+    if not okEmpty then return nil end
+    if empty then return {} end
+    return DenseListCopy(value)
+end
+
+-- Die Held-Hinweise zum uebergebenen validierten Katalog, oder nil, wenn dessen
+-- Saison keinen gueltigen Block fuehrt:
+--   { seasonKey, highlights = { [entryKey] = Markierung }, bonuses = { ... }, skipped }
+function WAT:GetWeeklyHeroRewards(catalog)
+    if type(catalog) ~= "table" or type(catalog.byKey) ~= "table" then return nil end
+    local seasonKey = NonEmptyString(catalog.seasonKey)
+    local blocks = Data.WEEKLY_HERO_REWARDS
+    if not seasonKey or not IsSafe(blocks) or type(blocks) ~= "table" then return nil end
+    local ok, header = pcall(function()
+        local raw = blocks[seasonKey]
+        if not IsSafe(raw) or type(raw) ~= "table" then return nil end
+        return { season = raw.seasonKey, highlights = raw.highlights, bonuses = raw.bonuses }
+    end)
+    if not ok or type(header) ~= "table" or NonEmptyString(header.season) ~= seasonKey then return nil end
+    local highlights, bonuses = HeroList(header.highlights), HeroList(header.bonuses)
+    if not highlights or not bonuses then return nil end
+
+    local result = { seasonKey = seasonKey, highlights = {}, bonuses = {}, skipped = 0 }
+    for _, raw in ipairs(highlights) do
+        local highlight = ValidateHeroHighlight(raw, catalog)
+        if highlight and not result.highlights[highlight.entryKey] then
+            result.highlights[highlight.entryKey] = highlight
+        else
+            result.skipped = result.skipped + 1
+        end
+    end
+    local seenBonus = {}
+    for _, raw in ipairs(bonuses) do
+        local bonus = ValidateHeroBonus(raw)
+        if bonus and not seenBonus[bonus.key] then
+            seenBonus[bonus.key] = true
+            result.bonuses[#result.bonuses + 1] = bonus
+        else
+            result.skipped = result.skipped + 1
+        end
+    end
+    return result
+end
+
+-- Die Markierung genau dieser Definition oder nil. Die Bindung wird erneut
+-- geprueft, damit eine Definition aus einem anderen Katalogstand nie
+-- faelschlich markiert wird. Keine API.
+function WAT:GetWeeklyHeroHighlight(heroRewards, definition)
+    if type(heroRewards) ~= "table" or type(heroRewards.highlights) ~= "table"
+            or type(definition) ~= "table" or type(definition.questIDs) ~= "table" then
+        return nil
+    end
+    local highlight = heroRewards.highlights[definition.key]
+    if type(highlight) ~= "table" or definition.kind ~= "quest" or #definition.questIDs ~= 1
+            or definition.questIDs[1] ~= highlight.questID
+            or definition.definitionVersion ~= highlight.definitionVersion then
+        return nil
+    end
+    return highlight
+end
+
+-- Liest einen Eintrag atomar. Ist fuer irgendeine Variante Abgabe- oder
+-- Logstatus unlesbar, liefert der Leser nil und der ganze Eintrag bleibt
+-- unveraendert. Eine abgegebene Variante gewinnt gegen jede aktive andere.
+-- Fortschritt und Bereitschaft sind optionale Details eines erfolgreichen
+-- Lesens; progressKnown unterscheidet "nichts zu zeigen" von "unlesbar".
+local function ReadCatalogEntry(definition)
+    local turnedInID, activeID
+    for _, questID in ipairs(definition.questIDs) do
+        local turnedIn = QuestCompleted(questID)
+        local onLog = QuestOnLog(questID)
+        if turnedIn == nil or onLog == nil then return nil end
+        if turnedIn == true then
+            if not turnedInID then turnedInID = questID end
+        elseif onLog == true and not activeID then
+            activeID = questID
+        end
+    end
+    if turnedInID then
+        return { questID = turnedInID, turnedIn = true, active = false, readyToTurnIn = false, progressKnown = true }
+    end
+    if activeID then
+        local progress = ReadCatalogProgress(activeID)
+        return {
+            questID = activeID, turnedIn = false, active = true,
+            readyToTurnIn = QuestIsComplete(activeID),
+            objectives = progress and progress.objectives or nil,
+            percent = progress and progress.percent or nil,
+            progressKnown = progress ~= nil,
+        }
+    end
+    return {
+        questID = definition.kind == "quest" and definition.questIDs[1] or nil,
+        turnedIn = false, active = false, readyToTurnIn = false, progressKnown = true,
+    }
+end
+
+local function CopyCatalogObjectives(list)
+    if not IsSafe(list) or type(list) ~= "table" then return nil end
+    local copy = {}
+    for index, objective in ipairs(list) do
+        if not IsSafe(objective) or type(objective) ~= "table" then return nil end
+        local finished = SafeBoolean(objective.finished)
+        if finished == nil then return nil end
+        local entry = { finished = finished }
+        local current, required = ObjectiveCount(objective.current), ObjectiveCount(objective.required)
+        if current ~= nil and required ~= nil and required > 0 and current <= required then
+            entry.current, entry.required = current, required
+        end
+        copy[index] = entry
+    end
+    if #copy == 0 then return nil end
+    return copy
+end
+
+-- Merge eines frischen Lesens mit dem kompatiblen Vorwert. previous ist hier
+-- bereits auf dieselbe Definitionsversion gefiltert. Uebernommen werden fehlende
+-- Details nur in derselben, sicher bekannten Woche und fuer dieselbe aktive
+-- Quest-ID - nie ueber einen Variantenwechsel, einen Abbruch oder eine Abgabe
+-- hinweg. Ein unlesbarer Scan (fresh = nil) laesst den Vorwert samt
+-- Zeitstempel unberuehrt.
+local function MergeCatalogEntry(previous, fresh, definition, sameWeek, now)
+    if fresh == nil then return previous end
+    local entry = {
+        definitionVersion = definition.definitionVersion,
+        questID = fresh.questID, turnedIn = fresh.turnedIn, active = fresh.active,
+        readyToTurnIn = fresh.readyToTurnIn, objectives = fresh.objectives, percent = fresh.percent,
+        updated = now,
+    }
+    local compatible = sameWeek and previous ~= nil and fresh.active == true
+        and SafeBoolean(previous.active) == true and SafeNumber(previous.questID) == fresh.questID
+    if compatible then
+        if entry.readyToTurnIn == nil then entry.readyToTurnIn = SafeBoolean(previous.readyToTurnIn) end
+        if not fresh.progressKnown then
+            entry.objectives = CopyCatalogObjectives(previous.objectives)
+            local percent = SafeNumber(previous.percent)
+            if percent ~= nil and (percent ~= percent or percent < 0 or percent > 100) then percent = nil end
+            entry.percent = percent
+        end
+    end
+    return entry
+end
+
+-- Scannt ausschliesslich den eingeloggten Charakter. Ein Saison- oder
+-- Schemawechsel trennt den aktiven Speicher VOR jedem API-Lesen vom alten
+-- Stand; ohne freigegebenen Katalog wird weder gelesen noch geschrieben.
+function WAT:ScanWeeklyCatalog(character)
+    if not IsSafe(character) or type(character) ~= "table" then return end
+    local catalog = self:GetActiveWeeklyCatalog()
+    if not catalog then return end
+    if not IsSafe(character.weekly) or type(character.weekly) ~= "table" then character.weekly = {} end
+    local weekly = character.weekly
+    local container = weekly.catalog
+    if not IsSafe(container) or type(container) ~= "table"
+            or SafeNumber(container.schemaVersion) ~= catalog.schemaVersion
+            or SafeString(container.seasonKey) ~= catalog.seasonKey
+            or not IsSafe(container.entries) or type(container.entries) ~= "table" then
+        container = { schemaVersion = catalog.schemaVersion, seasonKey = catalog.seasonKey, entries = {} }
+        weekly.catalog = container
+    end
+    container.revision = catalog.revision
+    local entries = container.entries
+    local now = time()
+    local weekEnd = SafeNumber(character.weekEnd)
+    local sameWeek = character.weekUnknown ~= true and weekEnd ~= nil and now < weekEnd
+
+    for _, definition in ipairs(catalog.entries) do
+        local previous = entries[definition.key]
+        if not IsSafe(previous) or type(previous) ~= "table"
+                or SafeNumber(previous.definitionVersion) ~= definition.definitionVersion then
+            previous = nil
+        end
+        entries[definition.key] = MergeCatalogEntry(previous, ReadCatalogEntry(definition), definition, sameWeek, now)
+    end
+    -- Eintraege, die der aktive Katalog nicht mehr fuehrt, verschwinden.
+    for key in pairs(entries) do
+        if not catalog.byKey[key] then entries[key] = nil end
+    end
+end
+
+-- Read-only fuer den Renderer: liefert den Snapshot eines Eintrags nur, wenn
+-- Schema, Saison und Definitionsversion zum aktiven Katalog passen. Sonst nil
+-- plus Grund ("missing", "schema", "season", "definition"). Keine API.
+function WAT:GetWeeklyCatalogSnapshot(character, definition, catalog)
+    if not IsSafe(character) or type(character) ~= "table"
+            or type(definition) ~= "table" or type(catalog) ~= "table" then
+        return nil, "missing"
+    end
+    local weekly = character.weekly
+    if not IsSafe(weekly) or type(weekly) ~= "table" then return nil, "missing" end
+    local container = weekly.catalog
+    if not IsSafe(container) or type(container) ~= "table" then return nil, "missing" end
+    if SafeNumber(container.schemaVersion) ~= catalog.schemaVersion then return nil, "schema" end
+    if SafeString(container.seasonKey) ~= catalog.seasonKey then return nil, "season" end
+    local entries = container.entries
+    if not IsSafe(entries) or type(entries) ~= "table" then return nil, "missing" end
+    local entry = entries[definition.key]
+    if not IsSafe(entry) or type(entry) ~= "table" then return nil, "missing" end
+    if SafeNumber(entry.definitionVersion) ~= definition.definitionVersion then return nil, "definition" end
+    return entry
+end
+
+-- Fuenf Anzeigezustaende, abgeleitet aus den gespeicherten Booleans. Es gibt
+-- bewusst kein persistiertes Statusfeld. "open" heisst nur: sicher weder im
+-- Log noch abgegeben - nicht, dass die Quest angeboten wird.
+function WAT:GetWeeklyCatalogStatus(entry)
+    if not IsSafe(entry) or type(entry) ~= "table" then return "unknown" end
+    local turnedIn = SafeBoolean(entry.turnedIn)
+    local active = SafeBoolean(entry.active)
+    if turnedIn == true then return "turnedIn" end
+    if active == true then
+        if SafeBoolean(entry.readyToTurnIn) == true then return "ready" end
+        return "active"
+    end
+    if active == false and turnedIn == false then return "open" end
+    return "unknown"
+end
+
+-- Berufszugehoerigkeit aus den bereits sicher gespeicherten Identitaeten
+-- (character.professions, geschrieben von ScanProfessions). Fehlt ein
+-- erfolgreicher Scan oder ist ein Slot unlesbar, ist die Zugehoerigkeit
+-- unbekannt - nie "kein Beruf". nil fuer Eintraege ohne Berufsbezug.
+function WAT:GetWeeklyCatalogProfessionMatch(character, definition)
+    if type(definition) ~= "table" or definition.category ~= "profession" then return nil end
+    if not IsSafe(character) or type(character) ~= "table" then return "unknown" end
+    local progress = character.professions
+    if not IsSafe(progress) or type(progress) ~= "table" then return "unknown" end
+    local sawUnreadable = false
+    for index = 1, 2 do
+        local slot = progress[index]
+        if not IsSafe(slot) then
+            sawUnreadable = true
+        elseif slot ~= nil then
+            local baseSkillLineID = type(slot) == "table" and SafeNumber(slot.baseSkillLineID) or nil
+            if baseSkillLineID == definition.professionID then return "match" end
+            if baseSkillLineID == nil then sawUnreadable = true end
+        end
+    end
+    if sawUnreadable or SafeNumber(progress.updated) == nil then return "unknown" end
+    return "foreign"
+end
+
+local function RunActivityScans(self, character, reason)
     character.weekly = character.weekly or {}
     local weekly = character.weekly
 
@@ -845,9 +1497,22 @@ function WAT:ScanActivities(character, reason)
         character.professions, weekly.professions, allowProfessionRemoval)
     if professions then weekly.professions = professions end
     if professionProgress then character.professions = professionProgress end
+    -- Der Katalog laeuft nach der sicheren Berufsauswertung; seine Anzeige
+    -- nutzt deren Identitaeten, statt GetProfessions erneut zu fragen.
+    self:ScanWeeklyCatalog(character)
     self:ScanCrestSources(character)
     -- Statistiken sind lebenslang und kein Wochenwert: sie liegen bewusst
     -- neben weekly und ueberleben deshalb den Wochenreset.
     self:ScanStatistics(character)
     weekly.activitiesUpdated = time()
+end
+
+function WAT:ScanActivities(character, reason)
+    if type(character) ~= "table" then return end
+    -- Der Cache gilt genau fuer diesen Lauf und wird auch nach einem Fehler
+    -- wieder entfernt; der Fehler selbst wird unveraendert weitergereicht.
+    scanCache = {}
+    local ok, err = pcall(RunActivityScans, self, character, reason)
+    scanCache = nil
+    if not ok then error(err, 0) end
 end

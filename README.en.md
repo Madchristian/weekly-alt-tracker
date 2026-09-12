@@ -11,6 +11,10 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 0.9.0
+
+Version **0.9.0** adds the **Weekly Quests** page, filters, search and sorting, plus season-bound Hero hints without consumption counters. The eight pages include a decluttered overview without duplicated crest and stash columns and a ritual reference instead of double counting on the Midnight Week page. The Season 2 recognition pool is cleaned up (without the live-obsolete variant 93891, with 96727 and 98232). See the [0.9.0 changelog](curseforge/CHANGELOG-0.9.0-en.md) for details.
+
 A detailed installation, usage and troubleshooting guide is in `Guide.en.html`. The terms of use are in `LICENSE.txt`; WeeklyAltTracker is published under **All Rights Reserved**.
 
 *Deutsche Dokumentation: [`README.md`](README.md) und `Anleitung.html`.*
@@ -33,12 +37,7 @@ The slash command `/wat` is identical in both languages; only its output is tran
 
 ### Overview
 
-- Gilded Stash from Tier 11 Bountiful Delves: 0/4 per week
-- Adventurer Mistcrest, currency ID 3442
-- Veteran Mistcrest, currency ID 3443
-- Champion Mistcrest, currency ID 3444
-- Hero Mistcrest, currency ID 3445
-- Myth Mistcrest, currency ID 3446
+- Gilded Stash (0/4 per week) and the five Mistcrests (currency IDs 3442 to 3446) are no longer duplicated here; they live only under `Crest Sources`
 - Great Vault for Delves/World: slots 2/4/8
 - Great Vault for Mythic+: slots 1/4/8
 - Per vault slot: progress, tier/keystone level, state and reward item level
@@ -51,7 +50,28 @@ The slash command `/wat` is identical in both languages; only its output is tran
 
 - Active Midnight weekly quest including variant and progress; the display distinguishes active with progress (e.g. `3/5`) from done (objective met in the quest log or already turned in) based on the real quest API state
 - Hunts on Normal, Hard and Nightmare with the Season 2 goals 4/6/5
-- Ritual Sites including percentage progress
+- Ritual Sites including percentage progress; if Lady Liadrin offers the Ritual Sites themselves as the weekly quest (the same quest ID 95843), the column only refers to the weekly quest instead of counting the same progress twice
+- Season 2 recognition pool: without the live-obsolete variant 93891, with 96727 and 98232; the raid variant 93912 only serves to recognise a chosen weekly
+
+### Weekly Quests
+
+New in 0.9.0. A season-bound catalog of the researched Midnight Season 2 weekly quests for PvE and primary professions:
+
+- 52 catalog entries (41 PvE, 11 primary professions) with 83 unique quest IDs: the Liadrin weekly (one pool of 14 variants), the separate Void Assaults weekly pool (94385 Eversong Woods / 94386 Zul'Aman), Favor of the Court and the Soiree runestone faction, single weeklies such as "Purging the Vaults" (95520), "Turn Back the Surge" (96995) and "A Nightmarish Task" (94446), Haranir, housing (Vaeli and neighbourhood tasks), dungeon reputation at Halduron and the eleven profession weeklies
+- six fixed columns regardless of the number of quests: quest, area, character, status, progress, last update
+- filters for character (default: the logged-in one, bound to the GUID; optionally all), category (All/PvE/Professions), status and a title search; filters are pure display state and never trigger a scan
+- sorting by quest, area, character, status, progress or last update, ascending or descending: via the sort bar above the right edge of the table or by clicking a column header (another click reverses the direction). Without a deliberate choice the default order stays (character order, catalog order within). Status orders Open, Active, Ready to turn in, Turned in; unknown values and old weeks stay at the end in both directions, equal values keep the default order. For progress, numeric objectives, completed objectives and percentages are only compared among themselves. Like the filters, pure display state for the current session
+- five states: **Open** (neither accepted nor turned in – explicitly not "offered this week"), **Active**, **Ready to turn in**, **Turned in** and **Unknown**; a turned-in variant of a pool wins over any other active variant
+- **Ready to turn in** comes exclusively from the quest-wide `C_QuestLog.IsComplete` (checked against Blizzard's generated API documentation of the live state 12.1.0); a single finished objective or 100% is not enough
+- several objectives appear as completed objectives / objective count, with the individual values in the tooltip – never as a sum of different units
+- location, quest giver, requirement, reward, cadence, rotation and uncertainty notes, season and quest ID live in the full-row tooltip; long titles are clipped hard in the cell and shown in full in the tooltip. Rewards are summarised conservatively, exact amounts only with clean evidence (for example the knowledge points of the profession reward)
+- Season 2 Hero hints, informational only and without a counter: the row "Purging the Vaults" (95520) carries a narrow gold stripe on its left edge and the short badge **Hero via map**. The quest can award the delve map Trovehunter's Bounty (item 274374); only its extra trove at the end of a Tier 8 or higher delve contains Hero equipment – the quest itself has no guaranteed Hero chest. The tooltip names the indirect path and the static limit: at most one map per week and character, shared with every other map source. Neither quest completion nor owning a map counts as using it up; whether this week's map was already received is not measured. Status and progress colours stay unchanged, old weeks show the marker in grey
+- the small **Info: Prey hero chest** button left of the sort bar explains a separate activity bonus: with Tormented Soul (item 276548) the next Nightmare prey hunt also awards the Preyhunter's Hero Chest (item 279574) with one piece of Hero equipment; from Preyhunter's Journey rank 9, the souls drop from Heavy Trunks in Tier 6 or higher Bountiful Delves, at most once per week and character according to Blizzard. It is neither a weekly quest nor a quest reward (not from "Hunts" 93910 or "A Nightmarish Task" 94446 either) and no shared limit with the delve map; the addon shows neither use nor availability. "Turn Back the Surge" (96995) and "Vaults of Atal'Utek" (98232) lead to Veteran pinnacle caches and are therefore not marked. Both hints are bound to Season 2: a season without its own evidence shows neither
+- rotating offers without verified exclusivity (Haranir stories, Vaeli, dungeon reputation) appear as individual offers with a rotation note – without an invented denominator and without an invented shared completion
+- according to the guide, the Arcantina patron orders can only be completed once per character (the offer rotates weekly), so they are not part of the weekly catalog; the Liadrin variant "Arcantina" (93767, three toasts) stays in the Liadrin pool
+- safely foreign professions are hidden; a profession membership that has not been read safely yet stays visible and is explained in the tooltip
+- offline states from old weeks or another season appear grey with a hint, never as current progress; there is deliberately no global weeklies counter
+- not included: raid, PvP, bonus events and Timewalking, individual hunt targets (the hunt counters stay on `Midnight Week`), treatises (stay on `Professions`), treasure and gathering flags that are only backed by tracker data, the 33 Soiree sub-orders (repeatability and token limit open), the Soiree cleanup 91966 (daily according to the quest database), the finite six-week Ritual Site Studies chain, and Cooking and Fishing (no weekly verified). Decisions, sources and open points are documented in `tools/WEEKLY_CATALOG.md`
 
 ### Professions
 
@@ -133,15 +153,16 @@ There is deliberately no slider: the fixed steps stay exactly inside the range t
 
 Version 0.3.0 uses a standalone Midnight-dark layout inspired by EllesmereUI principles: a fixed left navigation, a large page header with description, flat buttons and compact comparison tables. The addon copies no EllesmereUI assets and does not require EllesmereUI as a dependency.
 
-The left navigation has seven sections:
+The left navigation has eight sections:
 
 1. `Overview`
 2. `Midnight Week`
-3. `Professions`
-4. `Crest Sources`
-5. `Keystones`
-6. `Statistics`
-7. `Settings`
+3. `Weekly Quests`
+4. `Professions`
+5. `Crest Sources`
+6. `Keystones`
+7. `Statistics`
+8. `Settings`
 
 Status colours:
 
@@ -167,6 +188,7 @@ The installation path depends on the drive you chose; the Windows default is `C:
 - `ESC` closes the window like any other Blizzard standard window, with no custom key binding and no conflict with the slash command or minimap button.
 - Minimap button: left click opens or closes the window; dragging changes the stored position. The button can be hidden in the `Settings` section.
 - Drag a character row or character tab with the left mouse button onto another row or tab to reorder it. The order is global and stable: it applies to all five table sections and the statistics page's character tabs at once, survives refreshes and restarts, and a new character appears predictably in alphabetical order at the end instead of disturbing the stored order.
+- Quest rows on the `Weekly Quests` page are deliberately not draggable and never change the character order. Filters, search and sorting on that page only last for the current session.
 
 ## Important technical limits
 
@@ -185,18 +207,19 @@ The overview shows `M+10` in green as `Yes` as soon as the Blizzard vault report
 ## In-game test procedure
 
 1. Enable the addon and run `/reload`.
-2. Open `/wat` and click all seven entries of the left navigation.
+2. Open `/wat` and click all eight entries of the left navigation.
 3. In the `Settings` section pick a scale step, hide and show the minimap button again and reset the position.
 4. Open the Great Vault and click `Refresh now` in the `Settings` section.
 5. Hover the vault row and check the item level per slot.
 6. After a completion at +10 or higher, check `M+10 / 318` in the overview for a green `Yes`.
 7. Enter a Tier 11 Bountiful Delve and afterwards check the Gilded Stash.
 8. Open the quest log or complete a Midnight activity and check the `Midnight Week` section.
-9. In the `Professions` section check skill, `Free / Bags`, profession weekly and treatise; hover the row for item details.
-10. In the `Keystones` section check dungeon name and level of a character holding a Mythic+ keystone.
-11. In the `Statistics` section check that the logged-in character's values appear and that the account total really adds up across at least two characters. Statistics are only filled once the achievement data has been loaded; until then `-` is shown.
-12. Log in an alt and check that both character snapshots are visible.
-13. Check for Lua errors with BugSack/!BugGrabber.
+9. In the `Weekly Quests` section find an accepted weekly quest: status `Active` with progress, `Ready to turn in` once all objectives are met, `Turned in` after turning it in; cycle through the character, category, status and title filters, sort every column ascending and descending, hover a row and check tooltip, scrolling and clipping of long titles at 70%, 100% and 150%. The row "Purging the Vaults" shows the stripe and the `Hero via map` badge (no other row does, old weeks in grey); the `Info: Prey hero chest` button overlaps neither the entry count nor the sort bar and opens or closes its tooltip on hover and click.
+10. In the `Professions` section check skill, `Free / Bags`, profession weekly and treatise; hover the row for item details.
+11. In the `Keystones` section check dungeon name and level of a character holding a Mythic+ keystone.
+12. In the `Statistics` section check that the logged-in character's values appear and that the account total really adds up across at least two characters. Statistics are only filled once the achievement data has been loaded; until then `-` is shown.
+13. Log in an alt and check that both character snapshots are visible.
+14. Check for Lua errors with BugSack/!BugGrabber.
 
 ## Development
 
@@ -261,7 +284,7 @@ The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 
 #### Automatic packaging and manual fallback
 
-CurseForge Automatic Packaging is connected to the public GitHub repository through the repository webhook. `Package all commits` stays disabled; normal tags such as `v0.8.0` produce releases, while tags containing `beta` or `alpha` use the corresponding prerelease channel. There is deliberately no parallel automatic `CF_API_KEY` upload, preventing duplicate files for one tag.
+CurseForge Automatic Packaging is connected to the public GitHub repository through the repository webhook. `Package all commits` stays disabled; normal tags such as `v0.9.0` produce releases, while tags containing `beta` or `alpha` use the corresponding prerelease channel. There is deliberately no parallel automatic `CF_API_KEY` upload, preventing duplicate files for one tag.
 
 The separate workflow `.github/workflows/curseforge-package.yml` (**Build CurseForge ZIP**) remains a manual fallback only. It produces an uploadable ZIP as an Actions artifact, has read-only permissions, knows no `CF_API_KEY`, and uploads nowhere.
 

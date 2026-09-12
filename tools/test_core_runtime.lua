@@ -600,7 +600,7 @@ do
 end
 
 -- Die neuen Bereiche müssen als gespeicherte Navigation zulässig sein.
-for _, tab in ipairs({ "statistics", "settings" }) do
+for _, tab in ipairs({ "weeklies", "statistics", "settings" }) do
     local WAT = Load("deDE")
     WeeklyAltTrackerDB = { settings = { activeTab = tab } }
     WAT:InitializeDatabase()

@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 0.9.0
+
+Version **0.9.0** ergänzt die Seite **Wochenquests**, Filter, Suche und Sortierung sowie saisongebundene Held-Hinweise ohne Verbrauchszähler. Die acht Seiten umfassen eine entlastete Übersicht ohne doppelte Wappen- und Truhenspalten und einen Ritual-Verweis statt Doppelzählung auf der Midnight-Woche. Der Saison-2-Erkennungspool ist bereinigt (ohne die live obsolete Variante 93891, mit 96727 und 98232). Details stehen im [Changelog zu 0.9.0](wago/CHANGELOG-0.9.0.md).
+
 Eine ausführliche Installations-, Bedienungs- und Fehlerbehebungsanleitung befindet sich in `Anleitung.html`. Die Nutzungsbedingungen stehen in `LICENSE.txt`; WeeklyAltTracker wird unter **All Rights Reserved** veröffentlicht.
 
 *English documentation: [`README.en.md`](README.en.md) and `Guide.en.html`.*
@@ -33,12 +37,7 @@ Der Slash-Befehl `/wat` ist in beiden Sprachen identisch; nur seine Ausgabe ist 
 
 ### Übersicht
 
-- Goldene Truhe aus Tier-11-Bountiful-Tiefen: 0/4 pro Woche
-- Abenteurer-Nebelwappen, Währungs-ID 3442
-- Veteranen-Nebelwappen, Währungs-ID 3443
-- Champion-Nebelwappen, Währungs-ID 3444
-- Helden-Nebelwappen, Währungs-ID 3445
-- Mythische Nebelwappen, Währungs-ID 3446
+- Goldene Truhe (0/4 pro Woche) und die fünf Nebelwappen (Währungs-IDs 3442 bis 3446) stehen nicht mehr doppelt hier, sondern nur noch unter `Wappenquellen`
 - Große Schatzkammer für Tiefen/Welt: Slots 2/4/8
 - Große Schatzkammer für Mythisch+: Slots 1/4/8
 - Pro Vault-Slot: Fortschritt, Tier/Schlüsselsteinstufe, Status und Belohnungs-Gegenstandsstufe
@@ -51,7 +50,28 @@ Der Slash-Befehl `/wat` ist in beiden Sprachen identisch; nur seine Ausgabe ist 
 
 - Aktive Midnight-Wochenquest samt Variante und Fortschritt; die Anzeige unterscheidet aktiv mit Fortschritt (z. B. `3/5`) von erledigt (Ziel im Log erfüllt oder bereits abgegeben) anhand des echten Quest-API-Zustands
 - Jagden auf Normal, Schwer und Albtraum mit den Saison-2-Zielen 4/6/5
-- Ritualstätten samt Prozentfortschritt
+- Ritualstätten samt Prozentfortschritt; bietet Lady Liadrin die Ritualstätten selbst als Wochenquest an (dieselbe Quest-ID 95843), verweist die Spalte nur auf die Wochenquest, statt denselben Fortschritt doppelt zu zählen
+- Erkennungspool Saison 2: ohne die live obsolete Variante 93891, mit 96727 und 98232; die Raidvariante 93912 dient ausschließlich der Erkennung einer gewählten Weekly
+
+### Wochenquests
+
+Neu in 0.9.0. Ein seasongebundener Katalog der recherchierten Wochenquests aus Midnight Saison 2 für PvE und Hauptberufe:
+
+- 52 freigegebene Einträge (41 PvE, 11 Hauptberufe) mit 83 eindeutigen Quest-IDs: Liadrin-Wochenquest (ein Pool aus 14 Varianten), der davon getrennte Wochenpool der Angriffe der Leere (94385 Immersangwald / 94386 Zul'Aman), Gunst des Hofes und die Runenstein-Fraktion der Soiree, Einzel-Weeklies wie „Die Kammern läutern“ (95520), „Kehrt die Woge um“ (96995) und „Eine alptraumhafte Aufgabe“ (94446), Haranir, Behausung (Vaeli und Nachbarschaftsaufgaben), Dungeonruf bei Halduron und die elf Berufs-Wochenquests
+- sechs feste Spalten unabhängig von der Anzahl der Quests: Quest, Bereich, Charakter, Status, Fortschritt, Stand
+- Filter für Charakter (Standard: der eingeloggte, gebunden an die GUID; wahlweise alle), Kategorie (Alle/PvE/Berufe), Status und Titelsuche; Filter sind reiner Anzeigezustand und lösen keinen Scan aus
+- Sortierung nach Quest, Bereich, Charakter, Status, Fortschritt oder Stand, jeweils aufsteigend oder absteigend: über die Sortierleiste rechts über der Tabelle oder per Klick auf einen Spaltenkopf (ein weiterer Klick kehrt die Richtung um). Ohne bewusste Wahl bleibt die Standardreihenfolge (Charakterreihenfolge, darin Katalogreihenfolge). Der Status ordnet Offen, Aktiv, Abgabebereit, Abgegeben; Unbekanntes und alte Wochen stehen in beiden Richtungen am Ende, gleiche Werte in Standardreihenfolge. Beim Fortschritt werden Zahlenziele, erfüllte Ziele und Prozent nur untereinander verglichen. Wie die Filter reiner Anzeigezustand dieser Sitzung
+- fünf Zustände: **Offen** (weder angenommen noch abgegeben – ausdrücklich nicht „diese Woche angeboten“), **Aktiv**, **Abgabebereit**, **Abgegeben** und **Unbekannt**; eine abgegebene Variante eines Pools gewinnt gegen jede aktive andere
+- **Abgabebereit** kommt ausschließlich aus dem questweiten `C_QuestLog.IsComplete` (gegen Blizzards generierte API-Dokumentation des Live-Stands 12.1.0 geprüft); ein einzelnes fertiges Ziel oder 100 % reichen dafür nicht
+- mehrere Ziele erscheinen als erfüllte Ziele / Zielanzahl, die Einzelwerte im Tooltip – nie als Summe verschiedener Einheiten
+- Ort, Questgeber, Voraussetzung, Belohnung, Rhythmus, Rotations- und Unsicherheitshinweise, Saison und Quest-ID stehen im Ganzzeilen-Tooltip; lange Titel werden in der Zelle hart beschnitten und stehen vollständig im Tooltip. Belohnungen werden konservativ zusammengefasst, genaue Mengen nur mit sauberem Beleg (etwa die Wissenspunkte der Berufsbelohnung)
+- Held-Hinweise der Saison 2, rein informativ und ohne Zähler: Die Zeile „Die Kammern läutern“ (95520) trägt einen schmalen goldenen Streifen am linken Rand und das kurze Abzeichen **Held via Karte**. Die Quest kann die Tiefenkarte Trovehunter's Bounty (Gegenstand 274374) geben; erst deren zusätzliche Truhe am Ende einer Tiefe ab Stufe 8 enthält Held-Ausrüstung – eine garantierte Held-Truhe der Quest selbst gibt es nicht. Der Tooltip nennt den indirekten Weg und das statische Limit: höchstens eine Karte pro Woche und Charakter, geteilt mit allen anderen Kartenquellen. Weder Questabschluss noch Kartenbesitz gelten als Verbrauch; ob die Karte dieser Woche schon erhalten wurde, misst das Addon nicht. Status- und Fortschrittsfarben bleiben unverändert, alte Wochen zeigen die Markierung grau
+- die kleine Schaltfläche **Info: Held-Truhe Jagd** links neben der Sortierleiste erklärt einen getrennten Aktivitätsbonus: Mit Tormented Soul (Gegenstand 276548) vergibt die nächste Albtraumjagd zusätzlich die Preyhunter's Hero Chest (Gegenstand 279574) mit einem Stück Held-Ausrüstung; ab Jagdreise-Rang 9, die Seelen stammen aus Heavy Trunks in großzügigen Tiefen ab Stufe 6, laut Blizzard höchstens einmal pro Woche und Charakter. Das ist weder eine Wochenquest noch eine Questbelohnung (auch nicht von „Jagden“ 93910 oder „Eine alptraumhafte Aufgabe“ 94446) und kein gemeinsames Limit mit der Tiefenkarte; Verbrauch und Verfügbarkeit zeigt das Addon nicht. „Kehrt die Woge um“ (96995) und „Kammern von Atal'Utek“ (98232) führen zu Veteran-Pinnacle-Truhen und sind deshalb nicht markiert. Beide Hinweise sind an Saison 2 gebunden: eine Saison ohne eigene Belege zeigt keinen davon
+- rotierende Angebote ohne belegte Exklusivität (Haranir-Geschichten, Vaeli, Dungeonruf) stehen als Einzelangebote mit Rotationshinweis da – ohne erfundenen Nenner und ohne erfundene gemeinsame Erledigung
+- die Patronaufträge der Arkantine sind laut Guide nur einmal je Charakter abschließbar (das Angebot rotiert wöchentlich) und stehen deshalb nicht im Wochenkatalog; die Liadrin-Variante „Arkantine“ (93767, drei Toasts) bleibt Teil des Liadrin-Pools
+- sicher fremde Berufe werden ausgeblendet; eine noch nicht sicher gelesene Berufszugehörigkeit bleibt sichtbar und wird im Tooltip erklärt
+- Offline-Stände alter Wochen oder einer anderen Saison erscheinen grau mit Hinweis, nie als aktueller Fortschritt; einen globalen Weeklies-Zähler gibt es bewusst nicht
+- nicht enthalten: Raid, PvP, Bonusereignisse und Zeitwanderung, einzelne Jagdziele (die Jagdzähler bleiben auf `Midnight-Woche`), Traktate (bleiben auf `Berufe`), nur trackerbelegte Schatz- und Sammelflags, die 33 Soiree-Unteraufträge (Wiederholbarkeit und Tokenlimit offen), der Soiree-Cleanup 91966 (laut Questdatenbank täglich), die endliche sechswöchige Ritualstudien-Folge sowie Kochen und Angeln (keine Weekly belegt). Entscheidungen, Quellen und offene Punkte stehen in `tools/WEEKLY_CATALOG.md`
 
 ### Berufe
 
@@ -131,15 +151,16 @@ Es gibt bewusst keinen Schieberegler: die festen Stufen bleiben exakt im Wertebe
 
 Version 0.3.0 verwendet ein eigenständiges, von EllesmereUI-Prinzipien inspiriertes Midnight-Dark-Layout: eine feste linke Navigation, einen großen Seitenkopf mit Beschreibung, flache Schaltflächen und kompakte Vergleichstabellen. Das Addon kopiert keine EllesmereUI-Assets und benötigt EllesmereUI nicht als Abhängigkeit.
 
-Die linke Navigation besitzt sieben Bereiche:
+Die linke Navigation besitzt acht Bereiche:
 
 1. `Übersicht`
 2. `Midnight-Woche`
-3. `Berufe`
-4. `Wappenquellen`
-5. `Schlüsselsteine`
-6. `Statistiken`
-7. `Einstellungen`
+3. `Wochenquests`
+4. `Berufe`
+5. `Wappenquellen`
+6. `Schlüsselsteine`
+7. `Statistiken`
+8. `Einstellungen`
 
 Statusfarben:
 
@@ -165,6 +186,7 @@ Der Installationspfad hängt vom gewählten Laufwerk ab; der Standard unter Wind
 - `ESC` schließt das Fenster wie jedes andere Blizzard-Standardfenster, ohne eigene Tastaturbindung und ohne mit Slash-Befehl oder Minimap-Symbol zu kollidieren.
 - Minimap-Symbol: Linksklick öffnet oder schließt das Fenster; Ziehen verändert die gespeicherte Position. Ausblenden lässt sich das Symbol im Bereich `Einstellungen`.
 - Eine Charakterzeile oder einen Charakterreiter mit gedrückter linker Maustaste auf eine andere Zeile beziehungsweise einen anderen Reiter ziehen, um die Reihenfolge umzusortieren. Die Reihenfolge ist global und stabil: sie gilt gleichzeitig für alle fünf Tabellenbereiche und die Charakterreiter der Statistikseite, überlebt Aktualisierungen und Neustarts, und ein neuer Charakter erscheint vorhersagbar alphabetisch am Ende statt die gespeicherte Reihenfolge zu verändern.
+- Questzeilen der Seite `Wochenquests` sind bewusst nicht ziehbar und verändern die Charakterreihenfolge nie. Filter, Suche und Sortierung dieser Seite gelten nur für die laufende Sitzung.
 
 ## Wichtige technische Grenzen
 
@@ -183,18 +205,19 @@ Die Übersicht zeigt `M+10` grün als `Ja`, sobald die Blizzard-Schatzkammer min
 ## Testablauf im Spiel
 
 1. Addon aktivieren und `/reload` ausführen.
-2. `/wat` öffnen und alle sieben Einträge der linken Navigation anklicken.
+2. `/wat` öffnen und alle acht Einträge der linken Navigation anklicken.
 3. Im Bereich `Einstellungen` eine Skalierungsstufe wählen, das Minimap-Symbol aus- und wieder einblenden und die Position zurücksetzen.
 4. Große Schatzkammer öffnen und im Bereich `Einstellungen` auf `Jetzt aktualisieren` klicken.
 5. Vault-Zeile berühren und Itemlevel pro Slot prüfen.
 6. Nach einem Abschluss auf +10 oder höher in der Übersicht `M+10 / 318` auf grünes `Ja` prüfen.
 7. Eine Tier-11-Bountiful-Tiefe betreten und danach die Goldene Truhe kontrollieren.
 8. Questlog öffnen beziehungsweise eine Midnight-Aktivität erledigen und den Bereich `Midnight-Woche` prüfen.
-9. Im Bereich `Berufe` Skill, `Frei / Tasche`, Berufs-Wochenquest und Traktat kontrollieren; die Zeile für Itemdetails berühren.
-10. Im Bereich `Schlüsselsteine` Dungeonname und Stufe eines Charakters mit Mythic+-Schlüsselstein prüfen.
-11. Im Bereich `Statistiken` prüfen, ob die Werte des eingeloggten Charakters erscheinen und die Accountsumme über mindestens zwei Charaktere tatsächlich addiert. Statistiken werden erst nach dem Nachladen der Erfolgsdaten gefüllt; bis dahin steht dort `-`.
-12. Einen Alt einloggen und prüfen, ob beide Charakter-Snapshots sichtbar sind.
-13. Lua-Fehler mit BugSack/!BugGrabber kontrollieren.
+9. Im Bereich `Wochenquests` eine angenommene Wochenquest suchen: Status `Aktiv` mit Fortschritt, nach Erfüllung aller Ziele `Abgabebereit`, nach der Abgabe `Abgegeben`; Charakter-, Kategorie-, Status- und Titelfilter durchschalten, jede Spalte auf- und absteigend sortieren, eine Zeile berühren und Tooltip, Scrollen sowie Beschneidung langer Titel bei 70 %, 100 % und 150 % prüfen. Die Zeile „Die Kammern läutern“ zeigt Streifen und Abzeichen `Held via Karte` (andere Zeilen nicht, alte Wochen grau); die Schaltfläche `Info: Held-Truhe Jagd` überdeckt weder die Eintragszahl noch die Sortierleiste und öffnet beziehungsweise schließt ihren Tooltip beim Berühren und Klicken.
+10. Im Bereich `Berufe` Skill, `Frei / Tasche`, Berufs-Wochenquest und Traktat kontrollieren; die Zeile für Itemdetails berühren.
+11. Im Bereich `Schlüsselsteine` Dungeonname und Stufe eines Charakters mit Mythic+-Schlüsselstein prüfen.
+12. Im Bereich `Statistiken` prüfen, ob die Werte des eingeloggten Charakters erscheinen und die Accountsumme über mindestens zwei Charaktere tatsächlich addiert. Statistiken werden erst nach dem Nachladen der Erfolgsdaten gefüllt; bis dahin steht dort `-`.
+13. Einen Alt einloggen und prüfen, ob beide Charakter-Snapshots sichtbar sind.
+14. Lua-Fehler mit BugSack/!BugGrabber kontrollieren.
 
 ## Entwicklung
 
@@ -257,7 +280,7 @@ Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mi
 
 #### Automatische Paketierung und manueller Fallback
 
-CurseForge Automatic Packaging ist über den Repository-Webhook mit dem öffentlichen GitHub-Repository verbunden. `Package all commits` bleibt deaktiviert; normale Tags wie `v0.8.0` erzeugen Releases, Tags mit `beta` beziehungsweise `alpha` die entsprechenden Vorabkanäle. Es gibt bewusst keinen parallelen automatischen Upload per `CF_API_KEY`, damit ein Tag nicht doppelt veröffentlicht wird.
+CurseForge Automatic Packaging ist über den Repository-Webhook mit dem öffentlichen GitHub-Repository verbunden. `Package all commits` bleibt deaktiviert; normale Tags wie `v0.9.0` erzeugen Releases, Tags mit `beta` beziehungsweise `alpha` die entsprechenden Vorabkanäle. Es gibt bewusst keinen parallelen automatischen Upload per `CF_API_KEY`, damit ein Tag nicht doppelt veröffentlicht wird.
 
 Der separate Workflow `.github/workflows/curseforge-package.yml` (**Build CurseForge ZIP**) bleibt ausschließlich als manueller Fallback. Er erzeugt ein hochladbares ZIP als Actions-Artefakt, hat nur Leserechte, kennt kein `CF_API_KEY` und lädt nirgendwohin hoch.
 

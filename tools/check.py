@@ -13,12 +13,12 @@ import test_runtime  # noqa: E402  - kanonische Harnessmenge, eine Quelle der Wa
 ROOT = Path(__file__).resolve().parents[1]
 TOC = ROOT / "WeeklyAltTracker.toc"
 IMMUTABLE_RELEASE_VERSIONS = (
-    "0.8.0", "0.7.0", "0.6.1", "0.6.0", "0.5.0", "0.4.2", "0.4.1", "0.4.0", "0.3.1",
+    "0.9.0", "0.8.0", "0.7.0", "0.6.1", "0.6.0", "0.5.0", "0.4.2", "0.4.1", "0.4.0", "0.3.1",
     "0.3.0", "0.2.6", "0.2.5", "0.2.4",
 )
 
 # Ein Unterprozess des Gates darf nie unbegrenzt haengen. Der Runtime-Test
-# startet selbst bis zu fuenf Fengari-Laeufe und ggf. eine npm-Installation,
+# startet selbst sieben Fengari-Laeufe und ggf. eine npm-Installation,
 # deshalb liegt sein Limit deutlich hoeher als das der reinen Quelltexttests.
 V2_TIMEOUT = 300
 RUNTIME_TIMEOUT = 1800
@@ -39,7 +39,7 @@ def check_toc() -> list[Path]:
     text = TOC.read_text(encoding="utf-8")
     required = {
         "## Interface: 120100",
-        "## Version: 0.8.0",
+        "## Version: 0.9.0",
         "## X-License: All Rights Reserved",
         "## X-Wago-ID: ZKxZJkNk",
         "## X-Curse-Project-ID: 1616769",

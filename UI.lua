@@ -53,6 +53,12 @@ local COLORS = {
     red = "|cfff06f78",
     unknown = "|cff98a3b1",
     stale = "|cff6d7580",
+    -- Held-Hinweise: das native WoW-Gold (NORMAL_FONT_COLOR), bewusst weder
+    -- das Bernstein der Statusspalte noch das Violett der Held-Wappen.
+    heroGold = { 1, 0.82, 0, 1 },
+    heroGoldText = "|cffffd100",
+    -- Dasselbe Grau wie stale, als Texturfarbe fuer Markierungen alter Wochen.
+    staleTint = { 0.427, 0.459, 0.502, 1 },
 }
 
 -- Panel- und Spaltentexte entstehen beim Laden in der aufgeloesten Sprache.
@@ -66,17 +72,15 @@ local PANELS = {
         shortLabel = L("PANEL_OVERVIEW_SHORT"),
         description = L("PANEL_OVERVIEW_DESC"),
         columns = {
-            { key = "character", label = L("COL_CHARACTER"), width = 160, left = true },
-            { key = "level", label = L("COL_LEVEL"), width = 40 },
-            { key = "itemLevel", label = L("COL_ITEM_LEVEL"), width = 56 },
-            { key = "gilded", label = L("COL_GILDED"), width = 90 },
-            -- Fuenf Nebelwappen statt vormals drei Dämmerwappen brauchen mehr
-            -- Breite; character und updated wurden dafuer verschmaelert.
-            { key = "crests", label = L("COL_CRESTS"), width = 190 },
-            { key = "world", label = L("COL_WORLD_VAULT"), width = 106 },
-            { key = "mythic", label = L("COL_MYTHIC_VAULT"), width = 96 },
-            { key = "mythic10", label = L("COL_MYTHIC10"), width = 70 },
-            { key = "updated", label = L("COL_UPDATED"), width = 110 },
+            -- Entlastet: Nebelwappen und Goldene Truhe stehen nur noch unter
+            -- Wappenquellen. Die Breiten ergeben exakt CONTENT_WIDTH (920).
+            { key = "character", label = L("COL_CHARACTER"), width = 220, left = true },
+            { key = "level", label = L("COL_LEVEL"), width = 50 },
+            { key = "itemLevel", label = L("COL_ITEM_LEVEL"), width = 70 },
+            { key = "world", label = L("COL_WORLD_VAULT"), width = 170 },
+            { key = "mythic", label = L("COL_MYTHIC_VAULT"), width = 160 },
+            { key = "mythic10", label = L("COL_MYTHIC10"), width = 120 },
+            { key = "updated", label = L("COL_UPDATED"), width = 130 },
         },
     },
     midnight = {
@@ -89,6 +93,21 @@ local PANELS = {
             { key = "prey", label = L("COL_PREY"), width = 245 },
             { key = "ritual", label = L("COL_RITUAL"), width = 145 },
             { key = "updated", label = L("COL_DATA_AGE"), width = 96 },
+        },
+    },
+    -- Katalogseite: feste sechs Spalten unabhaengig von der Questanzahl. Eine
+    -- Zeile ist Charakter x Katalogeintrag; Details stehen im Zeilen-Tooltip.
+    weeklies = {
+        label = L("PANEL_WEEKLIES"),
+        shortLabel = L("PANEL_WEEKLIES_SHORT"),
+        description = L("PANEL_WEEKLIES_DESC"),
+        columns = {
+            { key = "quest", label = L("COL_WQ_QUEST"), width = 260, left = true },
+            { key = "area", label = L("COL_WQ_AREA"), width = 120, left = true },
+            { key = "character", label = L("COL_CHARACTER"), width = 160, left = true },
+            { key = "status", label = L("COL_WQ_STATUS"), width = 130 },
+            { key = "progress", label = L("COL_WQ_PROGRESS"), width = 150 },
+            { key = "updated", label = L("COL_DATA_AGE"), width = 100 },
         },
     },
     professions = {
@@ -334,26 +353,20 @@ local function CrestQuantity(crests, definitions, key)
     return type(entry.quantity) == "number" and entry.quantity or nil
 end
 
-local function CrestText(weekly, stale)
+-- Eine Wappenzelle der Wappenquellen: Symbol des laufenden Clients, sonst der
+-- Kurzbuchstabe aus Data.CRESTS, dahinter die Menge. Die Übersicht führt seit
+-- dem Katalogschnitt keine Wappen mehr; die Bestände leben nur noch hier.
+local function CrestCellText(crests, definitions, key, stale)
     if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
-    local crests = type(weekly.crests) == "table" and weekly.crests or {}
-    local definitions = WAT.Data and WAT.Data.CRESTS or {}
-    local function Quantity(key)
-        local quantity = CrestQuantity(crests, definitions, key)
-        if type(quantity) == "number" then return tostring(quantity) end
-        return "-"
-    end
-    local parts = {}
-    for _, key in ipairs(CREST_ORDER) do
-        local display = CREST_DISPLAY[key]
-        local definition = definitions[key] or {}
-        local icon = CrestIcon(definition.currencyID)
-        local short = definition.short
-        if type(short) ~= "string" or short == "" then short = display.short end
-        local prefix = icon ~= "" and icon or (short .. " ")
-        parts[#parts + 1] = display.color .. prefix .. Quantity(key) .. "|r"
-    end
-    return table.concat(parts, "  ")
+    local quantity = CrestQuantity(crests, definitions, key)
+    if type(quantity) ~= "number" then return COLORS.unknown .. "-|r" end
+    local display = CREST_DISPLAY[key]
+    local definition = type(definitions[key]) == "table" and definitions[key] or {}
+    local icon = CrestIcon(definition.currencyID)
+    local short = definition.short
+    if type(short) ~= "string" or short == "" then short = display.short end
+    local prefix = icon ~= "" and icon or (short .. " ")
+    return display.color .. prefix .. tostring(quantity) .. "|r"
 end
 
 -- Das Label der Midnight-Weekly entsteht zur Renderzeit aus der questID. Ein
@@ -573,12 +586,8 @@ local function ShowOverviewTooltip(character, weekly, stale)
     AddTooltipLine(L("TOOLTIP_EQUIPPED_ILVL"), itemLevel)
     AddTooltipLine(L("TOOLTIP_WEEK_STATE"),
         stale and L("TOOLTIP_WEEK_STALE") or L("STATUS_CURRENT"))
-    GameTooltip:AddLine(" ")
-    local gilded = type(weekly.gilded) == "table" and weekly.gilded or {}
-    local gildedText = type(gilded.current) == "number" and type(gilded.maximum) == "number"
-        and string.format("%d/%d", gilded.current, gilded.maximum) or L("GILDED_NOT_SEEN")
-    AddTooltipLine(L("GILDED_STASH"), gildedText)
-    CrestTooltip(weekly)
+    -- Goldene Truhe und Nebelwappen stehen im Wappenquellen-Tooltip; die
+    -- Übersicht wiederholt sie nicht mehr.
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(L("TOOLTIP_WORLD_VAULT"), COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
     for line in string.gmatch(WAT:GetVaultTooltip(weekly.worldVault, L("VAULT_LEVEL_LABEL_WORLD")), "[^\n]+") do
@@ -592,6 +601,16 @@ local function ShowOverviewTooltip(character, weekly, stale)
     local mythicPlusTenText = mythicPlusTen == true and L("MYTHIC10_YES")
         or (mythicPlusTen == false and L("MYTHIC10_NO") or L("STATUS_UNKNOWN"))
     AddTooltipLine(L("TOOLTIP_MYTHIC10"), mythicPlusTenText)
+end
+
+-- Liadrin kann die Ritualstätten selbst als Wochenquest anbieten (95843 steht
+-- in beiden Pools). Dann ist die Ritualspalte kein zweiter Fortschritt,
+-- sondern nur ein Verweis auf die Wochenquest - dieselbe Aufgabe zählt einmal.
+local function RitualSharesWeekly(weekly)
+    local midnight = type(weekly.midnightWeekly) == "table" and weekly.midnightWeekly or nil
+    local ritualID = WAT.Data and WAT.Data.RITUAL_QUEST_ID
+    return midnight ~= nil and type(midnight.questID) == "number" and type(ritualID) == "number"
+        and midnight.questID == ritualID
 end
 
 local function ShowMidnightTooltip(weekly)
@@ -613,6 +632,7 @@ local function ShowMidnightTooltip(weekly)
     local ritual = weekly.ritualSites
     local ritualValue = type(ritual) == "table" and type(ritual.percent) == "number"
         and math.floor(ritual.percent) .. "%" or L("STATUS_UNKNOWN")
+    if RitualSharesWeekly(weekly) then ritualValue = L("RITUAL_SEE_WEEKLY") end
     AddTooltipLine(L("RITUAL_SITES"), ritualValue)
 end
 
@@ -708,19 +728,31 @@ local function ProfessionWeeklyText(profession, stale)
     return BooleanStatus(ProfessionFlag(profession, "weeklyDone"), false)
 end
 
-local function KnowledgeItemName(itemID)
+-- Clientlokalisierter Gegenstandsname oder nil, solange er nicht sicher
+-- lesbar ist (nicht im Cache, Fehler, Secret Value, leer).
+local function ClientItemName(itemID)
+    if type(itemID) ~= "number" then return nil end
     local getter = C_Item and C_Item.GetItemNameByID
-    if getter and type(itemID) == "number" then
+    if getter then
         local ok, name = pcall(getter, itemID)
-        if ok and not (issecretvalue and issecretvalue(name)) and type(name) == "string" then return name end
+        if ok and not (issecretvalue and issecretvalue(name)) and type(name) == "string" and name ~= "" then
+            return name
+        end
     end
-    if GetItemInfo and type(itemID) == "number" then
+    if GetItemInfo then
         local ok, name = pcall(GetItemInfo, itemID)
-        if ok and not (issecretvalue and issecretvalue(name)) and type(name) == "string" then return name end
+        if ok and not (issecretvalue and issecretvalue(name)) and type(name) == "string" and name ~= "" then
+            return name
+        end
     end
+    return nil
+end
+
+local function KnowledgeItemName(itemID)
     -- Der Gegenstandsname kommt clientlokalisiert aus der API. Nur wenn er
     -- gar nicht lesbar ist, greift der eigene, uebersetzte Ersatztext.
-    return type(itemID) == "number" and L("ITEM_FALLBACK", itemID) or L("ITEM_UNKNOWN")
+    return ClientItemName(itemID)
+        or (type(itemID) == "number" and L("ITEM_FALLBACK", itemID) or L("ITEM_UNKNOWN"))
 end
 
 local function ShowProfessionTooltip(character, weekly)
@@ -1142,7 +1174,9 @@ local function CreateNavButton(parent, definition, y)
     return button
 end
 
-local function CreatePanel(parent, key, definition)
+-- topOffset schiebt Kopf und Scrollbereich nach unten; die Katalogseite nutzt
+-- den frei werdenden Streifen fuer ihre Filterleiste.
+local function CreatePanel(parent, key, definition, topOffset)
     local panel = CreateFrame("Frame", nil, parent)
     panel:SetPoint("TOPLEFT", CONTENT_LEFT, -150)
     panel:SetPoint("BOTTOMRIGHT", -20, 48)
@@ -1158,7 +1192,8 @@ local function CreatePanel(parent, key, definition)
     panel.rowHeight = ROW_HEIGHT
 
     local header = CreateFrame("Frame", nil, panel, "BackdropTemplate")
-    header:SetPoint("TOPLEFT")
+    if type(topOffset) ~= "number" then topOffset = 0 end
+    header:SetPoint("TOPLEFT", 0, -topOffset)
     header:SetSize(CONTENT_WIDTH, headerHeight)
     SetBackdrop(header, { 0.025, 0.035, 0.047, 0.98 }, COLORS.line)
     local topLine = header:CreateTexture(nil, "OVERLAY")
@@ -1195,6 +1230,7 @@ local function CreatePanel(parent, key, definition)
     local child = CreateFrame("Frame", nil, scroll)
     child:SetSize(CONTENT_WIDTH, 1)
     scroll:SetScrollChild(child)
+    panel.scroll = scroll
     panel.child = child
     panel.rows = {}
     return panel
@@ -1901,6 +1937,1007 @@ function WAT:SetActiveTab(key)
     self:RefreshUI()
 end
 
+-- ---------------------------------------------------------------------------
+-- Seite "Wochenquests": seasongebundener Katalog als kompakte Liste
+--
+-- Kein Scanner und keine Quest-API: die Seite liest ausschliesslich die
+-- gespeicherten Snapshots ueber die read-only Helfer aus Activities.lua. Filter
+-- und Sortierung sind reiner UI-Zustand dieser Sitzung, loesen keinen Scan aus
+-- und werden nicht gespeichert.
+--
+-- Geometrie (gegen die Panelhoehe gerechnet, nicht geschaetzt): Panel 402px,
+-- davon Filterleiste 32 + Abstand 6 + Kopf 36 + Abstand 2 = 76px, bleiben 326px
+-- Viewport = acht vollstaendig sichtbare 38er-Zeilen. Die Zeilen sind
+-- virtualisiert: es gibt nur CATALOG_POOL_SIZE Rahmen, die beim Scrollen neu
+-- gebunden werden - die Rahmenzahl ist unabhaengig von Charakter x Eintrag.
+-- ---------------------------------------------------------------------------
+
+local CATALOG_ALL_CHARACTERS = "*all*"
+local CATALOG_FILTER_HEIGHT = 32
+local CATALOG_FILTER_GAP = 6
+local CATALOG_TOP = CATALOG_FILTER_HEIGHT + CATALOG_FILTER_GAP
+local CATALOG_VIEWPORT = FRAME_HEIGHT - 150 - 48 - CATALOG_TOP - HEADER_HEIGHT - 2
+local CATALOG_POOL_SIZE = math.floor(CATALOG_VIEWPORT / ROW_HEIGHT) + 2
+
+local CATALOG_CATEGORY_ORDER = { "all", "pve", "profession" }
+local CATALOG_CATEGORY_KEYS = {
+    all = "WQ_FILTER_CATEGORY_ALL", pve = "WQ_FILTER_CATEGORY_PVE",
+    profession = "WQ_FILTER_CATEGORY_PROFESSION",
+}
+local CATALOG_STATUS_ORDER = { "all", "open", "active", "ready", "turnedIn", "unknown" }
+local CATALOG_STATUS_KEYS = {
+    all = "WQ_FILTER_STATUS_ALL", open = "WQ_STATUS_OPEN", active = "WQ_STATUS_ACTIVE",
+    ready = "WQ_STATUS_READY", turnedIn = "WQ_STATUS_TURNED_IN", unknown = "WQ_STATUS_UNKNOWN",
+}
+-- Abgegeben gruen, bereit/aktiv bernstein, offen neutral, unbekannt grau.
+-- "ready" teilt sich bewusst nicht das Gruen von "turnedIn".
+local CATALOG_STATUS_COLORS = {
+    turnedIn = COLORS.green, ready = COLORS.amber, active = COLORS.amber,
+    open = "|cffd8e0e7", unknown = COLORS.unknown,
+}
+local CATALOG_CADENCE_KEYS = {
+    flag = "WQ_CADENCE_FLAG", guide = "WQ_CADENCE_GUIDE", unverified = "WQ_CADENCE_UNVERIFIED",
+}
+local CATALOG_REASON_KEYS = {
+    season = "WQ_TIP_OLD_SEASON", schema = "WQ_TIP_OLD_DEFINITION",
+    definition = "WQ_TIP_OLD_DEFINITION", missing = "WQ_TIP_NOT_SCANNED",
+}
+
+-- Sortierung. "catalog" ist die Standardreihenfolge (Charakterreihenfolge x
+-- Katalogeintrag) und bleibt unangetastet, bis bewusst eine Spalte gewaehlt
+-- wird. Die uebrigen Optionen sind genau die sechs Spalten.
+local CATALOG_SORT_ORDER = { "catalog", "quest", "area", "character", "status", "progress", "updated" }
+local CATALOG_SORT_KEYS = {
+    catalog = "WQ_SORT_CATALOG", quest = "WQ_SORT_QUEST", area = "WQ_SORT_AREA",
+    character = "WQ_SORT_CHARACTER", status = "WQ_SORT_STATUS", progress = "WQ_SORT_PROGRESS",
+    updated = "WQ_SORT_UPDATED",
+}
+-- Semantische Statusordnung entlang des Wochenablaufs: Offen, Aktiv,
+-- Abgabebereit, Abgegeben. "unknown" - dazu zaehlt jede alte Woche - ist kein
+-- Punkt auf dieser Skala und steht deshalb in beiden Richtungen am Ende.
+local CATALOG_STATUS_RANK = { open = 1, active = 2, ready = 3, turnedIn = 4 }
+-- Sortiergruppe ohne vergleichbaren Wert: immer zuletzt, ohne erfundene Zahl.
+local CATALOG_SORT_NONE = 9
+-- Sortierleiste im freien rechten Streifen des Seitenkopfs, auf Hoehe der
+-- Werkzeugleiste und buendig mit der Tabellenkante: 220 + 8 + 84 + 4 + 84 =
+-- 400px, also x=520 bis 920. Der Seitenkopf endet 9px ueber dem Panel; die
+-- Leiste liegt 13px bis 43px darueber - ausserhalb von Filterleiste und
+-- Viewport, ohne eine Hoehe zu aendern.
+local CATALOG_SORT_CYCLE_WIDTH = 220
+local CATALOG_SORT_BUTTON_WIDTH = 84
+local CATALOG_SORT_WIDTH = CATALOG_SORT_CYCLE_WIDTH + 8 + CATALOG_SORT_BUTTON_WIDTH + 4 + CATALOG_SORT_BUTTON_WIDTH
+local CATALOG_SORT_TOP = 43
+-- Held-Bonus-Info im freien linken Teil desselben Kopfstreifens, auf der
+-- Mittellinie der Sortierleiste (28px ueber dem Panel): x=358 bis 508, also
+-- 12px vor der Leiste bei x=520. Links davon bleiben 358px fuer die
+-- Eintragszahl der Werkzeugleiste; ihr laengster Text (Eintraege plus
+-- ausgeblendete fremde Berufe) braucht in GameFontDisableSmall rund 240px.
+local CATALOG_HERO_WIDTH = 150
+local CATALOG_HERO_HEIGHT = 24
+local CATALOG_HERO_LEFT = CONTENT_WIDTH - CATALOG_SORT_WIDTH - 12 - CATALOG_HERO_WIDTH
+local CATALOG_HERO_TOP = CATALOG_SORT_TOP - 3
+-- Held-Markierung einer Katalogzeile: schmaler Streifen an der linken
+-- Zeilenkante und ein kurzes Abzeichen rechts in der 254px breiten Questzelle.
+-- Der Titel endet 6px vor dem Abzeichen und behaelt 156px.
+local HERO_STRIPE_WIDTH = 3
+local HERO_BADGE_WIDTH = 92
+local HERO_BADGE_HEIGHT = 18
+local HERO_BADGE_GAP = 6
+-- Feste Texte je belegtem Weg (delivery aus Data.WEEKLY_HERO_REWARDS).
+local HERO_HIGHLIGHT_TEXTS = {
+    delveMap = {
+        badge = "WQ_HERO_BADGE_MAP", title = "WQ_HERO_MAP_TITLE", path = "WQ_HERO_MAP_PATH",
+        cap = "WQ_HERO_MAP_CAP", unmeasured = "WQ_HERO_MAP_UNMEASURED", item = "WQ_HERO_ITEM_MAP",
+    },
+}
+local HERO_BONUS_TEXTS = {
+    huntBonus = {
+        title = "WQ_HERO_BONUS_TITLE", kind = "WQ_HERO_BONUS_KIND", path = "WQ_HERO_BONUS_PATH",
+        unlock = "WQ_HERO_BONUS_UNLOCK", cap = "WQ_HERO_BONUS_CAP", notQuest = "WQ_HERO_BONUS_NOT_QUEST",
+        unmeasured = "WQ_HERO_BONUS_UNMEASURED", ids = "WQ_HERO_BONUS_IDS",
+        source = "WQ_HERO_ITEM_SOUL", reward = "WQ_HERO_ITEM_CHEST",
+    },
+}
+
+-- Die einzige dynamische Lokalisierungsstelle der Katalogseite. Die Schluessel
+-- kommen aus Data.WEEKLY_CATALOGS oder den Literaltabellen oben; test_v2.py
+-- prueft jedes WQ_-Literal, der Katalog-Harness jeden Datenschluessel samt
+-- Variantenlabel gegen beide Woerterbuecher.
+local function CatalogText(catalogKey, ...)
+    if type(catalogKey) ~= "string" or catalogKey == "" then return nil end
+    return L(catalogKey, ...)
+end
+
+local function CatalogVariantLabel(definition, entry)
+    if definition.kind ~= "pool" or type(entry) ~= "table" or type(entry.questID) ~= "number" then return nil end
+    local data = WAT.Data
+    local labelKey = data and data.WeeklyVariantLabelKey and data.WeeklyVariantLabelKey(definition, entry.questID)
+    return CatalogText(labelKey)
+end
+
+local function CatalogTitle(definition, entry)
+    local title = CatalogText(definition.titleKey) or L("STATUS_UNKNOWN")
+    local variant = CatalogVariantLabel(definition, entry)
+    if variant then return title .. ": " .. variant end
+    return title
+end
+
+-- Kompakter Fortschritt: ein Zahlenziel als c/r, mehrere Ziele als erfuellte
+-- Ziele / Zielanzahl, sonst Prozent. Unterschiedliche Ziele werden nie summiert.
+local function CatalogProgressText(entry)
+    if type(entry) ~= "table" or entry.active ~= true then return nil end
+    local objectives = type(entry.objectives) == "table" and entry.objectives or nil
+    if objectives and #objectives > 0 then
+        local first = objectives[1]
+        if #objectives == 1 and type(first) == "table" and type(first.current) == "number"
+                and type(first.required) == "number" then
+            return string.format("%d/%d", first.current, first.required)
+        end
+        local done = 0
+        for _, objective in ipairs(objectives) do
+            if type(objective) == "table" and objective.finished == true then done = done + 1 end
+        end
+        return L("WQ_PROGRESS_GOALS", done, #objectives)
+    end
+    if type(entry.percent) == "number" then return L("WQ_PROGRESS_PERCENT", math.floor(entry.percent)) end
+    return nil
+end
+
+local function CatalogRowData(self, catalog, definition, character, characterKey, heroRewards)
+    local entry, reason = self:GetWeeklyCatalogSnapshot(character, definition, catalog)
+    local status = self:GetWeeklyCatalogStatus(entry)
+    local stale = self:IsStale(character) and true or false
+    return {
+        catalog = catalog, definition = definition, entryKey = definition.key,
+        character = character, characterKey = characterKey,
+        entry = entry, reason = entry == nil and reason or nil,
+        stale = stale, lastStatus = status,
+        -- Ein Stand aus einer alten Woche ist fuer die aktuelle Woche unbekannt.
+        status = stale and "unknown" or status,
+        match = self:GetWeeklyCatalogProfessionMatch(character, definition),
+        -- Held-Markierung nur fuer die exakt kompatible Definition dieses Katalogs.
+        hero = heroRewards and self:GetWeeklyHeroHighlight(heroRewards, definition) or nil,
+    }
+end
+
+-- Explizite, sprachneutrale Kleinschreibung der Titelsuche - fuer Suchtext UND
+-- Titel identisch angewandt. string.lower faltet keine UTF-8-Umlaute und haengt
+-- in C an der Laufzeit-Locale. Gefaltet werden deshalb byteweise ASCII A-Z und
+-- die Grossbuchstaben des Latin-1-Blocks (UTF-8 C3 80 bis C3 9E ohne das
+-- Malzeichen C3 97, also auch A-, O- und U-Umlaut) sowie das grosse Eszett
+-- (E1 BA 9E) auf das kleine (C3 9F).
+local function CatalogSearchFold(text)
+    if type(text) ~= "string" then return "" end
+    text = string.gsub(text, "[A-Z]", function(letter)
+        return string.char(string.byte(letter) + 32)
+    end)
+    text = string.gsub(text, "\195([\128-\158])", function(tail)
+        local code = string.byte(tail)
+        if code == 151 then return nil end
+        return "\195" .. string.char(code + 32)
+    end)
+    text = string.gsub(text, "\225\186\158", "\195\159")
+    return text
+end
+
+local function CatalogMatchesSearch(data, needle)
+    if needle == "" then return true end
+    local definition = data.definition
+    local variant = CatalogVariantLabel(definition, data.entry) or ""
+    local haystack = CatalogSearchFold((CatalogText(definition.titleKey) or "") .. " " .. variant .. " "
+        .. (CatalogText(definition.groupKey) or ""))
+    return string.find(haystack, needle, 1, true) ~= nil
+end
+
+local function FiniteNumber(value)
+    return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
+end
+
+-- Spiegelt CatalogProgressText: die Messart, die die Zelle zeigt, ist auch die
+-- Sortiergruppe - Zahlenziel (c/r) vor erfuellten Zielen (d/n) vor Prozent.
+-- Das sind verschiedene Messungen; sie werden nie gegeneinander verglichen,
+-- nur innerhalb ihrer Gruppe als Anteil bzw. Prozentwert. Ohne angezeigten
+-- Fortschritt gibt es keinen Wert, insbesondere keine 0.
+local function CatalogProgressSortKey(entry)
+    if type(entry) ~= "table" or entry.active ~= true then return CATALOG_SORT_NONE end
+    local objectives = type(entry.objectives) == "table" and entry.objectives or nil
+    if objectives and #objectives > 0 then
+        local first = objectives[1]
+        if #objectives == 1 and type(first) == "table" and type(first.current) == "number"
+                and type(first.required) == "number" then
+            if FiniteNumber(first.current) and FiniteNumber(first.required) and first.required > 0 then
+                return 1, first.current / first.required
+            end
+            return CATALOG_SORT_NONE
+        end
+        local done = 0
+        for _, objective in ipairs(objectives) do
+            if type(objective) == "table" and objective.finished == true then done = done + 1 end
+        end
+        return 2, done / #objectives
+    end
+    if FiniteNumber(entry.percent) then return 3, entry.percent end
+    return CATALOG_SORT_NONE
+end
+
+-- Gruppe und Vergleichswert einer Zeile fuer die gewaehlte Spalte, jeweils aus
+-- genau dem, was die Zelle zeigt. Text wird mit derselben Faltung wie die
+-- Titelsuche verglichen. Die Gruppen stehen in fester Reihenfolge; die
+-- Richtung dreht nur den Wert innerhalb einer Gruppe.
+local function CatalogSortKey(data, column)
+    local definition, entry = data.definition, data.entry
+    if column == "quest" then
+        return 1, CatalogSearchFold(CatalogTitle(definition, (not data.stale) and entry or nil))
+    elseif column == "area" then
+        local area = CatalogText(definition.groupKey)
+        if area then return 1, CatalogSearchFold(area) end
+    elseif column == "character" then
+        local name, realm = data.character.name, data.character.realm
+        if type(name) == "string" and name ~= "" then
+            if type(realm) ~= "string" then realm = L("CHARACTER_UNKNOWN") end
+            return 1, CatalogSearchFold(name .. "-" .. realm)
+        end
+    elseif column == "status" then
+        local rank = CATALOG_STATUS_RANK[data.status]
+        if rank then return 1, rank end
+    elseif column == "progress" then
+        -- Eine alte Woche zeigt "-": ihr gespeicherter Stand ist kein Wert.
+        if not data.stale then return CatalogProgressSortKey(entry) end
+    elseif column == "updated" then
+        -- Aufsteigend heisst kleinstes Alter zuerst. Alte Woche und alte
+        -- Saison zeigen statt einer Zeit einen Hinweis und bilden je eine
+        -- eigene Gruppe hinter den bekannten Zeiten; "-" steht zuletzt.
+        if data.reason == "season" then return 3 end
+        if data.stale then return 2 end
+        if type(entry) == "table" and FiniteNumber(entry.updated) then return 1, -entry.updated end
+    else
+        return 1, data.order
+    end
+    return CATALOG_SORT_NONE
+end
+
+-- Sortiert die gefilterte Liste. Gleiche Werte und wertlose Zeilen behalten in
+-- beiden Richtungen die Katalogreihenfolge (data.order, der urspruengliche
+-- Listenplatz) - das macht das Ergebnis vollstaendig deterministisch. Die
+-- Standardwahl sortiert gar nicht und liefert exakt die bisherige Liste.
+local function SortCatalogList(list, sort)
+    local column, descending = sort.column, sort.descending
+    if column == "catalog" and not descending then return end
+    for _, data in ipairs(list) do
+        data.sortGroup, data.sortValue = CatalogSortKey(data, column)
+    end
+    table.sort(list, function(a, b)
+        if a.sortGroup ~= b.sortGroup then return a.sortGroup < b.sortGroup end
+        local left, right = a.sortValue, b.sortValue
+        if left ~= nil and right ~= nil and left ~= right then
+            if descending then return left > right end
+            return left < right
+        end
+        return a.order < b.order
+    end)
+end
+
+-- Der sortierte Kopf ist hervorgehoben und nennt in seiner zweiten Zeile die
+-- Richtung; die Standardwahl markiert keinen Kopf.
+local function PaintCatalogHeaders(panel)
+    local sort = panel.sort
+    local directionKey = sort.descending and "WQ_SORT_HEADER_DESC" or "WQ_SORT_HEADER_ASC"
+    for _, column in ipairs(panel.columns) do
+        local label = panel.headerLabels[column.key]
+        if column.key == sort.column then
+            label:SetText(column.label .. "\n" .. CatalogText(directionKey))
+            label:SetTextColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
+        else
+            label:SetText(column.label)
+            label:SetTextColor(0.67, 0.71, 0.76)
+        end
+    end
+end
+
+-- Spalte und Richtung sind an drei Stellen gleichzeitig sichtbar:
+-- Leistenbeschriftung, markierte Richtungsschaltflaeche und sortierter Kopf.
+local function UpdateCatalogSortControls(panel)
+    local sort = panel.sort
+    panel.sortFilter.label:SetText(L("WQ_SORT", CatalogText(CATALOG_SORT_KEYS[sort.column])))
+    SetFormButtonActive(panel.sortFilter.button, sort.column ~= "catalog")
+    SetFormButtonActive(panel.sortAscending, not sort.descending)
+    SetFormButtonActive(panel.sortDescending, sort.descending)
+    PaintCatalogHeaders(panel)
+end
+
+-- Spaltenkopf: der erste Klick sortiert die Spalte aufsteigend, jeder weitere
+-- Klick auf dieselbe Spalte kehrt die Richtung um.
+local function ClickCatalogHeader(panel, column)
+    local sort = panel.sort
+    WAT:SetWeeklyCatalogSort(column, sort.column == column and not sort.descending)
+end
+
+-- Gemeinsamer Zeilenbau aller Tabellen: dieselben harten Clipping-Zellen fuer
+-- Charakterzeilen und Katalogzeilen, damit es keine zweite Zellrechnung gibt.
+local function BuildTableRow(panel)
+    local rowHeight = panel.rowHeight or ROW_HEIGHT
+    local row = CreateFrame("Frame", nil, panel.child, "BackdropTemplate")
+    row:SetSize(CONTENT_WIDTH, rowHeight - 1)
+    SetBackdrop(row, COLORS.surface, { 1, 1, 1, 0.025 })
+    row:EnableMouse(true)
+    row.values = {}
+    row.cells = {}
+    row.panelKey = panel.key
+    LayoutColumns(panel.columns, function(column, left)
+        -- SetWordWrap(false) verhindert nur den Umbruch, nicht das Hinausragen
+        -- ueber die Spaltengrenze: ein zu langer Text laeuft weiter in den
+        -- Nachbarn. Die harte Grenze zieht erst dieser Rahmen mit
+        -- SetClipsChildren - die FontString sitzt darin und wird beschnitten.
+        local cell = CreateFrame("Frame", nil, row)
+        cell:SetPoint("LEFT", left, 0)
+        cell:SetSize(column.width - 6, rowHeight - 2)
+        cell:SetClipsChildren(true)
+        local value = cell:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        value:SetAllPoints(cell)
+        value:SetJustifyH(column.left and "LEFT" or "CENTER")
+        value:SetJustifyV("MIDDLE")
+        value:SetWordWrap(false)
+        -- Ein Datenwert ist immer einzeilig: eine zweite Zeile waere in der
+        -- kompakten Zeilenhoehe halb abgeschnitten und damit unlesbar.
+        value:SetMaxLines(1)
+        row.cells[column.key] = cell
+        row.values[column.key] = value
+    end)
+    return row
+end
+
+-- ---------------------------------------------------------------------------
+-- Held-Hinweise (Data.WEEKLY_HERO_REWARDS ueber WAT:GetWeeklyHeroRewards)
+--
+-- Reine Anzeige: statische Belege je Weg, kein Status, kein Zaehler, keine
+-- Quest-API. Gegenstandsnamen kommen clientlokalisiert; ohne sicheren Namen
+-- steht ein sachlicher eigener Ersatz samt Gegenstands-ID.
+-- ---------------------------------------------------------------------------
+
+local function HeroItemName(itemID, fallbackKey)
+    return ClientItemName(itemID) or CatalogText(fallbackKey, itemID)
+end
+
+-- Besitzt der gemeinsame Tooltip gerade genau diesen Rahmen? Ohne sichere
+-- Antwort gilt nein: ein fremder Tooltip wird weder geschlossen noch ersetzt.
+local function TooltipOwnedBy(frame)
+    if not GameTooltip:IsShown() or type(GameTooltip.IsOwned) ~= "function" then return false end
+    local ok, owned = pcall(GameTooltip.IsOwned, GameTooltip, frame)
+    return ok and owned == true
+end
+
+-- Held-Abschnitt im Zeilen-Tooltip eines markierten Eintrags: der indirekte
+-- Weg, die Mindeststufe und das statische, quellenuebergreifende Limit -
+-- ausdruecklich als nicht gemessen, nie als Bruch.
+local function AddHeroHighlightLines(highlight)
+    local texts = type(highlight) == "table" and HERO_HIGHLIGHT_TEXTS[highlight.delivery] or nil
+    if not texts then return end
+    local gold = COLORS.heroGold
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine(CatalogText(texts.title), gold[1], gold[2], gold[3], true)
+    GameTooltip:AddLine(CatalogText(texts.path, HeroItemName(highlight.rewardItemID, texts.item),
+        highlight.minimumDelveTier), 0.86, 0.9, 0.94, true)
+    GameTooltip:AddLine(CatalogText(texts.cap, highlight.capMaximum), 0.75, 0.8, 0.86, true)
+    GameTooltip:AddLine(CatalogText(texts.unmeasured), 0.56, 0.6, 0.66, true)
+end
+
+-- Eigener Tooltip der Held-Bonus-Info: je Aktivitaetsbonus Weg, Freischaltung,
+-- statisches Limit und die ausdrueckliche Abgrenzung von Questbelohnungen.
+local function ShowHeroBonusTooltip(owner, panel)
+    local hero = panel.heroRewards
+    local bonuses = type(hero) == "table" and hero.bonuses or {}
+    local gold, muted = COLORS.heroGold, { 0.56, 0.6, 0.66 }
+    GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
+    GameTooltip:ClearLines()
+    for index, bonus in ipairs(bonuses) do
+        local texts = HERO_BONUS_TEXTS[bonus.delivery]
+        if texts then
+            if index > 1 then GameTooltip:AddLine(" ") end
+            GameTooltip:AddLine(CatalogText(texts.title), gold[1], gold[2], gold[3], true)
+            GameTooltip:AddLine(CatalogText(texts.kind), 0.86, 0.9, 0.94, true)
+            GameTooltip:AddLine(CatalogText(texts.path, HeroItemName(bonus.sourceItemID, texts.source),
+                HeroItemName(bonus.rewardItemID, texts.reward)), 0.86, 0.9, 0.94, true)
+            GameTooltip:AddLine(CatalogText(texts.unlock, bonus.minimumJourneyRank, bonus.minimumDelveTier),
+                0.75, 0.8, 0.86, true)
+            GameTooltip:AddLine(CatalogText(texts.cap, bonus.capMaximum), 0.75, 0.8, 0.86, true)
+            GameTooltip:AddLine(CatalogText(texts.notQuest), muted[1], muted[2], muted[3], true)
+            GameTooltip:AddLine(CatalogText(texts.unmeasured), muted[1], muted[2], muted[3], true)
+            GameTooltip:AddLine(CatalogText(texts.ids, bonus.sourceItemID, bonus.rewardItemID),
+                muted[1], muted[2], muted[3], true)
+        end
+    end
+    local catalog = panel.heroCatalog
+    if type(catalog) == "table" then
+        GameTooltip:AddLine(" ")
+        AddTooltipLine(L("WQ_TIP_SEASON"), CatalogText(catalog.labelKey))
+    end
+    GameTooltip:Show()
+end
+
+local function ShowWeeklyCatalogTooltip(row)
+    local data = row.data
+    if type(data) ~= "table" then return end
+    local definition, entry, character = data.definition, data.entry, data.character
+    local muted = { 0.56, 0.6, 0.66 }
+    GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+    GameTooltip:ClearLines()
+    GameTooltip:AddLine(CatalogTitle(definition, entry),
+        COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], true)
+    local unknown = L("CHARACTER_UNKNOWN")
+    AddTooltipLine(L("WQ_TIP_CHARACTER"), (character.name or unknown) .. " - " .. (character.realm or unknown))
+    if data.stale then
+        AddTooltipLine(L("WQ_TIP_STATUS"), L("STATUS_STALE_WEEK"))
+        if entry then AddTooltipLine(L("WQ_TIP_LAST_STATE"), CatalogText(CATALOG_STATUS_KEYS[data.lastStatus])) end
+        GameTooltip:AddLine(L("WQ_TIP_STALE"), muted[1], muted[2], muted[3], true)
+    else
+        AddTooltipLine(L("WQ_TIP_STATUS"), CatalogText(CATALOG_STATUS_KEYS[data.status]))
+    end
+    local reasonKey = data.reason and CATALOG_REASON_KEYS[data.reason] or nil
+    if reasonKey then GameTooltip:AddLine(CatalogText(reasonKey), muted[1], muted[2], muted[3], true) end
+    if type(entry) == "table" and entry.active == true and entry.readyToTurnIn == nil then
+        GameTooltip:AddLine(L("WQ_TIP_READY_UNKNOWN"), muted[1], muted[2], muted[3], true)
+    end
+    if data.status == "open" then
+        GameTooltip:AddLine(L("WQ_TIP_OPEN_MEANING"), muted[1], muted[2], muted[3], true)
+    end
+    if definition.kind == "pool" then
+        AddTooltipLine(L("WQ_TIP_VARIANT"), CatalogVariantLabel(definition, entry) or L("WQ_TIP_VARIANT_UNKNOWN"))
+    end
+    if type(entry) == "table" and type(entry.objectives) == "table" then
+        for index, objective in ipairs(entry.objectives) do
+            if type(objective) == "table" then
+                local value
+                if type(objective.current) == "number" and type(objective.required) == "number" then
+                    value = string.format("%d/%d", objective.current, objective.required)
+                elseif objective.finished == true then
+                    value = L("WQ_TIP_GOAL_DONE")
+                elseif objective.finished == false then
+                    value = L("WQ_TIP_GOAL_OPEN")
+                end
+                if value then AddTooltipLine(L("WQ_TIP_GOAL", index), value) end
+            end
+        end
+    elseif type(entry) == "table" and type(entry.percent) == "number" then
+        AddTooltipLine(L("WQ_TIP_PROGRESS"), L("WQ_PROGRESS_PERCENT", math.floor(entry.percent)))
+    end
+
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine(CatalogText(definition.infoKey), 0.86, 0.9, 0.94, true)
+    if definition.zoneKey then AddTooltipLine(L("WQ_TIP_ZONE"), CatalogText(definition.zoneKey)) end
+    if definition.giverKey then AddTooltipLine(L("WQ_TIP_GIVER"), CatalogText(definition.giverKey)) end
+    if definition.requirementKey then
+        local requirement = definition.requirementLevel
+            and CatalogText(definition.requirementKey, definition.requirementLevel)
+            or CatalogText(definition.requirementKey)
+        GameTooltip:AddLine(L("WQ_TIP_REQUIREMENT") .. ": " .. requirement, 0.75, 0.8, 0.86, true)
+    end
+    if definition.rewardKey then
+        local reward = definition.rewardPoints
+            and CatalogText(definition.rewardKey, definition.rewardPoints)
+            or CatalogText(definition.rewardKey)
+        GameTooltip:AddLine(L("WQ_TIP_REWARD") .. ": " .. reward, 0.75, 0.8, 0.86, true)
+    end
+    local cadenceKey = CATALOG_CADENCE_KEYS[definition.cadence]
+    if cadenceKey then AddTooltipLine(L("WQ_TIP_CADENCE"), CatalogText(cadenceKey)) end
+    for _, noteKey in ipairs(definition.noteKeys or {}) do
+        GameTooltip:AddLine(CatalogText(noteKey), muted[1], muted[2], muted[3], true)
+    end
+    if data.match == "unknown" then
+        GameTooltip:AddLine(L("WQ_TIP_PROFESSION_UNKNOWN"), muted[1], muted[2], muted[3], true)
+    end
+    AddHeroHighlightLines(data.hero)
+    GameTooltip:AddLine(" ")
+    if data.catalog then AddTooltipLine(L("WQ_TIP_SEASON"), CatalogText(data.catalog.labelKey)) end
+    local ids = {}
+    for _, questID in ipairs(definition.questIDs) do ids[#ids + 1] = tostring(questID) end
+    GameTooltip:AddLine(L("WQ_TIP_QUEST_IDS", table.concat(ids, ", ")), muted[1], muted[2], muted[3], true)
+    if type(data.hero) == "table" then
+        GameTooltip:AddLine(L("WQ_TIP_ITEM_ID", data.hero.rewardItemID), muted[1], muted[2], muted[3], true)
+    end
+    AddTooltipLine(L("KEY_RECORDED"), type(entry) == "table" and FormatAge(entry.updated) or "-")
+    GameTooltip:Show()
+end
+
+-- Rechter Einzug des Questtitels: 0 fuer die volle Zelle, sonst Platz fuer
+-- das Held-Abzeichen. Jede Bindung setzt ihn neu - kein Rest einer Vorbindung.
+local function SetCatalogTitleInset(row, inset)
+    local title, cell = row.values.quest, row.cells.quest
+    local offsetX = 0
+    if inset > 0 then offsetX = -inset end
+    title:ClearAllPoints()
+    title:SetPoint("TOPLEFT", cell, "TOPLEFT", 0, 0)
+    title:SetPoint("BOTTOMRIGHT", cell, "BOTTOMRIGHT", offsetX, 0)
+end
+
+-- Zeigt oder entfernt die Held-Markierung einer Poolzeile fuer genau ihre
+-- aktuelle Bindung. Eine alte Woche behaelt die Form im Grau der alten Woche;
+-- Gold bleibt so frischen Staenden vorbehalten und von den Statusfarben
+-- getrennt.
+local function ApplyCatalogHeroMarker(row, highlight, stale)
+    local texts = type(highlight) == "table" and HERO_HIGHLIGHT_TEXTS[highlight.delivery] or nil
+    if not texts then
+        row.heroStripe:Hide()
+        row.heroBadge:Hide()
+        SetCatalogTitleInset(row, 0)
+        return
+    end
+    local tint, textColor, stripeAlpha, borderAlpha = COLORS.heroGold, COLORS.heroGoldText, 1, 0.8
+    if stale then tint, textColor, stripeAlpha, borderAlpha = COLORS.staleTint, COLORS.stale, 0.7, 0.45 end
+    row.heroStripe:SetColorTexture(tint[1], tint[2], tint[3], stripeAlpha)
+    row.heroStripe:Show()
+    row.heroBadge:SetBackdropColor(tint[1] * 0.16, tint[2] * 0.16, tint[3] * 0.16, 0.95)
+    row.heroBadge:SetBackdropBorderColor(tint[1], tint[2], tint[3], borderAlpha)
+    row.heroBadge.label:SetText(textColor .. CatalogText(texts.badge) .. "|r")
+    row.heroBadge:Show()
+    SetCatalogTitleInset(row, HERO_BADGE_WIDTH + HERO_BADGE_GAP)
+end
+
+-- Katalogzeilen tragen bewusst KEINE Ziehskripte: eine Questzeile ist kein
+-- Charakter und darf die Accountreihenfolge nicht veraendern.
+local function CreateCatalogRow(panel, index)
+    local row = BuildTableRow(panel)
+    -- Held-Markierung, einmal je Poolzeile angelegt und je Bindung gezeigt
+    -- oder verborgen (ApplyCatalogHeroMarker): ein schmaler Streifen an der
+    -- linken Zeilenkante vor der Questzelle, die bei x=4 beginnt, und ein
+    -- kurzes Abzeichen rechts in der Questzelle.
+    local stripe = row:CreateTexture(nil, "OVERLAY")
+    stripe:SetPoint("TOPLEFT", 0, 0)
+    stripe:SetPoint("BOTTOMLEFT", 0, 0)
+    stripe:SetWidth(HERO_STRIPE_WIDTH)
+    stripe:Hide()
+    row.heroStripe = stripe
+    local badge = CreateFrame("Frame", nil, row.cells.quest, "BackdropTemplate")
+    badge:SetSize(HERO_BADGE_WIDTH, HERO_BADGE_HEIGHT)
+    badge:SetPoint("RIGHT", row.cells.quest, "RIGHT", 0, 0)
+    SetBackdrop(badge, { 0, 0, 0, 0 }, { 1, 1, 1, 0 })
+    badge:SetClipsChildren(true)
+    local badgeLabel = badge:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    badgeLabel:SetPoint("LEFT", 4, 0)
+    badgeLabel:SetPoint("RIGHT", -4, 0)
+    badgeLabel:SetJustifyH("CENTER")
+    badgeLabel:SetWordWrap(false)
+    badgeLabel:SetMaxLines(1)
+    badge.label = badgeLabel
+    badge:Hide()
+    row.heroBadge = badge
+    row:SetScript("OnEnter", function(r)
+        r:SetBackdropColor(COLORS.hover[1], COLORS.hover[2], COLORS.hover[3], COLORS.hover[4])
+        -- Merkt sich die gehoverte Zeile, damit ein Neubinden den offenen
+        -- Tooltip erneuern oder schliessen kann (RefreshCatalogTooltip).
+        panel.tooltipRow = r
+        ShowWeeklyCatalogTooltip(r)
+    end)
+    row:SetScript("OnLeave", function(r)
+        local color = r.rowColor or COLORS.surface
+        r:SetBackdropColor(color[1], color[2], color[3], color[4])
+        if panel.tooltipRow == r then panel.tooltipRow = nil end
+        -- Ein anderer Rahmen kann den gemeinsamen Tooltip inzwischen besitzen.
+        if type(GameTooltip.IsOwned) == "function" then
+            local ok, owned = pcall(GameTooltip.IsOwned, GameTooltip, r)
+            if ok and owned == true then GameTooltip:Hide() end
+        end
+    end)
+    row:Hide()
+    panel.rows[index] = row
+    return row
+end
+
+local function UnbindCatalogRow(row)
+    row.data = nil
+    row.characterKey = nil
+    row.entryKey = nil
+    row.character = nil
+    row.definition = nil
+    ApplyCatalogHeroMarker(row, nil, false)
+    row:Hide()
+end
+
+local function BindCatalogRow(row, data, index)
+    row.data = data
+    row.characterKey = data.characterKey
+    row.entryKey = data.entryKey
+    row.character = data.character
+    row.definition = data.definition
+    row:ClearAllPoints()
+    row:SetPoint("TOPLEFT", 0, -((index - 1) * ROW_HEIGHT))
+    local color = index % 2 == 0 and COLORS.alternate or COLORS.surface
+    row.rowColor = color
+    row:SetBackdropColor(color[1], color[2], color[3], color[4])
+
+    local definition, entry = data.definition, data.entry
+    local textColor = data.stale and COLORS.stale or "|cffd8e0e7"
+    row.values.quest:SetText(textColor .. CatalogTitle(definition, (not data.stale) and entry or nil) .. "|r")
+    row.values.area:SetText((data.stale and COLORS.stale or "|cffb0bac6")
+        .. (CatalogText(definition.groupKey) or "-") .. "|r")
+    row.values.character:SetText(ClassColoredName(data.character, data.stale))
+    if data.stale then
+        row.values.status:SetText(COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r")
+        row.values.progress:SetText(COLORS.stale .. "-|r")
+    else
+        row.values.status:SetText(CATALOG_STATUS_COLORS[data.status]
+            .. CatalogText(CATALOG_STATUS_KEYS[data.status]) .. "|r")
+        local progress = CatalogProgressText(entry)
+        row.values.progress:SetText(progress and (COLORS.amber .. progress .. "|r") or (COLORS.unknown .. "-|r"))
+    end
+    if data.reason == "season" then
+        row.values.updated:SetText(COLORS.stale .. L("WQ_STALE_SEASON") .. "|r")
+    elseif data.stale then
+        row.values.updated:SetText(COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r")
+    elseif type(entry) == "table" and type(entry.updated) == "number" then
+        row.values.updated:SetText("|cffb0bac6" .. FormatAge(entry.updated) .. "|r")
+    else
+        row.values.updated:SetText(COLORS.unknown .. "-|r")
+    end
+    ApplyCatalogHeroMarker(row, data.hero, data.stale)
+    row:Show()
+end
+
+-- Ein offener Zeilen-Tooltip gehoert zu genau einer Bindung. Nach jedem
+-- Neubinden (Refresh, Scrollen, Filter) wird er fuer die aktuelle Bindung der
+-- gehoverten Zeile neu aufgebaut oder, wenn die Zeile nichts mehr traegt,
+-- geschlossen - nie mit veralteten Werten stehen gelassen. Gehoert der
+-- Tooltip inzwischen einem anderen Rahmen, wird nur die Merkung verworfen.
+local function RefreshCatalogTooltip(panel)
+    local row = panel.tooltipRow
+    if not row then return end
+    local owned = GameTooltip:IsShown()
+    if owned and type(GameTooltip.IsOwned) == "function" then
+        local ok, result = pcall(GameTooltip.IsOwned, GameTooltip, row)
+        owned = ok and result == true
+    end
+    if not owned then
+        panel.tooltipRow = nil
+        return
+    end
+    if row:IsShown() and type(row.data) == "table" then
+        ShowWeeklyCatalogTooltip(row)
+    else
+        panel.tooltipRow = nil
+        GameTooltip:Hide()
+    end
+end
+
+-- Bindet genau die Zeilen des sichtbaren Ausschnitts. Wird bei jedem Refresh
+-- und bei jedem Scrollen aufgerufen; es entstehen dabei keine Rahmen.
+local function RenderCatalogWindow(panel)
+    local list = panel.list
+    local offset = panel.scroll:GetVerticalScroll()
+    if type(offset) ~= "number" or offset ~= offset or offset < 0 then offset = 0 end
+    local first = math.floor(offset / ROW_HEIGHT) + 1
+    for slot = 1, CATALOG_POOL_SIZE do
+        local row = panel.rows[slot]
+        local index = first + slot - 1
+        local data = list[index]
+        if data then BindCatalogRow(row, data, index) else UnbindCatalogRow(row) end
+    end
+    RefreshCatalogTooltip(panel)
+end
+
+-- Blaettert zyklisch durch eine Optionsliste; unbekannter Wert startet vorn.
+local function StepOption(options, current, direction)
+    local count = #options
+    if count == 0 then return nil end
+    local index = 0
+    for position, option in ipairs(options) do
+        if option == current then index = position end
+    end
+    if index == 0 then return options[1] end
+    return options[((index - 1 + direction) % count) + 1]
+end
+
+-- y ist optional: die Filterleiste sitzt 1px unter der Panelkante, die
+-- Sortierleiste buendig in ihrem eigenen Rahmen.
+local function CreateCycleFilter(panel, x, width, onStep, y)
+    local frame = CreateFrame("Frame", nil, panel)
+    frame:SetSize(width, 30)
+    frame:SetPoint("TOPLEFT", x, y or -1)
+    local prev = CreateFormButton(frame, "<", 26, 0, 0)
+    local nextButton = CreateFormButton(frame, ">", 26, width - 26, 0)
+    local button = CreateFormButton(frame, "", width - 60, 30, 0)
+    -- Ein langer Charaktername wird hart beschnitten statt in die Pfeile zu laufen.
+    button:SetClipsChildren(true)
+    button.label:ClearAllPoints()
+    button.label:SetPoint("LEFT", 6, 0)
+    button.label:SetPoint("RIGHT", -6, 0)
+    button.label:SetWordWrap(false)
+    button.label:SetMaxLines(1)
+    prev:SetScript("OnClick", function() onStep(-1) end)
+    nextButton:SetScript("OnClick", function() onStep(1) end)
+    button:SetScript("OnClick", function() onStep(1) end)
+    return { frame = frame, prev = prev, next = nextButton, button = button, label = button.label }
+end
+
+local function CreateWeeklyCatalogPanel(parent, definition)
+    local panel = CreatePanel(parent, "weeklies", definition, CATALOG_TOP)
+    panel.isCatalog = true
+    panel.viewportHeight = CATALOG_VIEWPORT
+    panel.poolSize = CATALOG_POOL_SIZE
+    panel.filter = { category = "all", status = "all", search = "" }
+    panel.sort = { column = "catalog", descending = false }
+    panel.list = {}
+    panel.characterOptions = {}
+    panel.visibleCount = 0
+    panel.hiddenForeign = 0
+
+    -- Filterleiste: Charakter 260, Kategorie 200, Status 220, Suche 216,
+    -- dazwischen je 8 - zusammen exakt CONTENT_WIDTH.
+    panel.characterFilter = CreateCycleFilter(panel, 0, 260, function(direction)
+        WAT:SetWeeklyCatalogFilter("character",
+            StepOption(panel.characterOptions, panel.filter.characterKey, direction))
+    end)
+    local categoryFrame = CreateFrame("Frame", nil, panel)
+    categoryFrame:SetSize(200, 30)
+    categoryFrame:SetPoint("TOPLEFT", 268, -1)
+    panel.categoryButtons = {}
+    for index, category in ipairs(CATALOG_CATEGORY_ORDER) do
+        local value = category
+        local button = CreateFormButton(categoryFrame, CatalogText(CATALOG_CATEGORY_KEYS[value]), 64,
+            (index - 1) * 68, 0)
+        button:SetScript("OnClick", function() WAT:SetWeeklyCatalogFilter("category", value) end)
+        panel.categoryButtons[value] = button
+    end
+    panel.statusFilter = CreateCycleFilter(panel, 476, 220, function(direction)
+        WAT:SetWeeklyCatalogFilter("status", StepOption(CATALOG_STATUS_ORDER, panel.filter.status, direction))
+    end)
+
+    -- Suchfeld ohne Blizzard-Template: filtert nur lokalisierte Titel, Varianten
+    -- und Bereiche dieser Seite. Kein Auto-Fokus, ESC/Enter geben den Fokus ab.
+    local search = CreateFrame("EditBox", nil, panel, "BackdropTemplate")
+    search:SetSize(216, 30)
+    search:SetPoint("TOPLEFT", 704, -1)
+    SetBackdrop(search, { 0.061, 0.095, 0.120, 0.60 }, { 1, 1, 1, 0.18 })
+    search:SetAutoFocus(false)
+    search:SetMaxLetters(40)
+    search:SetTextInsets(8, 8, 0, 0)
+    if GameFontHighlightSmall then search:SetFontObject(GameFontHighlightSmall) end
+    local placeholder = search:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    placeholder:SetPoint("LEFT", 8, 0)
+    placeholder:SetTextColor(1, 1, 1, 0.35)
+    placeholder:SetText(L("WQ_FILTER_SEARCH"))
+    search:SetScript("OnTextChanged", function(self, userInput)
+        local text = self:GetText()
+        placeholder:SetShown(type(text) ~= "string" or text == "")
+        if userInput then WAT:SetWeeklyCatalogFilter("search", text) end
+    end)
+    search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    search:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    panel.searchBox = search
+    panel.searchPlaceholder = placeholder
+    panel.filterControls = { panel.characterFilter.frame, categoryFrame, panel.statusFilter.frame, search }
+
+    -- Sortierleiste im Seitenkopf (Geometrie bei CATALOG_SORT_TOP): Spalte
+    -- blaettern wie ein Filter, Richtung ueber zwei feste Schaltflaechen.
+    local sortBar = CreateFrame("Frame", nil, panel)
+    sortBar:SetSize(CATALOG_SORT_WIDTH, 30)
+    sortBar:SetPoint("TOPLEFT", CONTENT_WIDTH - CATALOG_SORT_WIDTH, CATALOG_SORT_TOP)
+    panel.sortBar = sortBar
+    panel.sortFilter = CreateCycleFilter(sortBar, 0, CATALOG_SORT_CYCLE_WIDTH, function(direction)
+        WAT:SetWeeklyCatalogSort(StepOption(CATALOG_SORT_ORDER, panel.sort.column, direction), panel.sort.descending)
+    end, 0)
+    local ascending = CreateFormButton(sortBar, L("WQ_SORT_ASC"), CATALOG_SORT_BUTTON_WIDTH,
+        CATALOG_SORT_CYCLE_WIDTH + 8, 0)
+    ascending:SetScript("OnClick", function() WAT:SetWeeklyCatalogSort(panel.sort.column, false) end)
+    local descending = CreateFormButton(sortBar, L("WQ_SORT_DESC"), CATALOG_SORT_BUTTON_WIDTH,
+        CATALOG_SORT_WIDTH - CATALOG_SORT_BUTTON_WIDTH, 0)
+    descending:SetScript("OnClick", function() WAT:SetWeeklyCatalogSort(panel.sort.column, true) end)
+    panel.sortAscending = ascending
+    panel.sortDescending = descending
+
+    -- Held-Bonus-Info links neben der Sortierleiste (Geometrie bei
+    -- CATALOG_HERO_LEFT): kein Katalogeintrag und kein Status, nur ein eigener
+    -- Tooltip. Beruehren oder Klicken oeffnet, Verlassen oder ein zweiter Klick
+    -- schliesst ihn; ein fremder Tooltip bleibt dabei unberuehrt. Sichtbar nur,
+    -- wenn die aktive Saison einen gueltigen Bonus fuehrt (RefreshHeroBonusButton).
+    local gold = COLORS.heroGold
+    local heroButton = CreateFrame("Button", nil, panel, "BackdropTemplate")
+    heroButton:SetSize(CATALOG_HERO_WIDTH, CATALOG_HERO_HEIGHT)
+    heroButton:SetPoint("TOPLEFT", CATALOG_HERO_LEFT, CATALOG_HERO_TOP)
+    SetBackdrop(heroButton, { gold[1] * 0.12, gold[2] * 0.12, gold[3] * 0.12, 0.85 },
+        { gold[1], gold[2], gold[3], 0.45 })
+    heroButton:SetClipsChildren(true)
+    local heroLabel = heroButton:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    heroLabel:SetPoint("LEFT", 8, 0)
+    heroLabel:SetPoint("RIGHT", -8, 0)
+    heroLabel:SetJustifyH("CENTER")
+    heroLabel:SetWordWrap(false)
+    heroLabel:SetMaxLines(1)
+    heroLabel:SetText(COLORS.heroGoldText .. L("WQ_HERO_BONUS_BUTTON") .. "|r")
+    heroButton.label = heroLabel
+    heroButton:SetScript("OnEnter", function(self)
+        self:SetBackdropBorderColor(gold[1], gold[2], gold[3], 0.85)
+        ShowHeroBonusTooltip(self, panel)
+    end)
+    heroButton:SetScript("OnLeave", function(self)
+        self:SetBackdropBorderColor(gold[1], gold[2], gold[3], 0.45)
+        if TooltipOwnedBy(self) then GameTooltip:Hide() end
+    end)
+    heroButton:SetScript("OnClick", function(self)
+        if TooltipOwnedBy(self) then GameTooltip:Hide() else ShowHeroBonusTooltip(self, panel) end
+    end)
+    heroButton:Hide()
+    panel.heroBonusButton = heroButton
+
+    -- Spaltenkoepfe als zweiter Weg: je Kopf eine Schaltflaeche exakt ueber
+    -- seinem Clipping-Rahmen. Die Rahmen sind 6px schmaler als die Spalte, die
+    -- Hitzonen ueberlappen also nie und enden innerhalb von CONTENT_WIDTH.
+    panel.headerButtons = {}
+    for _, column in ipairs(panel.columns) do
+        local key = column.key
+        local cell = panel.headerCells[key]
+        local hit = CreateFrame("Button", nil, cell)
+        hit:SetAllPoints(cell)
+        hit:SetScript("OnClick", function() ClickCatalogHeader(panel, key) end)
+        hit:SetScript("OnEnter", function() panel.headerLabels[key]:SetTextColor(1, 1, 1) end)
+        hit:SetScript("OnLeave", function() PaintCatalogHeaders(panel) end)
+        panel.headerButtons[key] = hit
+    end
+
+    -- Leerzustand im Viewport: leerer Filter und fehlender Katalog haben
+    -- verschiedene Texte; beides ist kein 0/0-Erfolg.
+    local empty = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    empty:SetPoint("TOPLEFT", 16, -(CATALOG_TOP + HEADER_HEIGHT + 18))
+    empty:SetWidth(CONTENT_WIDTH - 32)
+    empty:SetJustifyH("LEFT")
+    empty:SetTextColor(1, 1, 1, 0.55)
+    empty:Hide()
+    panel.emptyText = empty
+
+    for slot = 1, CATALOG_POOL_SIZE do CreateCatalogRow(panel, slot) end
+    panel.scroll:HookScript("OnVerticalScroll", function() RenderCatalogWindow(panel) end)
+    return panel
+end
+
+function WAT:SetWeeklyCatalogFilter(field, value)
+    local panel = self.panels and self.panels.weeklies
+    if not panel then return end
+    local filter = panel.filter
+    if field == "character" then
+        filter.characterKey = type(value) == "string" and value or nil
+    elseif field == "category" then
+        filter.category = CATALOG_CATEGORY_KEYS[value] and value or "all"
+    elseif field == "status" then
+        filter.status = CATALOG_STATUS_KEYS[value] and value or "all"
+    elseif field == "search" then
+        filter.search = type(value) == "string" and value or ""
+    else
+        return
+    end
+    -- Ein neuer Filter beginnt oben; eine nur kuerzer gewordene Liste wird
+    -- dagegen im Refresh an den gueltigen Maximalwert geklemmt.
+    panel.resetScroll = true
+    self:RefreshUI()
+end
+
+-- Waehlt Spalte und Richtung. Wie ein Filter reiner Sitzungszustand: kein
+-- Scan, kein Schreibzugriff auf die gespeicherten Daten, die globale
+-- Charakterreihenfolge bleibt unberuehrt. Eine neue Reihenfolge beginnt oben.
+function WAT:SetWeeklyCatalogSort(column, descending)
+    local panel = self.panels and self.panels.weeklies
+    if not panel then return end
+    panel.sort.column = CATALOG_SORT_KEYS[column] and column or "catalog"
+    panel.sort.descending = descending == true
+    panel.resetScroll = true
+    self:RefreshUI()
+end
+
+local function UpdateCatalogFilterControls(panel, characters, characterKeys)
+    local filter = panel.filter
+    local options = { CATALOG_ALL_CHARACTERS }
+    local label = L("WQ_FILTER_ALL_CHARACTERS")
+    for index, key in ipairs(characterKeys) do
+        options[#options + 1] = key
+        if key == filter.characterKey then
+            local character = characters[index]
+            local unknown = L("CHARACTER_UNKNOWN")
+            label = (character.name or unknown) .. "-" .. (character.realm or unknown)
+        end
+    end
+    panel.characterOptions = options
+    panel.characterFilter.label:SetText(label)
+    for category, button in pairs(panel.categoryButtons) do
+        SetFormButtonActive(button, category == filter.category)
+    end
+    panel.statusFilter.label:SetText(L("WQ_FILTER_STATUS", CatalogText(CATALOG_STATUS_KEYS[filter.status])))
+    SetFormButtonActive(panel.statusFilter.button, filter.status ~= "all")
+end
+
+-- Die Held-Bonus-Info erscheint nur, wenn die aktive Saison einen gueltigen
+-- Bonus fuehrt. Eine offene Info wird fuer den neuen Stand erneuert oder
+-- geschlossen; ein fremder Tooltip bleibt unberuehrt.
+local function RefreshHeroBonusButton(panel)
+    local button = panel.heroBonusButton
+    local hero = panel.heroRewards
+    local available = type(hero) == "table" and type(hero.bonuses) == "table" and #hero.bonuses > 0
+    button:SetShown(available)
+    if TooltipOwnedBy(button) then
+        if available then ShowHeroBonusTooltip(button, panel) else GameTooltip:Hide() end
+    end
+end
+
+function WAT:RefreshWeeklyCatalogPanel(panel, characters, characterKeys)
+    local filter = panel.filter
+    -- Weggefallene GUID oder unbekannter Filterwert fallen sicher zurueck:
+    -- zuerst auf den eingeloggten Charakter, sonst den ersten bekannten.
+    local valid = filter.characterKey == CATALOG_ALL_CHARACTERS
+    for _, key in ipairs(characterKeys) do
+        if key == filter.characterKey then valid = true end
+    end
+    if not valid then
+        local fallback = characterKeys[1] or CATALOG_ALL_CHARACTERS
+        for _, key in ipairs(characterKeys) do
+            if key == self.currentKey then fallback = key end
+        end
+        filter.characterKey = fallback
+    end
+    if not CATALOG_CATEGORY_KEYS[filter.category] then filter.category = "all" end
+    if not CATALOG_STATUS_KEYS[filter.status] then filter.status = "all" end
+    if type(filter.search) ~= "string" then filter.search = "" end
+    local sort = panel.sort
+    if not CATALOG_SORT_KEYS[sort.column] then sort.column = "catalog" end
+    sort.descending = sort.descending == true
+    UpdateCatalogFilterControls(panel, characters, characterKeys)
+    UpdateCatalogSortControls(panel)
+
+    local catalog = self.GetActiveWeeklyCatalog and self:GetActiveWeeklyCatalog() or nil
+    -- Held-Hinweise gehoeren genau zu diesem Katalog; ohne ihn gibt es keine.
+    local heroRewards = catalog and self.GetWeeklyHeroRewards and self:GetWeeklyHeroRewards(catalog) or nil
+    panel.heroRewards = heroRewards
+    panel.heroCatalog = heroRewards and catalog or nil
+    local list, hidden = {}, 0
+    if catalog then
+        local needle = CatalogSearchFold((string.gsub(string.gsub(filter.search, "^%s+", ""), "%s+$", "")))
+        for index, character in ipairs(characters) do
+            local characterKey = characterKeys[index]
+            if filter.characterKey == CATALOG_ALL_CHARACTERS or filter.characterKey == characterKey then
+                for _, definition in ipairs(catalog.entries) do
+                    if filter.category == "all" or filter.category == definition.category then
+                        local data = CatalogRowData(self, catalog, definition, character, characterKey,
+                            heroRewards)
+                        -- Ein sicher fremder Beruf ist kein offener Eintrag dieses
+                        -- Charakters; eine unbekannte Zugehoerigkeit bleibt sichtbar.
+                        if data.match == "foreign" then
+                            hidden = hidden + 1
+                        elseif (filter.status == "all" or filter.status == data.status)
+                                and CatalogMatchesSearch(data, needle) then
+                            list[#list + 1] = data
+                            data.order = #list
+                        end
+                    end
+                end
+            end
+        end
+    end
+    SortCatalogList(list, sort)
+    panel.list = list
+    panel.visibleCount = #list
+    panel.hiddenForeign = hidden
+
+    local emptyKey
+    if not catalog then
+        emptyKey = "WQ_EMPTY_NO_CATALOG"
+    elseif #characters == 0 then
+        emptyKey = "WQ_EMPTY_NO_CHARACTERS"
+    elseif #list == 0 then
+        emptyKey = "WQ_EMPTY_FILTER"
+    end
+    if emptyKey then
+        panel.emptyText:SetText(CatalogText(emptyKey))
+        panel.emptyText:Show()
+    else
+        panel.emptyText:Hide()
+    end
+
+    panel.child:SetHeight(math.max(1, #list * ROW_HEIGHT))
+    local maxScroll = math.max(0, #list * ROW_HEIGHT - panel.viewportHeight)
+    local offset = panel.scroll:GetVerticalScroll()
+    if panel.resetScroll or type(offset) ~= "number" or offset ~= offset or offset < 0 then offset = 0 end
+    if offset > maxScroll then offset = maxScroll end
+    panel.resetScroll = nil
+    panel.scroll:SetVerticalScroll(offset)
+    RenderCatalogWindow(panel)
+    RefreshHeroBonusButton(panel)
+end
+
 -- Registriert einen Rahmennamen genau einmal in UISpecialFrames. Das ist die
 -- WoW-Standardsemantik fuer "ESC schliesst dieses Fenster": Blizzards eigener
 -- Escape-Handler durchlaeuft diese Liste globaler Frame-Namen und ruft fuer
@@ -1981,7 +3018,9 @@ function WAT:CreateUI()
 
     self.tabButtons = {}
     self.panels = {}
-    local tabOrder = { "overview", "midnight", "professions", "sources", "keystones",
+    -- Acht Navigationsziele: die achte Schaltflaeche endet bei y=444 und passt
+    -- damit ohne hoeheren Rahmen in die 600er Seitenleiste.
+    local tabOrder = { "overview", "midnight", "weeklies", "professions", "sources", "keystones",
                        "statistics", "settings" }
     for index, key in ipairs(tabOrder) do
         local targetKey = key
@@ -1993,6 +3032,8 @@ function WAT:CreateUI()
             self.panels[targetKey] = CreateSettingsPanel(frame, definition)
         elseif targetKey == "statistics" then
             self.panels[targetKey] = CreateStatisticsPanel(frame, definition)
+        elseif targetKey == "weeklies" then
+            self.panels[targetKey] = CreateWeeklyCatalogPanel(frame, definition)
         else
             self.panels[targetKey] = CreatePanel(frame, targetKey, definition)
         end
@@ -2107,34 +3148,7 @@ local function GetCharacters()
 end
 
 local function CreateRow(panel, index)
-    local rowHeight = panel.rowHeight or ROW_HEIGHT
-    local row = CreateFrame("Frame", nil, panel.child, "BackdropTemplate")
-    row:SetSize(CONTENT_WIDTH, rowHeight - 1)
-    SetBackdrop(row, COLORS.surface, { 1, 1, 1, 0.025 })
-    row:EnableMouse(true)
-    row.values = {}
-    row.cells = {}
-    row.panelKey = panel.key
-    LayoutColumns(panel.columns, function(column, left)
-        -- SetWordWrap(false) verhindert nur den Umbruch, nicht das Hinausragen
-        -- ueber die Spaltengrenze: ein zu langer Text laeuft weiter in den
-        -- Nachbarn. Die harte Grenze zieht erst dieser Rahmen mit
-        -- SetClipsChildren - die FontString sitzt darin und wird beschnitten.
-        local cell = CreateFrame("Frame", nil, row)
-        cell:SetPoint("LEFT", left, 0)
-        cell:SetSize(column.width - 6, rowHeight - 2)
-        cell:SetClipsChildren(true)
-        local value = cell:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        value:SetAllPoints(cell)
-        value:SetJustifyH(column.left and "LEFT" or "CENTER")
-        value:SetJustifyV("MIDDLE")
-        value:SetWordWrap(false)
-        -- Ein Datenwert ist immer einzeilig: eine zweite Zeile waere in der
-        -- kompakten Zeilenhoehe halb abgeschnitten und damit unlesbar.
-        value:SetMaxLines(1)
-        row.cells[column.key] = cell
-        row.values[column.key] = value
-    end)
+    local row = BuildTableRow(panel)
     row:SetScript("OnEnter", function(r)
         r:SetBackdropColor(COLORS.hover[1], COLORS.hover[2], COLORS.hover[3], COLORS.hover[4])
         WAT:ShowCharacterTooltip(r)
@@ -2150,12 +3164,9 @@ local function CreateRow(panel, index)
 end
 
 local function FillOverview(row, character, weekly, stale)
-    local gilded = type(weekly.gilded) == "table" and weekly.gilded or {}
     row.values.character:SetText(ClassColoredName(character, stale))
     row.values.level:SetText(type(character.level) == "number" and tostring(character.level) or "-")
     row.values.itemLevel:SetText(type(character.itemLevel) == "number" and string.format("%.1f", character.itemLevel) or "-")
-    row.values.gilded:SetText(StatusFraction(gilded.current, gilded.maximum, stale))
-    row.values.crests:SetText(CrestText(weekly, stale))
     row.values.world:SetText(VaultText(weekly.worldVault, stale))
     row.values.mythic:SetText(VaultText(weekly.mythicPlusVault, stale))
     row.values.mythic10:SetText(MythicPlusTenText(weekly.mythicPlusVault, stale))
@@ -2166,7 +3177,11 @@ local function FillMidnight(row, character, weekly, stale)
     row.values.character:SetText(ClassColoredName(character, stale))
     row.values.weekly:SetText(MidnightWeeklyText(weekly.midnightWeekly, stale))
     row.values.prey:SetText(PreyText(weekly.prey, stale))
-    row.values.ritual:SetText(RitualText(weekly.ritualSites, stale))
+    if not stale and RitualSharesWeekly(weekly) then
+        row.values.ritual:SetText(COLORS.unknown .. L("RITUAL_SEE_WEEKLY") .. "|r")
+    else
+        row.values.ritual:SetText(RitualText(weekly.ritualSites, stale))
+    end
     row.values.updated:SetText((stale and COLORS.stale or "|cffb0bac6") .. FormatAge(weekly.activitiesUpdated) .. "|r")
 end
 
@@ -2213,11 +3228,7 @@ local function FillSources(row, character, weekly, stale)
         hero = "crestHero", myth = "crestMyth",
     }
     for _, key in ipairs(CREST_ORDER) do
-        local quantity = CrestQuantity(crests, definitions, key)
-        local cell = row.values[cellKeys[key]]
-        cell:SetText(stale and COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r"
-            or type(quantity) == "number" and tostring(quantity)
-            or COLORS.unknown .. "-|r")
+        row.values[cellKeys[key]]:SetText(CrestCellText(crests, definitions, key, stale))
     end
 end
 
@@ -2275,6 +3286,12 @@ function WAT:RefreshUI()
         -- Dashboard. Beide erzeugen bewusst keine Charakterzeilen.
         if panel.isDashboard then
             self:RefreshStatisticsDashboard(panel, characters, characterKeys)
+        elseif panel.isCatalog then
+            -- Nur die sichtbare Katalogseite rechnet; SetActiveTab ruft
+            -- RefreshUI nach dem Umschalten ohnehin erneut auf.
+            if self.activeTab == panelKey then
+                self:RefreshWeeklyCatalogPanel(panel, characters, characterKeys)
+            end
         elseif not panel.isForm then
             for _, row in ipairs(panel.rows) do
                 row.character = nil
@@ -2304,6 +3321,16 @@ function WAT:RefreshUI()
                 row:Show()
             end
             panel.child:SetHeight(math.max(1, index * (panel.rowHeight or ROW_HEIGHT)))
+        end
+    end
+
+    -- Die Katalogseite nennt statt der Charakterzahl die sichtbaren Einträge.
+    local catalogPanel = self.panels.weeklies
+    if self.activeTab == "weeklies" and catalogPanel then
+        if catalogPanel.hiddenForeign > 0 then
+            self.toolbar:SetText(L("WQ_TOOLBAR_HIDDEN", catalogPanel.visibleCount, catalogPanel.hiddenForeign))
+        else
+            self.toolbar:SetText(L("WQ_TOOLBAR_COUNT", catalogPanel.visibleCount))
         end
     end
 end

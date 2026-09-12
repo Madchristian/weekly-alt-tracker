@@ -25,6 +25,7 @@ HARNESSES = {
     "test_profession_runtime.lua": "LUA PROFESSION RUNTIME OK:",
     "test_statistics_runtime.lua": "LUA STATISTICS RUNTIME OK:",
     "test_ui_runtime.lua": "LUA UI RUNTIME OK:",
+    "test_weekly_catalog_runtime.lua": "LUA WEEKLY CATALOG RUNTIME OK:",
 }
 
 HARNESS_GLOB = "test_*_runtime.lua"

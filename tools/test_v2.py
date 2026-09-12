@@ -84,8 +84,17 @@ def check_runtime_npm_resolution() -> None:
                 "Node-lokales npm-cli.js muss für den Windows-portablen Pfad Vorrang behalten")
 
 
+def check_catalog_harness_registered() -> None:
+    import test_runtime
+
+    harnesses = getattr(test_runtime, "HARNESSES", {})
+    require(harnesses.get("test_weekly_catalog_runtime.lua") == "LUA WEEKLY CATALOG RUNTIME OK:",
+            "der Wochenquest-Katalog-Harness muss im Runtime-Orchestrator registriert sein")
+
+
 def main() -> int:
     check_runtime_npm_resolution()
+    check_catalog_harness_registered()
     toc = text("WeeklyAltTracker.toc")
     data = text("Data.lua")
     scanner = text("Scanner.lua")
@@ -119,8 +128,48 @@ def main() -> int:
             "PrepareCurrentCharacter muss Rasse (raceFile/raceID) sicher ueber UnitRace erfassen")
 
     meta = ids(table_body(data, "META_QUESTS"))
-    require(len(meta) == 15 and len(set(meta)) == 15, "Meta-Weekly-Pool muss 15 eindeutige IDs enthalten")
-    require({93889, 93909, 95843}.issubset(meta), "Bestätigte Meta-IDs 93889/93909/95843 fehlen")
+    require(len(meta) == 16 and len(set(meta)) == 16,
+            "Meta-Erkennungspool muss 16 eindeutige IDs enthalten (Saison 2: ohne 93891, mit 96727/98232)")
+    require({93889, 93909, 95843, 96727, 98232}.issubset(meta), "Bestätigte Meta-IDs fehlen im Erkennungspool")
+    require(93891 not in meta, "obsolete Meta-Variante 93891 darf nicht mehr im Erkennungspool stehen")
+    require(93912 in meta, "die Raid-Erkennungsausnahme 93912 bleibt ausschließlich im Meta-Erkennungspool")
+
+    # -----------------------------------------------------------------------
+    # Wochenquest-Katalog: datengetriebene Saisondefinition in Data.lua.
+    # Die volle Semantik prüft tools/test_weekly_catalog_runtime.lua; hier
+    # wird der Datenvertrag eingefroren, damit kein Raid-, PvP- oder
+    # Jagdziel still in den aktiven Katalog rutscht.
+    # -----------------------------------------------------------------------
+    require('Data.ACTIVE_WEEKLY_SEASON = "midnight-s2"' in data, "aktive Wochenquest-Saison fehlt")
+    require("Data.WEEKLY_CATALOG_SCHEMA = 1" in data, "Schema des Wochenquest-Katalogs fehlt")
+    catalog_body = nested_table_body(data, 'Data.WEEKLY_CATALOGS["midnight-s2"]')
+    catalog_code = re.sub(r'"[^"\n]*"', '""', re.sub(r"--[^\n]*", "", catalog_body))
+    catalog_ids = [int(value) for value in re.findall(r"\b(\d{5})\b", catalog_code)]
+    require(len(catalog_ids) == 83 and len(set(catalog_ids)) == 83,
+            f"Saison-2-Katalog muss 83 eindeutige Quest-IDs führen, gefunden {len(catalog_ids)}/"
+            f"{len(set(catalog_ids))}")
+    catalog_keys = re.findall(r'\bkey = "([^"]+)"', catalog_body)
+    require(len(catalog_keys) == 52 and len(set(catalog_keys)) == 52,
+            f"Saison-2-Katalog muss 52 eindeutige Einträge führen, gefunden {len(catalog_keys)}")
+    # Lückenprüfung: Arkantine-Patronaufträge sind einmal je Charakter
+    # abschließbar (kein Wochenreset-Eintrag), Soiree-Unteraufträge ohne
+    # belegte Wiederholbarkeit, Cleanup 91966 ist daily, Ritualstudien sind
+    # eine endliche Folge, 96080 ist nur die Einführung der Leerenangriffe.
+    for forbidden in (93912, 94457, 93891, 89354, 93599, 93600, 97124, 90962, 93852, 98172,
+                      92319, 92327, 95779, 95780, 95781, 91966, 91971, 91991, 92007,
+                      96728, 96733, 95547, 95554, 96080):
+        require(forbidden not in catalog_ids,
+                f"Raid-, PvP-, obsolete, einmalige oder ungeklärte Quest-ID {forbidden} im aktiven Katalog")
+    require(not any(key.startswith("arcantina") for key in catalog_keys)
+            and "WQ_GROUP_ARCANTINA" not in catalog_body,
+            "Arkantine-Patronaufträge dürfen nicht als Wochenreset-Einträge im Katalog stehen")
+    require('key = "void.assaults"' in catalog_body and {94385, 94386}.issubset(catalog_ids),
+            "der vom Meta getrennte Leerenangriff-Wochenpool 94385/94386 fehlt")
+    for prey_pool in ("PREY_NORMAL", "PREY_HARD", "PREY_NIGHTMARE"):
+        require(not (set(ids(table_body(data, prey_pool))) & set(catalog_ids)),
+                f"Jagdziele aus {prey_pool} dürfen keine Pflicht-Weeklies im Katalog vortäuschen")
+    for required_id in (98232, 96727, 96995, 95520, 94446, 93767, 95842, 94385, 94386):
+        require(required_id in catalog_ids, f"belegte Saison-2-Weekly {required_id} fehlt im Katalog")
 
     for name in ("PREY_NORMAL", "PREY_HARD"):
         pool = ids(table_body(data, name))
@@ -287,6 +336,18 @@ def main() -> int:
         require(event in core, f"Event fehlt: {event}")
     require('activeTab == "keystones"' in core,
             "SavedVariable-Migration muss den Schlüsselstein-Bereich als aktive Navigation erlauben")
+    require('activeTab == "weeklies"' in core,
+            "SavedVariable-Migration muss die Wochenquest-Seite als aktive Navigation erlauben")
+    require("NormalizeWeeklyCatalog(record.weekly)" in core,
+            "NormalizeCharacter muss den Wochenquest-Katalog fail-closed prüfen")
+    for token in ("GetActiveWeeklyCatalog", "ValidateWeeklyCatalog", "ScanWeeklyCatalog",
+                  "GetWeeklyCatalogSnapshot", "GetWeeklyCatalogStatus", "GetWeeklyCatalogProfessionMatch",
+                  "self:ScanWeeklyCatalog(character)", "scanCache"):
+        require(token in activities, f"Wochenquest-Katalogscanner unvollständig: {token}")
+    require('QuestLogFunction("IsComplete")' in activities,
+            "Abgabebereitschaft muss über das verifizierte questweite C_QuestLog.IsComplete gelesen werden")
+    require("weekly.catalog" in activities and "character.catalog" not in activities,
+            "der Katalogsnapshot ist ein Wochenwert und gehört unter character.weekly")
     for migration_token in ("NormalizeCharacter", "migratedCharacters", "VALID_POINTS", "SafeTable"):
         require(migration_token in core, f"SavedVariable-Migration fehlt: {migration_token}")
 
@@ -376,7 +437,18 @@ def main() -> int:
         # Die Tabelle steht als Literal in UI.lua; ihre drei Schlüssel werden
         # unmittelbar darunter gegen beide Wörterbücher geprüft.
         ("UI.lua", "group.titleKey"),
+        # Wochenquest-Seite: CatalogText(catalogKey, ...) ist die einzige
+        # dynamische Stelle. Jedes WQ_-Literal in Data.lua/UI.lua wird unten
+        # gegen beide Wörterbücher geprüft, Variantenlabels im Katalog-Harness.
+        ("UI.lua", "catalogKey"),
     }
+
+    wq_literals = set(re.findall(r'"(WQ_[A-Z0-9_]*[A-Z0-9])"', strip_comments(data) + strip_comments(ui)))
+    require(len(wq_literals) > 100,
+            f"Data.lua/UI.lua führen zu wenige WQ_-Schlüssel, gefunden {len(wq_literals)}")
+    for key in sorted(wq_literals):
+        require(key in en_keys, f"Katalogschlüssel {key} fehlt im enUS-Wörterbuch")
+        require(key in de_keys, f"Katalogschlüssel {key} fehlt im deDE-Wörterbuch")
 
     # Statische Absicherung von L(group.titleKey): die Schlüsselquelle ist die
     # Literaltabelle STATISTIC_GROUPS in UI.lua.
@@ -527,8 +599,78 @@ def main() -> int:
     require(scanner.count('return "-"') >= 3,
             "GetVaultSummary muss unbekannt weiterhin als sprachneutrales '-' liefern")
 
-    panel_order = ("overview", "midnight", "professions", "sources", "keystones",
+    panel_order = ("overview", "midnight", "weeklies", "professions", "sources", "keystones",
                    "statistics", "settings")
+    require('label = L("PANEL_WEEKLIES")' in ui and "CreateWeeklyCatalogPanel" in ui,
+            "Wochenquest-Seite fehlt oder ist nicht lokalisiert")
+    require('PANEL_WEEKLIES = "Wochenquests"' in de_dict and 'PANEL_WEEKLIES = "Weekly Quests"' in en_dict,
+            "Titel der Wochenquest-Seite fehlt in einem der beiden Wörterbücher")
+    require('"overview", "midnight", "weeklies", "professions"' in ui,
+            "die Wochenquest-Seite muss in der Navigation zwischen Midnight und Berufe stehen")
+    catalog_row = re.search(r"local function CreateCatalogRow\(.*?\nend\n", ui, re.S)
+    require(catalog_row is not None and "AttachCharacterDragHandlers" not in catalog_row.group(0)
+            and "RegisterForDrag" not in catalog_row.group(0),
+            "Questzeilen der Katalogseite dürfen keine Charakter-Umsortierung tragen")
+    # Sortierung der Katalogseite: reiner Anzeigezustand in UI.lua. Optionen
+    # und semantische Statusordnung sind eingefroren; der Setter schreibt
+    # weder SavedVariables noch scannt er, und die Titelsortierung faltet wie
+    # die Titelsuche. Die volle Semantik prüft der Katalog-Harness per Klick.
+    sort_order = re.search(r"local CATALOG_SORT_ORDER = \{([^}]*)\}", ui)
+    require(sort_order is not None and re.findall(r'"([A-Za-z]+)"', sort_order.group(1))
+            == ["catalog", "quest", "area", "character", "status", "progress", "updated"],
+            "CATALOG_SORT_ORDER muss Standard plus die sechs Spalten in Spaltenreihenfolge führen")
+    status_rank = re.search(r"local CATALOG_STATUS_RANK = \{([^}]*)\}", ui)
+    require(status_rank is not None and re.findall(r"(\w+) = (\d+)", status_rank.group(1))
+            == [("open", "1"), ("active", "2"), ("ready", "3"), ("turnedIn", "4")],
+            "Statussortierung muss Offen < Aktiv < Abgabebereit < Abgegeben lauten, Unbekannt ohne Rang")
+    set_sort = re.search(r"function WAT:SetWeeklyCatalogSort\(.*?\nend\n", ui, re.S)
+    require(set_sort is not None
+            and not re.search(r"\bdb\b|settings|WeeklyAltTrackerDB|Scan", strip_comments(set_sort.group(0))),
+            "SetWeeklyCatalogSort darf weder SavedVariables schreiben noch einen Scan auslösen")
+    require("CatalogSearchFold(CatalogTitle(" in ui,
+            "die Titelsortierung muss dieselbe Faltung wie die Titelsuche verwenden")
+    # Held-Hinweise der Katalogseite: saisongebundene Anzeige-Metadaten neben
+    # dem Katalog (Data.WEEKLY_HERO_REWARDS), weder Katalogeintrag noch Zähler.
+    # Belegt sind genau die indirekte Markierung 95520 -> Tiefenkarte 274374
+    # und der getrennte Jagdbonus Tormented Soul 276548 -> Preyhunter's Hero
+    # Chest 279574. Die Veteran-Pinnacle-Quellen 96995/98232 und die
+    # Jagd-Weeklies 93910/94446 sind ausdrücklich keine Held-Truhen. Die volle
+    # Semantik samt Geometrie prüft der Katalog-Harness (Abschnitt 10).
+    hero_body = nested_table_body(data, 'Data.WEEKLY_HERO_REWARDS["midnight-s2"]')
+    hero_code = re.sub(r'"[^"\n]*"', '""', strip_comments(hero_body))
+    require('seasonKey = "midnight-s2"' in hero_body,
+            "Held-Hinweise müssen an die Saison midnight-s2 gebunden sein")
+    require(re.findall(r'entryKey\s*=\s*"([^"]+)"', hero_body) == ["atalutek.purging-vaults"]
+            and re.findall(r"\bquestID\s*=\s*(\d+)", hero_code) == ["95520"],
+            "genau eine Held-Markierung, gebunden an atalutek.purging-vaults / 95520")
+    require(re.findall(r"\brewardItemID\s*=\s*(\d+)", hero_code) == ["274374", "279574"]
+            and re.findall(r"\bsourceItemID\s*=\s*(\d+)", hero_code) == ["276548"],
+            "Held-Belegkette: Tiefenkarte 274374 sowie Seele 276548 -> Truhe 279574")
+    for forbidden in ("96995", "98232", "93910", "94446", "275911", "279527", "305"):
+        require(not re.search(rf"\b{forbidden}\b", hero_code),
+                f"{forbidden} ist keine Held-Truhe bzw. kein Held-Beleg und gehört nicht in die Held-Hinweise")
+    for forbidden_field in ("trackingQuestID", "itemLevel", "progress", "consumed", "current"):
+        require(forbidden_field not in hero_code,
+                f"Held-Hinweise sind statisch und führen kein Zähler-/Itemstufenfeld: {forbidden_field}")
+    hero_bonus_code = strip_comments(nested_table_body(hero_body, "bonuses"))
+    require(hero_bonus_code.strip() != "" and not re.search(r"\bquestID\b", hero_bonus_code),
+            "der Jagdbonus ist keine Quest und trägt keine erfundene Quest-ID")
+    for token in ("WEEKLY_HERO_REWARDS", "GetWeeklyHeroRewards", "GetWeeklyHeroHighlight"):
+        require(token in activities, f"Held-Hinweise fehlen in Activities.lua: {token}")
+    for token in ("GetWeeklyHeroRewards", "GetWeeklyHeroHighlight", "heroBonusButton", "heroStripe",
+                  "heroBadge"):
+        require(token in ui, f"Held-Hinweise fehlen in UI.lua: {token}")
+    for api in ("C_QuestLog", "IsQuestFlaggedCompleted", "GetQuestObjectives", "GetQuestProgressBarPercent"):
+        require(api not in strip_comments(ui), f"UI.lua darf keine Quest-API fragen: {api}")
+    require('WQ_HERO_BADGE_MAP = "Held via Karte"' in de_dict
+            and 'WQ_HERO_BADGE_MAP = "Hero via map"' in en_dict,
+            "das Held-Abzeichen muss in beiden Sprachen eindeutig benannt sein")
+    for name, body in (("deDE", de_dict), ("enUS", en_dict)):
+        hero_values = re.findall(r'(?m)^\s*(WQ_HERO_[A-Z0-9_]+) = "([^"]*)"', body)
+        require(len(hero_values) >= 15, f"{name}: Held-Texte fehlen, gefunden {len(hero_values)}")
+        for key, value in hero_values:
+            require(not re.search(r"\d\s*/\s*\d|%d\s*/\s*%d", value),
+                    f"{name}: {key} darf keinen Zählerbruch wie 0/1 zeigen: {value!r}")
     # Der Schlüsselstein-Bereich existiert weiterhin; sein Titel kommt jetzt
     # aus dem Wörterbuch statt aus einem Literal in UI.lua.
     require('label = L("PANEL_KEYSTONES")' in ui and "FillKeystones" in ui,
@@ -608,19 +750,27 @@ def main() -> int:
         "Anleitung.html": text("Anleitung.html"),
         "Guide.en.html": text("Guide.en.html"),
     }
-    require("Sieben Ansichten. Ein Wochenbild." in html_guides["Anleitung.html"],
-            "Deutsche HTML-Anleitung nennt nicht sieben Ansichten")
-    require("Seven views. One weekly picture." in html_guides["Guide.en.html"],
-            "Englische HTML-Anleitung nennt nicht sieben Ansichten")
+    require("Acht Ansichten. Ein Wochenbild." in html_guides["Anleitung.html"],
+            "Deutsche HTML-Anleitung nennt nicht acht Ansichten")
+    require("Eight views. One weekly picture." in html_guides["Guide.en.html"],
+            "Englische HTML-Anleitung nennt nicht acht Ansichten")
     for name, body in html_guides.items():
-        require("Fünf Ansichten" not in body and "Five views" not in body,
-                f"HTML-Anleitung {name} nennt noch fünf Ansichten")
-    require("Sieben Ansichten" in platform_docs["curseforge/PROJECT-de.md"],
-            "Deutsche CurseForge-Beschreibung nennt nicht sieben Ansichten")
-    require("Seven views" in platform_docs["curseforge/PROJECT-en.md"],
-            "Englische CurseForge-Beschreibung nennt nicht sieben Ansichten")
-    require("sieben kompakte Ansichten" in platform_docs["wago/BESCHREIBUNG.md"],
-            "Wago-Beschreibung nennt nicht sieben Ansichten")
+        for stale in ("Fünf Ansichten", "Five views", "Sieben Ansichten", "Seven views"):
+            require(stale not in body, f"HTML-Anleitung {name} nennt noch veraltet: {stale}")
+    require("Wochenquests" in html_guides["Anleitung.html"] and "Weekly Quests" in html_guides["Guide.en.html"],
+            "HTML-Anleitungen beschreiben die Wochenquest-Seite nicht")
+    require("Acht Ansichten" in platform_docs["curseforge/PROJECT-de.md"],
+            "Deutsche CurseForge-Beschreibung nennt nicht acht Ansichten")
+    require("Eight views" in platform_docs["curseforge/PROJECT-en.md"],
+            "Englische CurseForge-Beschreibung nennt nicht acht Ansichten")
+    require("acht kompakte Ansichten" in platform_docs["wago/BESCHREIBUNG.md"],
+            "Wago-Beschreibung nennt nicht acht Ansichten")
+    for name, body in platform_docs.items():
+        require("Sieben Ansichten" not in body and "Seven views" not in body
+                and "sieben kompakte Ansichten" not in body,
+                f"Plattformtext {name} nennt noch sieben Ansichten")
+        require("Wochenquests" in body or "Weekly Quests" in body,
+                f"Plattformtext {name} beschreibt die Wochenquest-Seite nicht")
     for name, body in platform_docs.items():
         require(("Statistik" in body or "Statistics" in body)
                 and ("Einstellungen" in body or "Settings" in body),
@@ -773,6 +923,13 @@ def main() -> int:
             else:
                 require(total <= 920,
                         f"Panel {panel} ist mit {total}px breiter als CONTENT_WIDTH=920")
+            if panel == "overview":
+                require('key = "gilded"' not in body and 'key = "crests"' not in body,
+                        "die Übersicht darf Wappen und Goldene Truhe nicht mehr doppelt zur Wappenquellen-Seite führen")
+            if panel == "weeklies":
+                keys = re.findall(r'key = "([a-z]+)"', body)
+                require(keys == ["quest", "area", "character", "status", "progress", "updated"] and total == 920,
+                        f"die Katalogseite braucht genau sechs feste Spalten mit 920px, gefunden {keys}/{total}")
 
     if FAILURES:
         print("V2 TESTS FAILED")

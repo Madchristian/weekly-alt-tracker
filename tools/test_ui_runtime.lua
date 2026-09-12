@@ -1,7 +1,9 @@
 -- Ausführbarer Runtime-Smoke-Test für UI.lua außerhalb von WoW.
--- Prüft Fenstererstellung, sieben Sidebar-Klickziele, die Schlüsselstein-Zelle,
--- die Wappensymbole der Übersicht inklusive Fallback ohne Symbol, die
--- Statistikseite mit Accountsumme und das Einstellungsformular.
+-- Prüft Fenstererstellung, acht Sidebar-Klickziele, die Schlüsselstein-Zelle,
+-- die Wappensymbole der Wappenquellen inklusive Fallback ohne Symbol, die
+-- entlastete Übersicht, den Ritual-Verweis, die Statistikseite mit
+-- Accountsumme und das Einstellungsformular. Die Katalogseite selbst prüft
+-- tools/test_weekly_catalog_runtime.lua mit echtem Scanner.
 --
 -- Die gesamte Suite läuft zweimal gegen dieselbe Produktions-UI: einmal mit
 -- einem deDE-Client und einmal mit einem enUS-Client. Localization.lua wird
@@ -95,6 +97,25 @@ function Widget:IsShown() return self.shown end
 function Widget:SetScript(name, callback) self.scripts[name] = callback end
 function Widget:StartMoving() self.moving = true end
 function Widget:StopMovingOrSizing() self.moving = false end
+-- ScrollFrame/EditBox-Methoden der Katalogseite. SetVerticalScroll ruft wie
+-- im Client den OnVerticalScroll-Handler samt HookScript-Erweiterungen auf.
+function Widget:HookScript(name, callback)
+    self.hooks = self.hooks or {}
+    self.hooks[name] = self.hooks[name] or {}
+    table.insert(self.hooks[name], callback)
+end
+function Widget:SetVerticalScroll(value)
+    self.verticalScroll = value
+    if self.scripts.OnVerticalScroll then self.scripts.OnVerticalScroll(self, value) end
+    for _, hook in ipairs(self.hooks and self.hooks.OnVerticalScroll or {}) do hook(self, value) end
+end
+function Widget:GetVerticalScroll() return self.verticalScroll or 0 end
+function Widget:GetText() return self.text end
+function Widget:SetAutoFocus(value) self.autoFocus = value end
+function Widget:SetMaxLetters(value) self.maxLetters = value end
+function Widget:SetTextInsets(...) self.textInsets = { ... } end
+function Widget:SetFontObject(value) self.fontObject = value end
+function Widget:ClearFocus() self.focused = false end
 function Widget:CreateTexture(...)
     local child = NewWidget("Texture", self)
     self.children[#self.children + 1] = child
@@ -525,17 +546,27 @@ local function RunSuite(locale, expect)
     assert(math.abs(WAT.db.settings.minimapAngle) < 0.01,
         context("gezogene Minimap-Position wurde nicht als Winkel gespeichert"))
 
-    local order = { "overview", "midnight", "professions", "sources", "keystones",
+    local order = { "overview", "midnight", "weeklies", "professions", "sources", "keystones",
                     "statistics", "settings" }
-    for _, key in ipairs(order) do
+    local buttonCount = 0
+    for _ in pairs(WAT.tabButtons) do buttonCount = buttonCount + 1 end
+    assert(buttonCount == #order, context("es muss genau acht Navigationsziele geben, gefunden " .. buttonCount))
+    for index, key in ipairs(order) do
         local button = WAT.tabButtons[key]
         assert(button and type(button.scripts.OnClick) == "function", context("Klickziel fehlt: " .. key))
+        assert(button.points[1] and button.points[1][3] == -108 - (index - 1) * 42,
+            context("Navigationsposition falsch: " .. key))
         button.scripts.OnClick()
         assert(WAT.activeTab == key,
             context("Klick öffnet falschen Bereich: " .. key .. " -> " .. tostring(WAT.activeTab)))
         assert(WAT.panels[key].shown == true, context("aktives Panel ist nicht sichtbar: " .. key))
         assert(button.active == true, context("aktive Sidebar-Markierung fehlt: " .. key))
     end
+    -- Ohne geladenen Katalogleser (diese Suite lädt Activities.lua nicht)
+    -- zeigt die Wochenquest-Seite ihren Nicht-verfügbar-Hinweis statt Zeilen.
+    WAT:SetActiveTab("weeklies")
+    assert(WAT.panels.weeklies.emptyText.shown == true and #WAT.panels.weeklies.list == 0,
+        context("Wochenquest-Seite ohne Katalog muss den Hinweis zeigen"))
 
     -- Sidebar- und Seitentitel in der erwarteten Sprache.
     WAT:SetActiveTab("keystones")
@@ -615,11 +646,9 @@ local function RunSuite(locale, expect)
     local champion = WAT.db.characters.test.weekly.crests.champion
     champion.currencyID = 3343
     WAT:RefreshUI()
-    local mismatchedOverview = WAT.panels.overview.rows[1].values.crests.text or ""
     local mismatchedSources = WAT.panels.sources.rows[1]
-    assert(not string.find(mismatchedOverview, "120", 1, true),
-        context("altes Champion-Wappen wird in der Übersicht als Nebelwappen angezeigt: "
-            .. mismatchedOverview))
+    assert(WAT.panels.overview.rows[1].values.crests == nil and WAT.panels.overview.rows[1].values.gilded == nil,
+        context("die Übersicht darf keine Wappen-/Truhenduplikate mehr führen"))
     assert(not string.find(mismatchedSources.values.crestChampion.text or "", "120", 1, true),
         context("altes Champion-Wappen wird in den Quellen als Nebelwappen angezeigt"))
     mismatchedSources.scripts.OnEnter(mismatchedSources)
@@ -1301,8 +1330,16 @@ local function RunSuite(locale, expect)
     WAT:SetActiveTab("overview")
 
     -- Wappensymbole: jede der fünf Currencies muss ihr eigenes iconFileID aus
-    -- C_CurrencyInfo als Inline-Texturmarkup in der echten Übersicht zeigen.
-    local crestText = overviewRow.values.crests.text or ""
+    -- C_CurrencyInfo als Inline-Texturmarkup in den echten Wappenquellen
+    -- zeigen. Die Übersicht führt seit dem Katalogschnitt keine Wappen mehr.
+    local SOURCE_CREST_CELLS = { "crestAdventurer", "crestVeteran", "crestChampion", "crestHero", "crestMyth" }
+    local function SourcesCrestText()
+        local row = WAT.panels.sources.rows[1]
+        local parts = {}
+        for _, cellKey in ipairs(SOURCE_CREST_CELLS) do parts[#parts + 1] = row.values[cellKey].text or "" end
+        return table.concat(parts, "  ")
+    end
+    local crestText = SourcesCrestText()
     for _, case in ipairs({
         { key = "adventurer", currencyID = 3442 },
         { key = "veteran", currencyID = 3443 },
@@ -1321,7 +1358,7 @@ local function RunSuite(locale, expect)
     -- Fallback ohne API: exakt lesbarer bisheriger Plain-Text, kein halbes |T-Markup.
     C_CurrencyInfo = nil
     WAT:RefreshUI()
-    local plainText = WAT.panels.overview.rows[1].values.crests.text or ""
+    local plainText = SourcesCrestText()
     assert(not string.find(plainText, "|T", 1, true),
         context("ohne C_CurrencyInfo darf kein Texturmarkup entstehen, erhalten: " .. plainText))
     for _, expected in ipairs({ "A 200", "V 160", "C 120", "H 60", "M 15" }) do
@@ -1383,7 +1420,7 @@ local function RunSuite(locale, expect)
         C_CurrencyInfo = { GetCurrencyInfo = case.getter }
         local ok, err = pcall(function() WAT:RefreshUI() end)
         assert(ok, context("RefreshUI darf bei '" .. case.name .. "' nicht scheitern: " .. tostring(err)))
-        local text = WAT.panels.overview.rows[1].values.crests.text or ""
+        local text = SourcesCrestText()
         assert(not string.find(text, "|T", 1, true),
             context("'" .. case.name .. "' darf kein Texturmarkup erzeugen, erhalten: " .. text))
         for _, expected in ipairs({ "A 200", "V 160", "C 120", "H 60", "M 15" }) do
@@ -1397,7 +1434,7 @@ local function RunSuite(locale, expect)
     -- Datentabelle muss sich im Fallback zeigen, sonst gäbe es eine zweite Wahrheit.
     WAT.Data.CRESTS.champion.short = "Z"
     WAT:RefreshUI()
-    local shortText = WAT.panels.overview.rows[1].values.crests.text or ""
+    local shortText = SourcesCrestText()
     assert(string.find(shortText, "Z 120", 1, true),
         context("Fallback-Buchstabe kommt nicht aus Data.CRESTS[key].short, erhalten: " .. shortText))
     WAT.Data.CRESTS.champion.short = "C"
@@ -1442,6 +1479,10 @@ local function RunSuite(locale, expect)
     local dictionary = WAT.Localization.dictionaries[WAT.Localization.locale]
     local function FindLocaleText(value, seen, path)
         if type(value) == "string" then
+            -- Berufsnamen stammen clientlokalisiert aus GetProfessionInfo und
+            -- sind kein eigener Text; "Alchemie" gleicht nur zufällig dem
+            -- eigenen Bereichslabel WQ_PROF_171 der Wochenquest-Seite.
+            if string.find(path, "%.professions%.%d+%.name$") then return nil end
             for key, translated in pairs(dictionary) do
                 -- Kurze Werte wie "N" oder "+" sind zu unspezifisch.
                 if #translated >= 6 and value == translated then
@@ -2192,6 +2233,24 @@ local function RunWeeklyQuestRenderingSuite()
     assert(string.find(midnightLegacy, "done", 1, true),
         "[quest-render] alter Midnight-Snapshot ohne neue Felder ist nicht lesbar: " .. midnightLegacy)
 
+    -- Liadrin bietet die Ritualstätten selbst an: dieselbe Quest zählt einmal,
+    -- die Ritualspalte verweist nur noch auf die Wochenquest.
+    character.weekly.midnightWeekly = {
+        questID = 95843, active = true, completed = false, variantKnown = true, updated = 995,
+    }
+    character.weekly.ritualSites = { questID = 95843, active = true, completed = false, percent = 40, updated = 995 }
+    local ritualCell = FirstRow("midnight").values.ritual.text or ""
+    assert(string.find(ritualCell, "see weekly quest", 1, true),
+        "[quest-render] Ritualspalte muss bei gleicher Quest auf die Wochenquest verweisen: " .. ritualCell)
+    assert(not string.find(ritualCell, "40%", 1, true),
+        "[quest-render] Ritualstätten dürfen nicht als zweiter Fortschritt erscheinen: " .. ritualCell)
+    character.weekly.ritualSites = { questID = 95843, active = true, completed = false, percent = 40, updated = 995 }
+    character.weekly.midnightWeekly.questID = 93909
+    local separateRitual = FirstRow("midnight").values.ritual.text or ""
+    assert(string.find(separateRitual, "40%", 1, true),
+        "[quest-render] andere Wochenquest lässt die Ritualspalte unverändert: " .. separateRitual)
+    character.weekly.ritualSites = nil
+
     local profession = character.weekly.professions[1]
     profession.weeklyDone = false
     profession.weeklyQuest = {
@@ -2679,9 +2738,10 @@ RunDundunLocaleSuite("frFR", {
 })
 RunEasterEggSuite()
 
-print("LUA UI RUNTIME OK: 7/7 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10/318,"
+print("LUA UI RUNTIME OK: 8/8 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10/318,"
+    .. " entlastete Übersicht ohne Wappen-/Truhenduplikate, Ritual-Verweis statt Doppelzählung,"
     .. " Saison-2-Wappenquellen mit M+ ab +9 und fünf Nebelwappenbeständen,"
-    .. " offene Berufs-Wochenquest und Wappensymbole"
+    .. " offene Berufs-Wochenquest und Wappensymbole in den Wappenquellen"
     .. " (3442/3443/3444/3445/3446) inklusive 8 Fehlerfälle, short aus Data.CRESTS,"
     .. " keine iconFileID und kein Locale-Text in der DB, questID schlägt Legacy-Label,"
     .. " Dungeon-ID statt fremdsprachigem Namen, Statistiken als Bereichs-Dashboard"
