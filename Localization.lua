@@ -268,6 +268,13 @@ local enUS = {
     MINIMAP_DRAG = "Drag: change position",
 
     -- Einstellungsseite
+    SETTINGS_CHARACTERS = "Manage characters",
+    SETTINGS_CHARACTERS_EMPTY = "No recorded characters",
+    SETTINGS_CHARACTER_REMOVE = "Remove character",
+    SETTINGS_CHARACTER_CANCEL = "Cancel",
+    SETTINGS_CHARACTERS_DESC = "Removes only this character's saved WAT data. Logging in with WAT enabled records the character again.",
+    SETTINGS_CHARACTER_CURRENT = "This character is currently logged in. Log in on another character to remove this entry.",
+    SETTINGS_CHARACTER_CONFIRM = "Remove %s from WAT? All saved WAT data for this character will be lost.",
     SETTINGS_HEADING_WINDOW = "Window",
     SETTINGS_HEADING_MINIMAP = "Minimap button",
     SETTINGS_HEADING_SCALE = "Window scale",
@@ -817,6 +824,13 @@ local deDE = {
     MINIMAP_DRAG = "Ziehen: Position verändern",
 
     -- Einstellungsseite
+    SETTINGS_CHARACTERS = "Charaktere verwalten",
+    SETTINGS_CHARACTERS_EMPTY = "Keine gespeicherten Charaktere",
+    SETTINGS_CHARACTER_REMOVE = "Charakter entfernen",
+    SETTINGS_CHARACTER_CANCEL = "Abbrechen",
+    SETTINGS_CHARACTERS_DESC = "Entfernt nur die gespeicherten WAT-Daten dieses Charakters. Beim Einloggen mit aktiviertem WAT wird er erneut erfasst.",
+    SETTINGS_CHARACTER_CURRENT = "Dieser Charakter ist gerade eingeloggt. Zum Entfernen bitte auf einen anderen Charakter wechseln.",
+    SETTINGS_CHARACTER_CONFIRM = "%s aus WAT entfernen? Alle gespeicherten WAT-Daten dieses Charakters gehen verloren.",
     SETTINGS_HEADING_WINDOW = "Fenster",
     SETTINGS_HEADING_MINIMAP = "Minimap-Symbol",
     SETTINGS_HEADING_SCALE = "Fensterskalierung",

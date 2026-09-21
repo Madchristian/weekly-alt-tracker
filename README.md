@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.9.21
+
+Einzelne Charaktere lassen sich jetzt unter **Einstellungen → Charaktere verwalten** entfernen. Charakter mit den Pfeilen auswählen, **Charakter entfernen** anklicken und bestätigen. Der gerade eingeloggte Charakter ist geschützt; zum Entfernen auf einen anderen Charakter wechseln. Beim erneuten Einloggen mit aktiviertem WAT wird der Charakter wieder erfasst.
+
 ### Version 0.9.0
 
 Version **0.9.0** ergänzt die Seite **Wochenquests**, Filter, Suche und Sortierung sowie saisongebundene Held-Hinweise ohne Verbrauchszähler. Die acht Seiten umfassen eine entlastete Übersicht ohne doppelte Wappen- und Truhenspalten und einen Ritual-Verweis statt Doppelzählung auf der Midnight-Woche. Der Saison-2-Erkennungspool ist bereinigt (ohne die live obsolete Variante 93891, mit 96727 und 98232). Details stehen im [Changelog zu 0.9.0](wago/CHANGELOG-0.9.0.md).

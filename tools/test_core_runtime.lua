@@ -1050,6 +1050,28 @@ do
     end
 end
 
+-- Entfernen ist auf genau einen Offline-Datensatz begrenzt.
+do
+    local wat = Load("deDE")
+    wat.currentKey = "current"
+    local current, other = { name = "Main" }, { name = "Other" }
+    wat.db = { characters = { current = current, alt = { name = "Alt", weekly = { done = true } }, other = other },
+        settings = { characterOrder = { "current", "alt", "other" }, scale = 1.15 } }
+    check(type(wat.remove_character) == "function", "Charakter entfernen fehlt")
+    if wat.remove_character then
+        for _, key in ipairs({ "current", "missing", "", SECRET_VALUE, 42 }) do
+            checkEqual(wat:remove_character(key), false, "ungueltiges/aktives Ziel bleibt erhalten")
+        end
+        checkEqual(wat:remove_character("alt"), true, "Offline-Charakter entfernen")
+        checkEqual(wat.db.characters.alt, nil, "Snapshot entfernt")
+        checkEqual(wat.db.characters.current, current, "aktiver Charakter unveraendert")
+        checkEqual(wat.db.characters.other, other, "anderer Charakter unveraendert")
+        checkEqual(table.concat(wat.db.settings.characterOrder, ","), "current,other", "Sortierung bereinigt")
+        checkEqual(wat.db.settings.scale, 1.15, "Einstellungen erhalten")
+        checkEqual(wat:remove_character("alt"), false, "zweites Entfernen ist wirkungslos")
+    end
+end
+
 if failures > 0 then
     error(failures .. " Core-Runtime-Prüfungen fehlgeschlagen")
 end

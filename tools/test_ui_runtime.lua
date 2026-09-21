@@ -94,6 +94,7 @@ function Widget:SetShown(value) self.shown = value end
 function Widget:Show() self.shown = true end
 function Widget:Hide() self.shown = false end
 function Widget:IsShown() return self.shown end
+function Widget:RegisterEvent() end
 function Widget:SetScript(name, callback) self.scripts[name] = callback end
 function Widget:StartMoving() self.moving = true end
 function Widget:StopMovingOrSizing() self.moving = false end
@@ -473,6 +474,11 @@ local function RunSuite(locale, expect)
     assert(WAT.Localization.locale == expect.resolvedLocale,
         context("Locale nicht wie erwartet aufgelöst: " .. tostring(WAT.Localization.locale)))
     LoadInto(WAT, "Data.lua")
+    local core = {}
+    SlashCmdList = {}
+    LoadInto(core, "Core.lua")
+    WAT.remove_character = core.remove_character
+    WAT.NormalizeCharacterOrder = core.NormalizeCharacterOrder
     LoadInto(WAT, "UI.lua")
     WAT:CreateUI()
 
@@ -1308,7 +1314,65 @@ local function RunSuite(locale, expect)
             .. tostring(refreshReasons[1])))
     WAT.Refresh = savedRefresh
 
-    -- Keine zerstörerische Aktion auf der Seite.
+    -- Auswahl allein und Abbrechen duerfen keine gespeicherten Daten entfernen.
+    assert(controls.character_next and controls.character_remove,
+        context("Charakterverwaltung fehlt"))
+    local selected_key = controls.character_key
+    local selected_record = WAT.db.characters[selected_key]
+    controls.character_remove.scripts.OnClick()
+    assert(controls.character_confirm:IsShown(), context("Bestaetigung fehlt"))
+    assert(WAT.db.characters[selected_key] == selected_record, context("vor Bestaetigung entfernt"))
+    controls.character_cancel.scripts.OnClick()
+    assert(not controls.character_confirm:IsShown(), context("Abbrechen schliesst nicht"))
+    assert(WAT.db.characters[selected_key] == selected_record, context("Abbrechen hat Daten entfernt"))
+    controls.character_remove.scripts.OnClick()
+    controls.character_next.scripts.OnClick()
+    assert(not controls.character_confirm:IsShown(), context("Auswahlwechsel muss Bestaetigung verwerfen"))
+
+    local saved_order = {}
+    for index, key in ipairs(WAT:NormalizeCharacterOrder()) do saved_order[index] = key end
+    controls.character_key = selected_key
+    WAT:UpdateSettingsState()
+    WAT.panels.statistics.scopeKey = selected_key
+    WAT.panels.weeklies.filter.characterKey = selected_key
+    controls.character_remove.scripts.OnClick()
+    controls.character_confirm.scripts.OnClick()
+    assert(WAT.db.characters[selected_key] == nil, context("Bestaetigen entfernt Datensatz nicht"))
+    for _, key in ipairs(WAT.db.settings.characterOrder) do
+        assert(key ~= selected_key, context("entfernter Charakter noch in Sortierung"))
+    end
+    assert(WAT.panels.statistics.scopeKey ~= selected_key, context("Statistikauswahl veraltet"))
+    WAT:SetActiveTab("weeklies")
+    assert(WAT.panels.weeklies.filter.characterKey ~= selected_key, context("Katalogfilter veraltet"))
+    for _, row in ipairs(WAT.panels.overview.rows) do
+        assert(row.character ~= selected_record, context("entfernter Charakter noch in Uebersicht"))
+    end
+    WAT.db.characters[selected_key] = selected_record
+    WAT.db.settings.characterOrder = saved_order
+    WAT:SetActiveTab("settings")
+    controls.character_key = selected_key
+    local saved_current_key = WAT.currentKey
+    WAT.currentKey = selected_key
+    WAT:UpdateSettingsState()
+    assert(not controls.character_remove:IsShown(), context("aktiver Charakter hat Entfernen-Button"))
+    controls.character_remove.scripts.OnClick()
+    controls.character_confirm.scripts.OnClick()
+    assert(WAT.db.characters[selected_key] == selected_record, context("aktiver Charakter entfernt"))
+    WAT.currentKey = saved_current_key
+    WAT:UpdateSettingsState()
+    controls.character_remove.scripts.OnClick()
+    WAT.panels.settings.scripts.OnHide()
+    assert(not controls.character_confirm:IsShown(), context("Schliessen verwirft Bestaetigung nicht"))
+    local saved_characters = WAT.db.characters
+    WAT.db.characters = {}
+    WAT:RefreshUI()
+    assert(not controls.character_remove:IsShown(), context("leere Liste erlaubt Entfernen"))
+    assert(not controls.character_next:IsShown(), context("leere Liste hat Blaetterpfeile"))
+    WAT.db.characters = saved_characters
+    WAT.db.settings.characterOrder = saved_order
+    WAT:RefreshUI()
+
+    -- Kein Button zum Loeschen der gesamten Datenbank.
     for _, forbidden in ipairs({ "wipe", "Wipe", "delete", "Delete" }) do
         assert(controls[forbidden] == nil,
             context("zerstörerisches Bedienelement auf der Einstellungsseite: " .. forbidden))

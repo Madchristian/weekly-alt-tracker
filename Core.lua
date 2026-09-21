@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "0.9.0"
+WAT.version = "2026.9.21"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -354,6 +354,16 @@ function WAT:MoveCharacterOrder(sourceKey, targetKey)
     -- per Drag-and-drop erreichbar.
     table.insert(order, targetIndex, sourceKey)
     self.db.settings.characterOrder = order
+    return true
+end
+
+-- Der aktive Charakter wird laufend gescannt und kann deshalb nicht entfernt werden.
+function WAT:remove_character(character_key)
+    if not IsValidOrderKey(character_key) or character_key == self.currentKey then return false end
+    if not self.db or type(self.db.characters) ~= "table"
+            or type(self.db.characters[character_key]) ~= "table" then return false end
+    self.db.characters[character_key] = nil
+    self:NormalizeCharacterOrder()
     return true
 end
 

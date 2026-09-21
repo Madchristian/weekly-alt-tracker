@@ -1725,6 +1725,50 @@ local function SetFormButtonActive(button, active)
     button.label:SetTextColor(1, 1, 1, 0.62)
 end
 
+local function update_character_controls(controls)
+    local character_keys = WAT:NormalizeCharacterOrder()
+    local selected_index = 1
+    for index, key in ipairs(character_keys) do
+        if key == controls.character_key then selected_index = index end
+    end
+    local character_key = character_keys[selected_index]
+    controls.character_key = character_key
+    local character = character_key and WAT.db.characters[character_key]
+    local character_name = character and ((character.name or L("CHARACTER_UNKNOWN"))
+        .. "-" .. (character.realm or L("CHARACTER_UNKNOWN"))) or L("SETTINGS_CHARACTERS_EMPTY")
+    controls.character_name:SetText(character_name)
+    local removable = character ~= nil and character_key ~= WAT.currentKey
+    if controls.pending_character_key ~= character_key or not removable then
+        controls.pending_character_key = nil
+    end
+    local pending = controls.pending_character_key ~= nil
+    controls.character_remove:SetShown(removable and not pending)
+    controls.character_confirm:SetShown(pending)
+    controls.character_cancel:SetShown(pending)
+    controls.character_previous:SetShown(#character_keys > 1)
+    controls.character_next:SetShown(#character_keys > 1)
+    local description = L("SETTINGS_CHARACTERS_DESC")
+    if pending then
+        description = L("SETTINGS_CHARACTER_CONFIRM", character_name)
+    elseif character and character_key == WAT.currentKey then
+        description = L("SETTINGS_CHARACTER_CURRENT")
+    end
+    controls.character_description:SetText(description)
+end
+
+local function step_settings_character(controls, direction)
+    local character_keys = WAT:NormalizeCharacterOrder()
+    local selected_index = 1
+    for index, key in ipairs(character_keys) do
+        if key == controls.character_key then selected_index = index end
+    end
+    controls.pending_character_key = nil
+    if #character_keys > 0 then
+        controls.character_key = character_keys[(selected_index - 1 + direction) % #character_keys + 1]
+    end
+    update_character_controls(controls)
+end
+
 function WAT:UpdateSettingsState()
     local controls = self.settingsControls
     if not controls then return end
@@ -1735,6 +1779,7 @@ function WAT:UpdateSettingsState()
     local hidden = self.db.settings.minimapHidden == true
     SetFormButtonActive(controls.minimapShow, not hidden)
     SetFormButtonActive(controls.minimapHide, hidden)
+    update_character_controls(controls)
 end
 
 function WAT:SetMinimapHidden(hidden)
@@ -1795,25 +1840,61 @@ local function CreateSettingsPanel(parent, definition)
     controls.resetPosition:SetScript("OnClick", function() WAT:ResetPosition() end)
     Description(L("SETTINGS_WINDOW_DESC"), -64)
 
-    controls.headingMinimap = Heading(L("SETTINGS_HEADING_MINIMAP"), -108)
-    controls.minimapShow = Button(L("SETTINGS_MINIMAP_SHOW"), 120, 0, -134)
+    controls.headingMinimap = Heading(L("SETTINGS_HEADING_MINIMAP"), -82)
+    controls.minimapShow = Button(L("SETTINGS_MINIMAP_SHOW"), 120, 0, -108)
     controls.minimapShow:SetScript("OnClick", function() WAT:SetMinimapHidden(false) end)
-    controls.minimapHide = Button(L("SETTINGS_MINIMAP_HIDE"), 120, 132, -134)
+    controls.minimapHide = Button(L("SETTINGS_MINIMAP_HIDE"), 120, 132, -108)
     controls.minimapHide:SetScript("OnClick", function() WAT:SetMinimapHidden(true) end)
-    Description(L("SETTINGS_MINIMAP_DESC"), -172)
+    Description(L("SETTINGS_MINIMAP_DESC"), -146)
 
-    controls.headingScale = Heading(L("SETTINGS_HEADING_SCALE"), -216)
+    controls.headingScale = Heading(L("SETTINGS_HEADING_SCALE"), -182)
     for index, scale in ipairs(SCALE_PRESETS) do
         -- Lua 5.1: der Wert muss pro Durchlauf gebunden werden, sonst sehen
         -- alle Klickziele denselben letzten Schleifenwert.
         local presetScale = scale
         local percent = math.floor(presetScale * 100 + 0.5)
-        local button = Button(L("SETTINGS_SCALE_PERCENT", percent), 84, (index - 1) * 92, -242)
+        local button = Button(L("SETTINGS_SCALE_PERCENT", percent), 84, (index - 1) * 92, -208)
         button.scale = presetScale
         button:SetScript("OnClick", function() WAT:SetScalePreset(presetScale) end)
         controls.scalePresets[index] = button
     end
-    Description(L("SETTINGS_SCALE_DESC"), -280)
+    Description(L("SETTINGS_SCALE_DESC"), -246)
+
+    controls.character_heading = Heading(L("SETTINGS_CHARACTERS"), -280)
+    controls.character_previous = Button("<", 34, 0, -304)
+    controls.character_next = Button(">", 34, 42, -304)
+    controls.character_name = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    controls.character_name:SetPoint("TOPLEFT", 90, -313)
+    controls.character_name:SetWidth(430)
+    controls.character_name:SetJustifyH("LEFT")
+    controls.character_name:SetWordWrap(false)
+    controls.character_name:SetMaxLines(1)
+    controls.character_remove = Button(L("SETTINGS_CHARACTER_REMOVE"), 180, 540, -304)
+    controls.character_description = Description(L("SETTINGS_CHARACTERS_DESC"), -342)
+    controls.character_confirm = Button(L("SETTINGS_CHARACTER_REMOVE"), 180, 540, -370)
+    controls.character_cancel = Button(L("SETTINGS_CHARACTER_CANCEL"), 140, 732, -370)
+    controls.character_previous:SetScript("OnClick", function() step_settings_character(controls, -1) end)
+    controls.character_next:SetScript("OnClick", function() step_settings_character(controls, 1) end)
+    controls.character_remove:SetScript("OnClick", function()
+        controls.pending_character_key = controls.character_key
+        update_character_controls(controls)
+    end)
+    controls.character_cancel:SetScript("OnClick", function()
+        controls.pending_character_key = nil
+        update_character_controls(controls)
+    end)
+    controls.character_confirm:SetScript("OnClick", function()
+        local character_key = controls.pending_character_key
+        controls.pending_character_key = nil
+        if character_key and character_key == controls.character_key then
+            WAT:remove_character(character_key)
+        end
+        WAT:RefreshUI()
+    end)
+    panel:SetScript("OnHide", function()
+        controls.pending_character_key = nil
+        update_character_controls(controls)
+    end)
 
     WAT.settingsControls = controls
     -- Der Titel steht im Seitenkopf; definition liefert ihn ueber SetActiveTab.

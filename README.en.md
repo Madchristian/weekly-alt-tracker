@@ -11,6 +11,10 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.9.21
+
+Remove individual characters under **Settings → Manage characters**. Select a character with the arrows, click **Remove character**, then confirm. The currently logged-in character is protected; log in on another character to remove it. Logging in with WAT enabled records the character again.
+
 ### Version 0.9.0
 
 Version **0.9.0** adds the **Weekly Quests** page, filters, search and sorting, plus season-bound Hero hints without consumption counters. The eight pages include a decluttered overview without duplicated crest and stash columns and a ritual reference instead of double counting on the Midnight Week page. The Season 2 recognition pool is cleaned up (without the live-obsolete variant 93891, with 96727 and 98232). See the [0.9.0 changelog](curseforge/CHANGELOG-0.9.0-en.md) for details.
