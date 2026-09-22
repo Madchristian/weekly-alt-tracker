@@ -2462,6 +2462,66 @@ RunHeroSuite("frFR")
 
 -- ---------------------------------------------------------------------------
 
+-- BNS333: the visible title, tooltip, search and sort use the client's quest name.
+do
+    ResetQuests()
+    player = { guid = "Player-Main", name = "Main", realm = "Realm", className = "Mage",
+        classFile = "MAGE", secondsUntilReset = 3600 }
+    quests[93909] = { onLog = true }
+    local titles, requests, timers = {}, {}, {}
+    C_QuestLog.GetTitleForQuestID = function(id) return titles[id] end
+    C_QuestLog.RequestLoadQuestByID = function(id) requests[id] = (requests[id] or 0) + 1 end
+    local old_after = C_Timer.After
+    C_Timer.After = function(_, callback) timers[#timers + 1] = callback end
+    local wat, on_event = StartAddon("frFR", { settings = { seenIntro = true } })
+    on_event(nil, "PLAYER_LOGIN")
+    wat.tabButtons.weeklies.scripts.OnClick()
+    local panel = wat.panels.weeklies
+    local row = FindHeroRow(panel, "Player-Main", "atalutek.purging-vaults")
+    check(row and PlainText(row.values.quest.text) == "Purging the Vaults", "uncached name uses fallback")
+    check(requests[95520] == 1, "single quest requested once")
+    local snapshot = DeepCopy(wat.db.characters)
+    timers = {}
+    local calls_before = TotalQuestCalls()
+    titles[95520] = "ZZZZ Purifier les chambres"
+    titles[96995] = "AAAA Repousser la vague"
+    titles[93909] = "Une mission de Liadrin"
+    on_event(nil, "QUEST_DATA_LOAD_RESULT", 95520, true)
+    on_event(nil, "QUEST_DATA_LOAD_RESULT", 96995, true)
+    on_event(nil, "QUEST_DATA_LOAD_RESULT", 93909, true)
+    check(#timers == 1, "load results coalesce into one display refresh")
+    for _, callback in ipairs(timers) do callback() end
+    checkEqual(TotalQuestCalls(), calls_before, "title loading does not rescan progress")
+    check(DeepEqual(wat.db.characters, snapshot), "title loading does not mutate snapshots")
+    row = FindHeroRow(panel, "Player-Main", "atalutek.purging-vaults")
+    check(row and PlainText(row.values.quest.text) == titles[95520], "visible title uses French client name")
+    if row then
+        row.scripts.OnEnter(row)
+        check(string.find(table.concat(GameTooltip.lines, " "), titles[95520], 1, true) ~= nil,
+            "tooltip uses French title")
+    end
+    local pool = FindHeroRow(panel, "Player-Main", "meta.liadrin")
+    check(pool and string.find(PlainText(pool.values.quest.text), ": " .. titles[93909], 1, true),
+        "pool retains heading and displays client variant title")
+    panel.searchBox:SetText("Purifier")
+    panel.searchBox.scripts.OnTextChanged(panel.searchBox, true)
+    check(#panel.list == 1 and panel.list[1].entryKey == "atalutek.purging-vaults", "search finds client title")
+    panel.searchBox:SetText("")
+    panel.searchBox.scripts.OnTextChanged(panel.searchBox, true)
+    wat:SetWeeklyCatalogSort("quest", false)
+    local purging_index, surge_index
+    for index, data in ipairs(panel.list) do
+        if data.entryKey == "atalutek.purging-vaults" then purging_index = index end
+        if data.entryKey == "coiled.turn-back-surge" then surge_index = index end
+    end
+    check(purging_index and surge_index and surge_index < purging_index, "sort uses client title")
+    timers = {}
+    on_event(nil, "QUEST_DATA_LOAD_RESULT", 123456, true)
+    check(#timers == 0, "unrequested result schedules no refresh")
+    C_Timer.After = old_after
+    ResetQuests()
+end
+
 if failures > 0 then
     error(failures .. " Katalog-Runtime-Prüfungen fehlgeschlagen")
 end

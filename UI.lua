@@ -2120,7 +2120,8 @@ local HERO_BONUS_TEXTS = {
     },
 }
 
--- Die einzige dynamische Lokalisierungsstelle der Katalogseite. Die Schluessel
+-- Addon-eigene Katalogtexte und Ersatzlabels. Konkrete Questnamen werden
+-- darunter bevorzugt aus der clientlokalisierten Quest-API gelesen. Die Schluessel
 -- kommen aus Data.WEEKLY_CATALOGS oder den Literaltabellen oben; test_v2.py
 -- prueft jedes WQ_-Literal, der Katalog-Harness jeden Datenschluessel samt
 -- Variantenlabel gegen beide Woerterbuecher.
@@ -2133,11 +2134,13 @@ local function CatalogVariantLabel(definition, entry)
     if definition.kind ~= "pool" or type(entry) ~= "table" or type(entry.questID) ~= "number" then return nil end
     local data = WAT.Data
     local labelKey = data and data.WeeklyVariantLabelKey and data.WeeklyVariantLabelKey(definition, entry.questID)
-    return CatalogText(labelKey)
+    return WAT.Localization.get_quest_title(entry.questID) or CatalogText(labelKey)
 end
 
 local function CatalogTitle(definition, entry)
-    local title = CatalogText(definition.titleKey) or L("STATUS_UNKNOWN")
+    local quest_id = definition.kind ~= "pool" and definition.questIDs and definition.questIDs[1]
+    local title = WAT.Localization.get_quest_title(quest_id)
+        or CatalogText(definition.titleKey) or L("STATUS_UNKNOWN")
     local variant = CatalogVariantLabel(definition, entry)
     if variant then return title .. ": " .. variant end
     return title
@@ -2204,8 +2207,7 @@ end
 local function CatalogMatchesSearch(data, needle)
     if needle == "" then return true end
     local definition = data.definition
-    local variant = CatalogVariantLabel(definition, data.entry) or ""
-    local haystack = CatalogSearchFold((CatalogText(definition.titleKey) or "") .. " " .. variant .. " "
+    local haystack = CatalogSearchFold(CatalogTitle(definition, data.entry) .. " "
         .. (CatalogText(definition.groupKey) or ""))
     return string.find(haystack, needle, 1, true) ~= nil
 end

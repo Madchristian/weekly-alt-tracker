@@ -216,6 +216,73 @@ check(okShort and type(shortValue) == "string",
 
 -- ---------------------------------------------------------------------------
 
+-- Client quest titles must win over fallback dictionaries, including unsupported UI locales.
+do
+    local wat = LoadWith(Constant("zhTW"))
+    local titles, requests = {}, {}
+    C_QuestLog = {
+        GetTitleForQuestID = function(id) return titles[id] end,
+        RequestLoadQuestByID = function(id) requests[id] = (requests[id] or 0) + 1 end,
+    }
+    local loc = wat.Localization
+    check(type(loc.get_quest_title) == "function", "client quest title resolver exists")
+    if loc.get_quest_title then
+        titles[1] = "每週任務"
+        check(loc.get_quest_title(1) == "每週任務", "client title independent of English UI fallback")
+        check(loc.get_quest_title(2) == nil, "uncached title returns nil")
+        loc.get_quest_title(2)
+        check(requests[2] == 1, "repeated renders issue only one load request")
+        titles[2] = "Une quête française"
+        check(loc.quest_data_loaded(2, true) == true, "successful requested load changes display")
+        check(loc.get_quest_title(2) == titles[2], "loaded title available")
+        check(loc.quest_data_loaded(2, true) == false, "duplicate result does not refresh again")
+        check(loc.quest_data_loaded(999, true) == false, "unrelated result ignored")
+        loc.get_quest_title(3)
+        check(loc.quest_data_loaded(3, false) == false, "failed load keeps fallback")
+        loc.get_quest_title(3)
+        check(requests[3] == 1, "failed loads do not cause a request loop")
+        for _, value in ipairs({ SECRET_VALUE, "", 42, {} }) do
+            titles[4] = value
+            check(loc.get_quest_title(4) == nil, "invalid title rejected")
+        end
+        for _, id in ipairs({ SECRET_VALUE, -1, 0, 1.5, math.huge, "2" }) do
+            check(loc.get_quest_title(id) == nil, "invalid quest ID rejected")
+        end
+        check(loc.get_quest_title(0/0) == nil, "NaN quest ID rejected")
+        C_QuestLog.GetTitleForQuestID = function() error("API unavailable") end
+        check(loc.get_quest_title(5) == nil, "throwing API returns fallback")
+        local failed_requests = 0
+        C_QuestLog = {
+            GetTitleForQuestID = function() return nil end,
+            RequestLoadQuestByID = function()
+                failed_requests = failed_requests + 1
+                error("request unavailable")
+            end,
+        }
+        check(loc.get_quest_title(8) == nil, "throwing load request keeps fallback")
+        loc.get_quest_title(8)
+        check(failed_requests == 1, "throwing load request does not loop")
+        C_QuestLog.GetTitleForQuestID = SECRET_VALUE
+        C_QuestLog.RequestLoadQuestByID = SECRET_VALUE
+        check(loc.get_quest_title(9) == nil, "secret API callables keep fallback")
+        C_QuestLog.GetTitleForQuestID = function(id) return titles[id] end
+        C_QuestLog.RequestLoadQuestByID = function() end
+        loc.get_quest_title(10)
+        check(loc.quest_data_loaded(10, SECRET_VALUE) == false, "secret success value ignored")
+        C_QuestLog.RequestLoadQuestByID = function(id)
+            titles[id] = "Synchronous title"
+            check(loc.quest_data_loaded(id, true), "synchronous result recognized as requested")
+        end
+        loc.get_quest_title(11)
+        check(loc.get_quest_title(11) == "Synchronous title", "reentrant result cached")
+        C_QuestLog = SECRET_VALUE
+        check(loc.get_quest_title(6) == nil, "secret namespace returns fallback")
+        C_QuestLog = nil
+        check(loc.get_quest_title(7) == nil, "missing namespace returns fallback")
+    end
+    C_QuestLog = nil
+end
+
 if failures > 0 then
     error(failures .. " Lokalisierungsprüfungen fehlgeschlagen")
 end

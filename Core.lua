@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "2026.9.21"
+WAT.version = "2026.9.22"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -552,11 +552,14 @@ local function RegisterEventSafely(event)
     return ok
 end
 
+local quest_title_refresh_pending = false
+
 WAT.events:SetScript("OnEvent", function(_, event, ...)
     if event == "ADDON_LOADED" then
         local loaded = ...
         if loaded ~= ADDON_NAME then return end
         WAT:InitializeDatabase()
+        RegisterEventSafely("QUEST_DATA_LOAD_RESULT")
         WAT:CreateUI()
         RegisterEventSafely("PLAYER_LOGIN")
         RegisterEventSafely("PLAYER_ENTERING_WORLD")
@@ -597,6 +600,14 @@ WAT.events:SetScript("OnEvent", function(_, event, ...)
         -- Todesmoment nicht sprunghaft, und Blizzards Antwort waere eine
         -- sichtbare Chatzeile bei jedem Tod.
         WAT:RefreshStatistics(event)
+    elseif event == "QUEST_DATA_LOAD_RESULT" then
+        if WAT.Localization.quest_data_loaded(...) and not quest_title_refresh_pending then
+            quest_title_refresh_pending = true
+            C_Timer.After(0, function()
+                quest_title_refresh_pending = false
+                if WAT.RefreshUI then WAT:RefreshUI() end
+            end)
+        end
     elseif event == "TIME_PLAYED_MSG" then
         -- Nur die Gesamtzeit wird gespeichert; die Levelzeit des zweiten
         -- Rueckgabewerts wird bewusst verworfen. RecordTimePlayed prueft den

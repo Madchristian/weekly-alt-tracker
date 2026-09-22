@@ -11,6 +11,10 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.9.22
+
+Weekly quest names and known pool variants now use the WoW client language. Missing names load automatically; search, sorting and tooltips use the same titles.
+
 ### Version 2026.9.21
 
 Remove individual characters under **Settings → Manage characters**. Select a character with the arrows, click **Remove character**, then confirm. The currently logged-in character is protected; log in on another character to remove it. Logging in with WAT enabled records the character again.
@@ -36,6 +40,8 @@ The language follows the WoW client automatically (`GetLocale`); there is no sep
 Names that come from the game – class, dungeon, item, profession and achievement – are never translated by the addon. They are always taken from the WoW API in the client's own language. The addon's own translation labels are no longer stored as the authoritative display source: for the Midnight weekly quest, professions and the keystone, stable IDs (`questID`, `baseSkillLineID`, `mapID`) are stored and resolved only when they are displayed – that runtime resolution wins over whatever the snapshot contains. Client-localized names supplied by the WoW API may still end up in the snapshot; they are kept for backwards compatibility and as a fallback. After restarting WoW with the changed client language, already-recorded data appears in the new language as well. If no localization is available at display time, the keystone view shows the language-neutral dungeon ID instead of a name stored in another language.
 
 The slash command `/wat` is identical in both languages; only its output is translated.
+
+The Weekly Quests page loads individual quest names and known pool variants from the WoW API in the client language, including French, Chinese and other clients using the English addon interface. Unavailable names are requested once per session; existing fallback labels remain visible until the data arrives. Display, search, sorting and tooltips use the same names. The title cache lasts only for the current session and does not modify saved character progress.
 
 ## What it tracks
 

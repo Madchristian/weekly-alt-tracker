@@ -1196,3 +1196,58 @@ end
 
 WAT.L = L
 Localization.Get = L
+
+-- Quest titles belong to the client locale, not the addon dictionary. Keep
+-- them in memory only: saved snapshots must remain portable between locales.
+local quest_titles, quest_requests, pending_quest_titles = {}, {}, {}
+
+local function safe_quest_id(quest_id)
+    return not (issecretvalue and issecretvalue(quest_id))
+        and type(quest_id) == "number" and quest_id > 0 and quest_id < math.huge
+        and quest_id % 1 == 0
+end
+
+local function quest_api_method(name)
+    if issecretvalue and issecretvalue(C_QuestLog) then return nil end
+    if type(C_QuestLog) ~= "table" then return nil end
+    local method = C_QuestLog[name]
+    if issecretvalue and issecretvalue(method) then return nil end
+    if type(method) == "function" then return method end
+end
+
+local function read_quest_title(quest_id)
+    local getter = quest_api_method("GetTitleForQuestID")
+    if not getter then return nil end
+    local ok, title = pcall(getter, quest_id)
+    if not ok or (issecretvalue and issecretvalue(title)) then return nil end
+    if type(title) == "string" and title ~= "" then return title end
+end
+
+function Localization.get_quest_title(quest_id)
+    if not safe_quest_id(quest_id) then return nil end
+    if quest_titles[quest_id] then return quest_titles[quest_id] end
+    local title = read_quest_title(quest_id)
+    if title then
+        quest_titles[quest_id] = title
+        return title
+    end
+    local request = quest_api_method("RequestLoadQuestByID")
+    if request and not quest_requests[quest_id] then
+        -- Set before the request, also guarding synchronous/reentrant results.
+        -- One attempt per session prevents failed/invalid IDs causing loops.
+        quest_requests[quest_id] = true
+        pending_quest_titles[quest_id] = true
+        if not pcall(request, quest_id) then pending_quest_titles[quest_id] = nil end
+    end
+    return nil
+end
+
+function Localization.quest_data_loaded(quest_id, success)
+    if not safe_quest_id(quest_id) or not pending_quest_titles[quest_id] then return false end
+    pending_quest_titles[quest_id] = nil
+    if (issecretvalue and issecretvalue(success)) or success ~= true then return false end
+    local title = read_quest_title(quest_id)
+    if not title then return false end
+    quest_titles[quest_id] = title
+    return true
+end

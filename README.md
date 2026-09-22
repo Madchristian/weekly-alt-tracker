@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.9.22
+
+Wochenquest-Namen und bekannte Pool-Varianten erscheinen jetzt in der WoW-Clientsprache. Fehlende Namen werden automatisch nachgeladen; Suche, Sortierung und Tooltips verwenden dieselben Titel.
+
 ### Version 2026.9.21
 
 Einzelne Charaktere lassen sich jetzt unter **Einstellungen → Charaktere verwalten** entfernen. Charakter mit den Pfeilen auswählen, **Charakter entfernen** anklicken und bestätigen. Der gerade eingeloggte Charakter ist geschützt; zum Entfernen auf einen anderen Charakter wechseln. Beim erneuten Einloggen mit aktiviertem WAT wird der Charakter wieder erfasst.
@@ -36,6 +40,8 @@ Die Sprache richtet sich automatisch nach dem WoW-Client (`GetLocale`); es gibt 
 Namen aus dem Spiel – Klasse, Dungeon, Gegenstand, Beruf und Erfolg – werden nie vom Addon übersetzt, sondern zur Laufzeit clientlokalisiert aus der WoW-API bezogen. Eigene Übersetzungslabels des Addons speichert der Snapshot nicht mehr als maßgebliche Anzeigequelle: Für Midnight-Wochenquest, Beruf und Schlüsselstein werden stabile IDs (`questID`, `baseSkillLineID`, `mapID`) abgelegt und erst beim Anzeigen aufgelöst – diese Laufzeitauflösung hat Vorrang vor allem, was im Snapshot steht. Von der WoW-API gelieferte, bereits clientlokalisierte Namen können weiterhin im Snapshot landen; sie dienen der Rückwärtskompatibilität und als Fallback. Nach einem Neustart von WoW mit der geänderten Clientsprache erscheint deshalb auch der bereits erfasste Altbestand in der neuen Sprache. Ist zur Anzeigezeit keine Lokalisierung verfügbar, zeigt die Schlüsselstein-Ansicht die sprachneutrale Dungeon-ID statt eines fremdsprachig gespeicherten Namens.
 
 Der Slash-Befehl `/wat` ist in beiden Sprachen identisch; nur seine Ausgabe ist übersetzt.
+
+Die Wochenquest-Seite lädt konkrete Questnamen und bekannte Pool-Varianten direkt aus der WoW-API in der Clientsprache – auch bei französischen, chinesischen und anderen Clients mit englischer Addon-Oberfläche. Noch nicht verfügbare Namen werden einmal pro Sitzung angefordert; bis zur Antwort bleiben die vorhandenen Ersatztexte sichtbar. Anzeige, Suche, Sortierung und Tooltips verwenden dieselben Namen. Der Namenscache gilt nur für die laufende Sitzung und verändert keine gespeicherten Charakterfortschritte.
 
 ## Enthalten
 
