@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.9.23
+
+Die Wochenquest-Seite bleibt auch mit breiteren Clientschriften wie zhTW lesbar: Beschriftungen schrumpfen oder werden gekürzt statt zu überlappen. Pool-Überschriften wie „Fortify the Runestones“ erscheinen in der Clientsprache, ohne den Titel doppelt zu zeigen.
+
 ### Version 2026.9.22
 
 Wochenquest-Namen und bekannte Pool-Varianten erscheinen jetzt in der WoW-Clientsprache. Fehlende Namen werden automatisch nachgeladen; Suche, Sortierung und Tooltips verwenden dieselben Titel.

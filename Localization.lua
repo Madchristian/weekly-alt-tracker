@@ -1251,3 +1251,38 @@ function Localization.quest_data_loaded(quest_id, success)
     quest_titles[quest_id] = title
     return true
 end
+
+-- Blizzard names pool variants "Pool: Variant"; zhTW/zhCN use the full-width
+-- colon. Returns heading and variant, or nil when either part is missing.
+local QUEST_TITLE_SEPARATORS = { ": ", "：" }
+
+local function trim(text)
+    return (string.gsub(text, "^%s+", ""):gsub("%s+$", ""))
+end
+
+function Localization.split_quest_title(title)
+    if (issecretvalue and issecretvalue(title)) or type(title) ~= "string" then return nil end
+    local best
+    for _, separator in ipairs(QUEST_TITLE_SEPARATORS) do
+        local first, last = string.find(title, separator, 1, true)
+        if first and (not best or first < best[1]) then best = { first, last } end
+    end
+    if not best then return nil end
+    local head = trim(string.sub(title, 1, best[1] - 1))
+    local tail = trim(string.sub(title, best[2] + 1))
+    if head == "" or tail == "" then return nil end
+    return head, tail
+end
+
+-- Client-localized pool heading: the prefix shared by EVERY variant title.
+-- All titles are requested; a missing or diverging one yields nil.
+function Localization.get_quest_title_prefix(quest_ids)
+    if (issecretvalue and issecretvalue(quest_ids)) or type(quest_ids) ~= "table" then return nil end
+    local heading, complete = nil, #quest_ids > 0
+    for _, quest_id in ipairs(quest_ids) do
+        local head = Localization.split_quest_title(Localization.get_quest_title(quest_id))
+        if not head or (heading and head ~= heading) then complete = false end
+        heading = heading or head
+    end
+    if complete then return heading end
+end

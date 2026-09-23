@@ -11,6 +11,10 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.9.23
+
+The Weekly Quests page stays readable with wider client fonts such as zhTW: labels shrink or truncate instead of overlapping. Pool headings such as "Fortify the Runestones" use the client language without repeating the title.
+
 ### Version 2026.9.22
 
 Weekly quest names and known pool variants now use the WoW client language. Missing names load automatically; search, sorting and tooltips use the same titles.
