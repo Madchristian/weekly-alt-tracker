@@ -283,6 +283,45 @@ do
     C_QuestLog = nil
 end
 
+-- Pool headings: Blizzard names pool variants "Pool: Variant" (zhTW/zhCN use
+-- the full-width colon). Only a prefix shared by EVERY variant is a heading.
+do
+    local wat = LoadWith(Constant("zhTW"))
+    local titles, requests = {}, {}
+    C_QuestLog = {
+        GetTitleForQuestID = function(id) return titles[id] end,
+        RequestLoadQuestByID = function(id) requests[id] = (requests[id] or 0) + 1 end,
+    }
+    local loc = wat.Localization
+    check(type(loc.get_quest_title_prefix) == "function", "pool heading resolver exists")
+    check(type(loc.split_quest_title) == "function", "quest title splitter exists")
+    if loc.get_quest_title_prefix and loc.split_quest_title then
+        local head, tail = loc.split_quest_title("Fortify the Runestones: Magisters")
+        check(head == "Fortify the Runestones" and tail == "Magisters", "ASCII colon splits heading and variant")
+        head, tail = loc.split_quest_title("強化符文石：魔導師")
+        check(head == "強化符文石" and tail == "魔導師", "full-width colon splits heading and variant")
+        check(loc.split_quest_title("驅除黑暗") == nil, "title without separator has no heading")
+        check(loc.split_quest_title(": Magisters") == nil, "empty heading rejected")
+        check(loc.split_quest_title("Heading:") == nil, "empty variant rejected")
+
+        titles[101] = "強化符文石：魔導師"
+        check(loc.get_quest_title_prefix({ 101, 102 }) == nil, "missing variant title gives no heading")
+        check(requests[102] == 1, "every variant title is requested")
+        titles[102] = "強化符文石：血騎士"
+        check(loc.get_quest_title_prefix({ 101, 102 }) == "強化符文石", "shared prefix becomes heading")
+        titles[201] = "Midnight: Void Assaults"
+        titles[202] = "Darkness Unmade"
+        check(loc.get_quest_title_prefix({ 201, 202 }) == nil, "variants without shared prefix give no heading")
+        titles[203] = "Midnight: Arcantina"
+        titles[204] = "Other: Arcantina"
+        check(loc.get_quest_title_prefix({ 203, 204 }) == nil, "different prefixes give no heading")
+        check(loc.get_quest_title_prefix({}) == nil, "empty pool gives no heading")
+        check(loc.get_quest_title_prefix(nil) == nil, "missing pool gives no heading")
+        check(loc.get_quest_title_prefix(SECRET_VALUE) == nil, "secret pool gives no heading")
+    end
+    C_QuestLog = nil
+end
+
 if failures > 0 then
     error(failures .. " Lokalisierungsprüfungen fehlgeschlagen")
 end

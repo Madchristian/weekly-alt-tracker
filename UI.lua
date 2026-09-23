@@ -6,6 +6,8 @@ local CONTENT_WIDTH = 920
 local ROW_HEIGHT = 38
 local HEADER_HEIGHT = 36
 local SIDEBAR_WIDTH = 176
+-- Rechter Innenabstand jeder Seitenleistenbeschriftung zur Trennlinie.
+local SIDEBAR_TEXT_INSET = 12
 local CONTENT_LEFT = 196
 local SCROLLBAR_GUTTER = 18
 
@@ -248,6 +250,43 @@ local function SetBackdrop(frame, background, border)
     })
     frame:SetBackdropColor(background[1], background[2], background[3], background[4])
     frame:SetBackdropBorderColor(border[1], border[2], border[3], border[4])
+end
+
+-- Clientschriften sind verschieden breit: zhTW, zhCN und koKR zeichnen
+-- lateinische Buchstaben deutlich breiter als Friz Quadrata. Eine feste
+-- Beschriftung schrumpft deshalb bis MIN_FIT_FONT_SIZE und wird erst danach
+-- einzeilig mit Auslassungspunkten gekuerzt - sie ragt nie ueber ihre Breite.
+local MIN_FIT_FONT_SIZE = 8
+
+local function MeasureLabel(label)
+    local measure = label.GetUnboundedStringWidth or label.GetStringWidth
+    if not measure then return nil end
+    local ok, width = pcall(measure, label)
+    if ok and type(width) == "number" then return width end
+end
+
+local function FitLabel(label, width)
+    label.fitWidth = width
+    label:SetWidth(width)
+    label:SetWordWrap(false)
+    label:SetMaxLines(1)
+    if not label.baseSize then
+        if not label.GetFont then return end
+        local font, size, flags = label:GetFont()
+        if type(font) ~= "string" or type(size) ~= "number" or size <= 0 then return end
+        label.baseFont, label.baseSize, label.baseFlags = font, size, flags
+    end
+    label:SetFont(label.baseFont, label.baseSize, label.baseFlags)
+    local natural = MeasureLabel(label)
+    if not natural or natural <= width then return end
+    local size = math.max(MIN_FIT_FONT_SIZE, math.floor(label.baseSize * width / natural))
+    label:SetFont(label.baseFont, size, label.baseFlags)
+end
+
+-- Neuer Text in einer eingepassten Beschriftung: dieselbe Breite, neu gemessen.
+local function SetFittedText(label, text)
+    label:SetText(text)
+    if label.fitWidth then FitLabel(label, label.fitWidth) end
 end
 
 local function FormatAge(timestamp)
@@ -1152,11 +1191,13 @@ local function CreateNavButton(parent, definition, y)
     marker:SetPoint("LEFT", 18, 0)
     marker:SetTextColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.75)
     marker:SetText(">")
+    FitLabel(marker, 14)
 
     local text = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     text:SetPoint("LEFT", 35, 0)
     text:SetJustifyH("LEFT")
     text:SetText(definition.shortLabel or definition.label)
+    FitLabel(text, SIDEBAR_WIDTH - 35 - SIDEBAR_TEXT_INSET)
     text:SetTextColor(1, 1, 1, 0.54)
 
     button.label = text
@@ -1686,6 +1727,9 @@ end
 -- bleiben im von Core.lua akzeptierten Bereich und sind reproduzierbar.
 -- ---------------------------------------------------------------------------
 
+-- Innenabstand der Beschriftung zu beiden Kanten einer Formularschaltflaeche.
+local FORM_BUTTON_TEXT_INSET = 6
+
 local function CreateFormButton(parent, label, width, x, y)
     local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
     button:SetSize(width, 30)
@@ -1695,6 +1739,7 @@ local function CreateFormButton(parent, label, width, x, y)
     text:SetPoint("CENTER")
     text:SetTextColor(1, 1, 1, 0.62)
     text:SetText(label)
+    FitLabel(text, width - 2 * FORM_BUTTON_TEXT_INSET)
     button.label = text
     button:SetScript("OnEnter", function(self)
         if self.active then return end
@@ -2041,6 +2086,10 @@ local CATALOG_VIEWPORT = FRAME_HEIGHT - 150 - 48 - CATALOG_TOP - HEADER_HEIGHT -
 local CATALOG_POOL_SIZE = math.floor(CATALOG_VIEWPORT / ROW_HEIGHT) + 2
 
 local CATALOG_CATEGORY_ORDER = { "all", "pve", "profession" }
+-- Kategorieknoepfe nach Textlaenge statt gleich breit: 52 + 4 + 52 + 4 + 88 =
+-- 200px. "Berufe"/"Professions" ist der laengste Text aller Sprachen.
+local CATALOG_CATEGORY_WIDTHS = { all = 52, pve = 52, profession = 88 }
+local CATALOG_CATEGORY_GAP = 4
 local CATALOG_CATEGORY_KEYS = {
     all = "WQ_FILTER_CATEGORY_ALL", pve = "WQ_FILTER_CATEGORY_PVE",
     profession = "WQ_FILTER_CATEGORY_PROFESSION",
@@ -2080,12 +2129,14 @@ local CATALOG_STATUS_RANK = { open = 1, active = 2, ready = 3, turnedIn = 4 }
 -- Sortiergruppe ohne vergleichbaren Wert: immer zuletzt, ohne erfundene Zahl.
 local CATALOG_SORT_NONE = 9
 -- Sortierleiste im freien rechten Streifen des Seitenkopfs, auf Hoehe der
--- Werkzeugleiste und buendig mit der Tabellenkante: 220 + 8 + 84 + 4 + 84 =
--- 400px, also x=520 bis 920. Der Seitenkopf endet 9px ueber dem Panel; die
+-- Werkzeugleiste und buendig mit der Tabellenkante: 180 + 8 + 104 + 4 + 104 =
+-- 400px, also x=520 bis 920. Die Richtungsknoepfe sind breiter als der
+-- Spaltenwechsel braucht, weil "Descending" in breiten Clientschriften
+-- (zhTW/koKR) sonst auf Mindestgroesse schrumpfen muesste. Der Seitenkopf endet 9px ueber dem Panel; die
 -- Leiste liegt 13px bis 43px darueber - ausserhalb von Filterleiste und
 -- Viewport, ohne eine Hoehe zu aendern.
-local CATALOG_SORT_CYCLE_WIDTH = 220
-local CATALOG_SORT_BUTTON_WIDTH = 84
+local CATALOG_SORT_CYCLE_WIDTH = 180
+local CATALOG_SORT_BUTTON_WIDTH = 104
 local CATALOG_SORT_WIDTH = CATALOG_SORT_CYCLE_WIDTH + 8 + CATALOG_SORT_BUTTON_WIDTH + 4 + CATALOG_SORT_BUTTON_WIDTH
 local CATALOG_SORT_TOP = 43
 -- Held-Bonus-Info im freien linken Teil desselben Kopfstreifens, auf der
@@ -2130,16 +2181,43 @@ local function CatalogText(catalogKey, ...)
     return L(catalogKey, ...)
 end
 
+-- Clientlokalisierte Poolueberschrift: Blizzard benennt Poolvarianten
+-- "Pool: Variante" (Runensteine, Leerenangriffe). Nur ein Anfang, den ALLE
+-- Varianten teilen, gilt; Liadrins Varianten haben keinen und bleiben beim
+-- Addontext.
+local function CatalogPoolHeading(definition)
+    if definition.kind ~= "pool" then return nil end
+    return WAT.Localization.get_quest_title_prefix(definition.questIDs)
+end
+
+-- Clienttitel der aktiven Poolvariante samt Aufteilung an der Poolueberschrift.
+-- variant ist der Teil nach der Ueberschrift, wenn der Titel mit ihr beginnt.
+local function CatalogClientVariant(definition, entry)
+    if definition.kind ~= "pool" or type(entry) ~= "table" or type(entry.questID) ~= "number" then return nil end
+    local title = WAT.Localization.get_quest_title(entry.questID)
+    if not title then return nil end
+    local heading = CatalogPoolHeading(definition)
+    local head, tail = WAT.Localization.split_quest_title(title)
+    if heading and head == heading then return title, tail end
+    return title, nil
+end
+
 local function CatalogVariantLabel(definition, entry)
     if definition.kind ~= "pool" or type(entry) ~= "table" or type(entry.questID) ~= "number" then return nil end
+    local title, variant = CatalogClientVariant(definition, entry)
+    if title then return variant or title end
     local data = WAT.Data
     local labelKey = data and data.WeeklyVariantLabelKey and data.WeeklyVariantLabelKey(definition, entry.questID)
-    return WAT.Localization.get_quest_title(entry.questID) or CatalogText(labelKey)
+    return CatalogText(labelKey)
 end
 
 local function CatalogTitle(definition, entry)
+    -- Ein Variantentitel, der die Poolueberschrift schon traegt, steht allein -
+    -- mit dem Trennzeichen des Clients statt doppelter Ueberschrift.
+    local clientTitle, clientVariant = CatalogClientVariant(definition, entry)
+    if clientVariant then return clientTitle end
     local quest_id = definition.kind ~= "pool" and definition.questIDs and definition.questIDs[1]
-    local title = WAT.Localization.get_quest_title(quest_id)
+    local title = WAT.Localization.get_quest_title(quest_id) or CatalogPoolHeading(definition)
         or CatalogText(definition.titleKey) or L("STATUS_UNKNOWN")
     local variant = CatalogVariantLabel(definition, entry)
     if variant then return title .. ": " .. variant end
@@ -2321,7 +2399,7 @@ end
 -- Leistenbeschriftung, markierte Richtungsschaltflaeche und sortierter Kopf.
 local function UpdateCatalogSortControls(panel)
     local sort = panel.sort
-    panel.sortFilter.label:SetText(L("WQ_SORT", CatalogText(CATALOG_SORT_KEYS[sort.column])))
+    SetFittedText(panel.sortFilter.label, L("WQ_SORT", CatalogText(CATALOG_SORT_KEYS[sort.column])))
     SetFormButtonActive(panel.sortFilter.button, sort.column ~= "catalog")
     SetFormButtonActive(panel.sortAscending, not sort.descending)
     SetFormButtonActive(panel.sortDescending, sort.descending)
@@ -2717,13 +2795,8 @@ local function CreateCycleFilter(panel, x, width, onStep, y)
     local prev = CreateFormButton(frame, "<", 26, 0, 0)
     local nextButton = CreateFormButton(frame, ">", 26, width - 26, 0)
     local button = CreateFormButton(frame, "", width - 60, 30, 0)
-    -- Ein langer Charaktername wird hart beschnitten statt in die Pfeile zu laufen.
+    -- Ein langer Charaktername wird zusaetzlich hart beschnitten statt in die Pfeile zu laufen.
     button:SetClipsChildren(true)
-    button.label:ClearAllPoints()
-    button.label:SetPoint("LEFT", 6, 0)
-    button.label:SetPoint("RIGHT", -6, 0)
-    button.label:SetWordWrap(false)
-    button.label:SetMaxLines(1)
     prev:SetScript("OnClick", function() onStep(-1) end)
     nextButton:SetScript("OnClick", function() onStep(1) end)
     button:SetScript("OnClick", function() onStep(1) end)
@@ -2752,12 +2825,15 @@ local function CreateWeeklyCatalogPanel(parent, definition)
     categoryFrame:SetSize(200, 30)
     categoryFrame:SetPoint("TOPLEFT", 268, -1)
     panel.categoryButtons = {}
-    for index, category in ipairs(CATALOG_CATEGORY_ORDER) do
+    local categoryLeft = 0
+    for _, category in ipairs(CATALOG_CATEGORY_ORDER) do
         local value = category
-        local button = CreateFormButton(categoryFrame, CatalogText(CATALOG_CATEGORY_KEYS[value]), 64,
-            (index - 1) * 68, 0)
+        local width = CATALOG_CATEGORY_WIDTHS[value]
+        local button = CreateFormButton(categoryFrame, CatalogText(CATALOG_CATEGORY_KEYS[value]), width,
+            categoryLeft, 0)
         button:SetScript("OnClick", function() WAT:SetWeeklyCatalogFilter("category", value) end)
         panel.categoryButtons[value] = button
+        categoryLeft = categoryLeft + width + CATALOG_CATEGORY_GAP
     end
     panel.statusFilter = CreateCycleFilter(panel, 476, 220, function(direction)
         WAT:SetWeeklyCatalogFilter("status", StepOption(CATALOG_STATUS_ORDER, panel.filter.status, direction))
@@ -2819,12 +2895,10 @@ local function CreateWeeklyCatalogPanel(parent, definition)
         { gold[1], gold[2], gold[3], 0.45 })
     heroButton:SetClipsChildren(true)
     local heroLabel = heroButton:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    heroLabel:SetPoint("LEFT", 8, 0)
-    heroLabel:SetPoint("RIGHT", -8, 0)
+    heroLabel:SetPoint("CENTER")
     heroLabel:SetJustifyH("CENTER")
-    heroLabel:SetWordWrap(false)
-    heroLabel:SetMaxLines(1)
     heroLabel:SetText(COLORS.heroGoldText .. L("WQ_HERO_BONUS_BUTTON") .. "|r")
+    FitLabel(heroLabel, CATALOG_HERO_WIDTH - 16)
     heroButton.label = heroLabel
     heroButton:SetScript("OnEnter", function(self)
         self:SetBackdropBorderColor(gold[1], gold[2], gold[3], 0.85)
@@ -2916,11 +2990,11 @@ local function UpdateCatalogFilterControls(panel, characters, characterKeys)
         end
     end
     panel.characterOptions = options
-    panel.characterFilter.label:SetText(label)
+    SetFittedText(panel.characterFilter.label, label)
     for category, button in pairs(panel.categoryButtons) do
         SetFormButtonActive(button, category == filter.category)
     end
-    panel.statusFilter.label:SetText(L("WQ_FILTER_STATUS", CatalogText(CATALOG_STATUS_KEYS[filter.status])))
+    SetFittedText(panel.statusFilter.label, L("WQ_FILTER_STATUS", CatalogText(CATALOG_STATUS_KEYS[filter.status])))
     SetFormButtonActive(panel.statusFilter.button, filter.status ~= "all")
 end
 
@@ -3084,20 +3158,37 @@ function WAT:CreateUI()
     brandLetter:SetPoint("CENTER", 0, 1)
     brandLetter:SetTextColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
     brandLetter:SetText("W")
+    FitLabel(brandLetter, 30)
 
+    -- Marke rechts neben dem Zeichen: 176 - (18 + 38 + 10) - 12 = 98px Text.
+    -- Die Version steht in einer eigenen Zeile, weil "TRACKER  YYYY.M.D" in
+    -- breiten Clientschriften nicht in eine Zeile dieser Breite passt.
+    local brandWidth = SIDEBAR_WIDTH - (18 + 38 + 10) - SIDEBAR_TEXT_INSET
     local brand = sidebar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    brand:SetPoint("TOPLEFT", brandMark, "TOPRIGHT", 10, -3)
+    brand:SetPoint("TOPLEFT", brandMark, "TOPRIGHT", 10, 3)
+    brand:SetJustifyH("LEFT")
     brand:SetTextColor(1, 1, 1, 0.96)
     brand:SetText("WeeklyAlt")
+    FitLabel(brand, brandWidth)
     local brandSub = sidebar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    brandSub:SetPoint("TOPLEFT", brand, "BOTTOMLEFT", 0, -4)
+    brandSub:SetPoint("TOPLEFT", brand, "BOTTOMLEFT", 0, -3)
+    brandSub:SetJustifyH("LEFT")
     brandSub:SetTextColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.9)
-    brandSub:SetText("TRACKER  " .. WAT.version)
+    brandSub:SetText("TRACKER")
+    FitLabel(brandSub, brandWidth)
+    local brandVersion = sidebar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    brandVersion:SetPoint("TOPLEFT", brandSub, "BOTTOMLEFT", 0, -3)
+    brandVersion:SetJustifyH("LEFT")
+    brandVersion:SetTextColor(1, 1, 1, 0.38)
+    brandVersion:SetText(WAT.version)
+    FitLabel(brandVersion, brandWidth)
 
     local sideHeading = sidebar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     sideHeading:SetPoint("TOPLEFT", 20, -88)
+    sideHeading:SetJustifyH("LEFT")
     sideHeading:SetTextColor(1, 1, 1, 0.34)
     sideHeading:SetText(L("CHROME_SIDEBAR_HEADING"))
+    FitLabel(sideHeading, SIDEBAR_WIDTH - 20 - SIDEBAR_TEXT_INSET)
 
     self.tabButtons = {}
     self.panels = {}
@@ -3124,8 +3215,10 @@ function WAT:CreateUI()
 
     local sideHint = sidebar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     sideHint:SetPoint("BOTTOMLEFT", 20, 18)
+    sideHint:SetJustifyH("LEFT")
     sideHint:SetTextColor(1, 1, 1, 0.30)
     sideHint:SetText(L("CHROME_SIDEBAR_HINT"))
+    FitLabel(sideHint, SIDEBAR_WIDTH - 20 - SIDEBAR_TEXT_INSET)
 
     local header = CreateFrame("Frame", nil, frame)
     header:SetPoint("TOPLEFT", CONTENT_LEFT, -1)
@@ -3196,10 +3289,11 @@ function WAT:CreateUI()
 
     local footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     footer:SetPoint("BOTTOMLEFT", CONTENT_LEFT, 17)
-    footer:SetPoint("BOTTOMRIGHT", -(20 + SCROLLBAR_GUTTER), 17)
     footer:SetJustifyH("LEFT")
     footer:SetTextColor(1, 1, 1, 0.38)
     footer:SetText(L("CHROME_LEGEND"))
+    FitLabel(footer, FRAME_WIDTH - CONTENT_LEFT - (20 + SCROLLBAR_GUTTER))
+    self.footer = footer
 
     self.frame = frame
     self:CreateMinimapButton()

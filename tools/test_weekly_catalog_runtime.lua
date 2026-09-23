@@ -105,6 +105,20 @@ function Widget:SetWordWrap(value) self.wordWrap = value end
 function Widget:SetClipsChildren(value) self.clipsChildren = value end
 function Widget:SetMaxLines(value) self.maxLines = value end
 function Widget:SetFont(...) self.font = { ... } end
+-- Schriftmetrik wie im Client: Breite waechst mit Zeichenzahl und Schriftgroesse.
+-- FONT_WIDTH_PER_POINT bildet die Clientschrift ab; zhTW/zhCN/koKR zeichnen
+-- lateinische Buchstaben deutlich breiter als Friz Quadrata (deDE/enUS/frFR).
+FONT_WIDTH_PER_POINT = 0.55
+local DEFAULT_FONT = { "Fonts\\FRIZQT__.TTF", 10, "" }
+function Widget:GetFont()
+    local font = self.font or DEFAULT_FONT
+    return font[1], font[2], font[3]
+end
+function Widget:GetUnboundedStringWidth()
+    local plain = tostring(self.text or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    local _, size = self:GetFont()
+    return utf8.len(plain) * size * FONT_WIDTH_PER_POINT
+end
 function Widget:SetFontObject(value) self.fontObject = value end
 function Widget:SetScale(value) self.scale = value end
 function Widget:SetFrameStrata(value) self.frameStrata = value end
@@ -2522,6 +2536,136 @@ do
     ResetQuests()
 end
 
+-- Nutzermeldung zhTW: Poolueberschriften stammen aus dem Client, sobald alle
+-- Varianten denselben Titelanfang tragen ("Fortify the Runestones: Magisters").
+-- Eine aktive Variante mit diesem Anfang erscheint genau einmal, nie als
+-- "Fortify the Runestones: Fortify the Runestones: Magisters".
+do
+    ResetQuests()
+    player = { guid = "Player-Main", name = "Main", realm = "Realm", className = "Mage",
+        classFile = "MAGE", secondsUntilReset = 3600 }
+    quests[90573] = { onLog = true }
+    local titles = {
+        [90573] = "強化符文石：魔導師", [90574] = "強化符文石：血騎士",
+        [90575] = "強化符文石：遠行者", [90576] = "強化符文石：暗巷之影",
+        [94385] = "虛無襲擊：永歌森林", [94386] = "虛無襲擊：祖阿曼",
+    }
+    C_QuestLog.GetTitleForQuestID = function(id) return titles[id] end
+    C_QuestLog.RequestLoadQuestByID = function() end
+    local wat, onEvent = StartAddon("enUS", { settings = { seenIntro = true } })
+    onEvent(nil, "PLAYER_LOGIN")
+    wat.tabButtons.weeklies.scripts.OnClick()
+    local panel = wat.panels.weeklies
+    local runestones = FindHeroRow(panel, "Player-Main", "soiree.runestones")
+    checkEqual(runestones and PlainText(runestones.values.quest.text), titles[90573],
+        "aktive Poolvariante zeigt den Clienttitel genau einmal")
+    local void = FindHeroRow(panel, "Player-Main", "void.assaults")
+    checkEqual(void and PlainText(void.values.quest.text), "虛無襲擊",
+        "offener Pool zeigt die clientlokalisierte Ueberschrift")
+    -- Zeilen sind gepoolt: nach dem Scrollen zum Leerenpool neu suchen.
+    runestones = FindHeroRow(panel, "Player-Main", "soiree.runestones")
+    if runestones then
+        runestones.scripts.OnEnter(runestones)
+        local tooltip = GameTooltip:TooltipText()
+        check(string.find(tooltip, "魔導師", 1, true) ~= nil, "Tooltip nennt die Variante")
+        check(string.find(tooltip, "強化符文石：強化符文石", 1, true) == nil
+            and string.find(tooltip, "強化符文石: 強化符文石", 1, true) == nil,
+            "Tooltip wiederholt die Ueberschrift nicht")
+        GameTooltip:Hide()
+    end
+    ResetQuests()
+end
+
+-- Nutzermeldung zhTW: die breitere Clientschrift liess Versionszeile und
+-- Seitenleistenhinweis in den Inhalt laufen und Kategorie-/Sortierknoepfe
+-- uebereinander. Jede feste Beschriftung muss einzeilig in ihre Breite passen:
+-- erst schrumpfen, ab der Mindestgroesse hart kuerzen - nie hinausragen.
+local MIN_FIT_FONT_SIZE = 8
+
+local function CheckLabelFits(label, container, what)
+    local width = label and label.fitWidth
+    check(type(width) == "number" and width > 0, what .. ": Beschriftung hat eine feste Breite")
+    if type(width) ~= "number" then return end
+    check(label.wordWrap == false and label.maxLines == 1, what .. ": Beschriftung bleibt einzeilig")
+    check(label.width == width, what .. ": Breite ist am FontString gesetzt")
+    if container and container.width then
+        check(width <= container.width, what .. ": Breite " .. width .. " passt in " .. container.width)
+    end
+    local _, size = label:GetFont()
+    local natural = label:GetUnboundedStringWidth()
+    check(natural <= width or size == MIN_FIT_FONT_SIZE,
+        what .. ": Text (" .. math.floor(natural) .. "px bei " .. size .. "pt) passt in " .. width
+        .. " oder ist auf Mindestgroesse gekuerzt")
+end
+
+-- Rechter Rand relativ zur Seitenleiste; die Kette der TOPLEFT-Anker wird
+-- bis zur Seitenleiste aufgeloest.
+local function SidebarLeft(region, sidebar)
+    local point = region.points[1]
+    if not point then return 0 end
+    local relative, x = point[2], point[4]
+    if type(relative) ~= "table" then return relative or 0 end
+    if relative == sidebar then return x end
+    local base = SidebarLeft(relative, sidebar)
+    if point[3] == "TOPRIGHT" or point[3] == "RIGHT" then base = base + (relative.width or 0) end
+    return base + x
+end
+
+do
+    ResetQuests()
+    FONT_WIDTH_PER_POINT = 0.95
+    player = { guid = "Player-Main", name = "五蘊皆空", realm = "暗影之月", className = "Mage",
+        classFile = "MAGE", secondsUntilReset = 3600 }
+    for _, locale in ipairs({ "enUS", "deDE" }) do
+        local function context(message) return "[breite Schrift " .. locale .. "] " .. message end
+        local wat, onEvent = StartAddon(locale, { settings = { seenIntro = true } })
+        onEvent(nil, "PLAYER_LOGIN")
+        wat.tabButtons.weeklies.scripts.OnClick()
+        wat:RefreshUI()
+        local sidebar = wat.sidebar
+        local function Walk(frame)
+            for _, child in ipairs(frame.children) do
+                if child.kind == "FontString" then
+                    local what = context("Seitenleiste '" .. PlainText(tostring(child.text)) .. "'")
+                    CheckLabelFits(child, nil, what)
+                    local left = child.parent == sidebar and SidebarLeft(child, sidebar) or 35
+                    check(left + (child.fitWidth or math.huge) <= sidebar.width,
+                        what .. ": endet innerhalb der Seitenleiste")
+                elseif child.kind ~= "Texture" then
+                    Walk(child)
+                end
+            end
+        end
+        Walk(sidebar)
+        local version = false
+        for _, child in ipairs(sidebar.children) do
+            if child.kind == "FontString" and string.find(tostring(child.text), wat.version, 1, true) then
+                version = true
+            end
+        end
+        check(version, context("Version bleibt in der Seitenleiste sichtbar"))
+
+        local panel = wat.panels.weeklies
+        for key, button in pairs(panel.categoryButtons) do
+            CheckLabelFits(button.label, button, context("Kategorie " .. key))
+        end
+        CheckLabelFits(panel.sortAscending.label, panel.sortAscending, context("Aufsteigend"))
+        CheckLabelFits(panel.sortDescending.label, panel.sortDescending, context("Absteigend"))
+        for _, name in ipairs({ "characterFilter", "statusFilter", "sortFilter" }) do
+            CheckLabelFits(panel[name].label, panel[name].button, context(name))
+        end
+        CheckLabelFits(panel.heroBonusButton.label, panel.heroBonusButton, context("Held-Info"))
+
+        -- Dynamische Texte werden beim Refresh neu eingepasst, nicht nur beim Anlegen.
+        wat:SetWeeklyCatalogFilter("status", "open")
+        CheckLabelFits(panel.statusFilter.label, panel.statusFilter.button, context("Status nach Wechsel"))
+        wat:SetWeeklyCatalogSort("character", true)
+        CheckLabelFits(panel.sortFilter.label, panel.sortFilter.button, context("Sortierung nach Wechsel"))
+    end
+    FONT_WIDTH_PER_POINT = 0.55
+    ResetQuests()
+end
+
 if failures > 0 then
     error(failures .. " Katalog-Runtime-Prüfungen fehlgeschlagen")
 end
@@ -2537,4 +2681,6 @@ print("LUA WEEKLY CATALOG RUNTIME OK: " .. EXPECTED_ENTRY_COUNT .. " freigegeben
     .. " Katalogreihenfolge, unbekannt/alte Woche am Ende, Filter/Scroll/Tooltip-Pooling, nur Sitzung)"
     .. " sowie Held-Hinweise (Markierung nur für die exakt kompatible Definition 95520, Pool-Recycling,"
     .. " alte Woche grau, Jagdbonus-Info mit Geometrie und Tooltip-Besitz, S3/fehlender Katalog ohne"
-    .. " Saison-2-Info, ohne Zähler und ohne Quest-API)")
+    .. " Saison-2-Info, ohne Zähler und ohne Quest-API) sowie breite Clientschrift (zhTW): Seitenleiste,"
+    .. " Kategorie-, Sortier-, Filter- und Held-Knöpfe einzeilig in ihrer Breite, auch nach Textwechsel,"
+    .. " und clientlokalisierte Poolüberschriften ohne doppelten Titelanfang")
