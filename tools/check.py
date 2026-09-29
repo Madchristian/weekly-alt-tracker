@@ -16,6 +16,11 @@ IMMUTABLE_RELEASE_VERSIONS = (
     "2026.9.29", "2026.9.23", "2026.9.22", "2026.9.21", "0.9.0", "0.8.0", "0.7.0", "0.6.1", "0.6.0", "0.5.0", "0.4.2", "0.4.1",
     "0.4.0", "0.3.1", "0.3.0", "0.2.6", "0.2.5", "0.2.4",
 )
+# Eingefrorener Archivbestand: bis einschliesslich 2026.9.29 wurde jede
+# Version zusaetzlich als wago/CHANGELOG-<version>.md veroeffentlicht. Neuere
+# Releases brauchen nur noch das DE/EN-Paar unter changelog/; diese Liste
+# waechst deshalb nicht mehr.
+WAGO_ARCHIVE_VERSIONS = IMMUTABLE_RELEASE_VERSIONS[IMMUTABLE_RELEASE_VERSIONS.index("2026.9.29"):]
 
 # Ein Unterprozess des Gates darf nie unbegrenzt haengen. Der Runtime-Test
 # startet selbst sieben Fengari-Laeufe und ggf. eine npm-Installation,
@@ -299,26 +304,53 @@ def check_icon_wiring() -> None:
     if readme.exists() and "Media/WeeklyAltTrackerIcon.tga" not in readme.read_text(encoding="utf-8"):
         error("README dokumentiert Media/WeeklyAltTrackerIcon.tga nicht als Paketinhalt")
 
-    changelog = ROOT / "CHANGELOG.md"
+    check_bilingual_changelog()
+
+
+def check_bilingual_changelog(
+    root: Path = ROOT,
+    inventory: tuple[str, ...] = IMMUTABLE_RELEASE_VERSIONS,
+) -> None:
+    """Zweisprachiges Changelog-Gate.
+
+    Jede inventarisierte Version braucht das vollstaendige Paar
+    changelog/CHANGELOG-<version>-en.md + -de.md. Der Generator selbst prueft
+    fail-closed Titel, leere, ueberschrift- oder platzhalterreine und
+    identische Sprachfassungen sowie fremde Dateien im Ordner. Hier kommen nur
+    die Dinge dazu, die der Generator nicht kennt: das eingefrorene Inventar
+    und der ebenfalls eingefrorene Wago-Archivbestand (nur historische
+    Versionen bis 2026.9.29; neue Releases brauchen kein Wago-Original).
+    """
+    if generate_changelog.RELEASE_VERSIONS != IMMUTABLE_RELEASE_VERSIONS:
+        error("Changelog-Generator und Gate verwenden unterschiedliche Release-Inventare")
+    for version in inventory:
+        for language in generate_changelog.LANGUAGES:
+            path = generate_changelog.note_path(root, version, language)
+            if not path.is_file():
+                error(f"Zweisprachiges Changelog: {path.relative_to(root).as_posix()} fehlt")
+    for version in WAGO_ARCHIVE_VERSIONS:
+        if version in inventory and not (root / "wago" / f"CHANGELOG-{version}.md").is_file():
+            error(f"Wago-Archivnotiz fehlt: wago/CHANGELOG-{version}.md")
+
+    changelog = root / "CHANGELOG.md"
     if not changelog.is_file():
         error("CHANGELOG.md mit der vollständigen öffentlichen Release-Historie fehlt")
-    else:
-        if generate_changelog.RELEASE_VERSIONS != IMMUTABLE_RELEASE_VERSIONS:
-            error("Changelog-Generator und Gate verwenden unterschiedliche Release-Inventare")
-        try:
-            expected_changelog, versions = generate_changelog.render(
-                ROOT, IMMUTABLE_RELEASE_VERSIONS
-            )
-        except generate_changelog.ChangelogError as exc:
-            error(f"Changelog-Generator: {exc}")
-        else:
-            actual_changelog = changelog.read_text(encoding="utf-8")
-            if actual_changelog != expected_changelog:
-                error(
-                    "CHANGELOG.md weicht vom deterministischen Generator fuer "
-                    f"{len(versions)} versionierte Release-Notizen ab; "
-                    "python tools/generate_changelog.py ausfuehren"
-                )
+        return
+    try:
+        expected_changelog, versions = generate_changelog.render(root, inventory)
+        actual_bytes = generate_changelog.read_utf8_bytes(changelog)
+    except (generate_changelog.ChangelogError, OSError, UnicodeError) as exc:
+        error(f"Changelog-Generator: {exc}")
+        return
+    actual_changelog = actual_bytes.decode("utf-8")
+    if actual_bytes != expected_changelog.encode("utf-8"):
+        error(
+            "CHANGELOG.md weicht vom deterministischen zweisprachigen Generator fuer "
+            f"{len(versions)} Release-Paare ab; python tools/generate_changelog.py ausfuehren"
+        )
+    for version in versions:
+        if actual_changelog.count(f"\n## {version}\n") != 1:
+            error(f"CHANGELOG.md fuehrt Version {version} nicht genau einmal")
 
 
 def pkgmeta_ignores() -> set[str]:

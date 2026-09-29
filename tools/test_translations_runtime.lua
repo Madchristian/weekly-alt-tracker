@@ -913,8 +913,9 @@ do
             if registered == "WeeklyAltTrackerTranslationFrame" then specialCount = specialCount + 1 end
         end
         checkEqual(specialCount, 1, "Editor genau einmal in UISpecialFrames (ESC)")
-        check(editor.frame.frameStrata == "DIALOG" or editor.frame.frameStrata == "FULLSCREEN_DIALOG",
-            "Editor liegt nicht über dem Hauptfenster")
+        checkEqual(WAT.frame.frameStrata, "DIALOG", "Hauptfenster-Ebene")
+        checkEqual(editor.frame.frameStrata, "FULLSCREEN_DIALOG",
+            "Editor muss oberhalb des DIALOG-Hauptfensters liegen")
         check(type(editor.frame.width) == "number" and editor.frame.width <= 900
                 and type(editor.frame.height) == "number" and editor.frame.height <= 560,
             "Editor ist nicht kompakt: " .. tostring(editor.frame.width) .. "x" .. tostring(editor.frame.height))
