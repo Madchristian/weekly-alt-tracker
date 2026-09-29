@@ -11,6 +11,10 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.9.29-2
+
+The **translation editor** now uses `FULLSCREEN_DIALOG` above the main window’s `DIALOG` layer. The complete **bilingual changelog** is generated deterministically from canonical English/German release-note pairs, with completeness and freshness gates before packaging. This release is explicitly authorized without an additional in-game test; the corrected layering has not been retested in the WoW client. Rendering, IME input, copy/paste and disk persistence remain unverified by the automated mocks. Details in the [2026.9.29-2 changelog](changelog/CHANGELOG-2026.9.29-2-en.md).
+
 ### Version 2026.9.29
 
 New **Translation editor** under **Settings → Translations** with five language packs (deDE, enUS, ruRU, zhCN, zhTW), search, a "Missing only" filter, text-only export and import with preview, and stable drafts. The addon does not ship Russian or Chinese translations; the feature lets you author and share your own packs, which the license explicitly permits. This release was deliberately published without an in-game test: client rendering, IME input and copy/paste are still unverified; fixed labels update after `/reload`. Details in the [2026.9.29 changelog](changelog/CHANGELOG-2026.9.29-en.md).

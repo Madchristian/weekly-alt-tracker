@@ -4,6 +4,44 @@ This file contains the complete public release history. Every version is listed 
 
 Diese Datei enthält die vollständige öffentliche Release-Historie. Jede Version steht genau einmal, zuerst Englisch, danach der deutsche Text. Frühere Einträge beschreiben den Stand der jeweils genannten Version und werden bei späteren Änderungen nicht rückwirkend umgeschrieben.
 
+## 2026.9.29-2
+
+### English
+
+#### Translation editor layering
+
+- The translation editor now uses `FULLSCREEN_DIALOG`, above the main window's `DIALOG` layer. The change is intended to keep the editor visible when you click the main window again.
+
+#### Complete bilingual release history
+
+- The cumulative `CHANGELOG.md` now contains every public release, each in English and German. The generator builds it deterministically from the canonical note pairs, with English first.
+- Completeness and freshness checks run before packaging; archived release notes remain unchanged.
+- Same-day calendar revisions use a numeric suffix: `2026.9.29-2` follows `2026.9.29` as a stable release, not a prerelease. Historical three-component versions remain supported.
+
+#### Validation limits and explicit test waiver
+
+- The user explicitly authorized this release without another in-game test. The runtime layering fix has not been validated in the WoW client.
+- Automated mocks cover Lua logic and UI callbacks, not actual client rendering, glyph coverage, IME input, clipboard copy/paste, or SavedVariables persistence on disk. These client behaviors remain unverified for this release.
+
+### Deutsch
+
+#### Fensterebene des Übersetzungseditors
+
+- Der Übersetzungseditor verwendet jetzt `FULLSCREEN_DIALOG` oberhalb der `DIALOG`-Ebene des Hauptfensters. Die Änderung soll verhindern, dass das Hauptfenster den Editor beim erneuten Anklicken verdeckt.
+
+#### Vollständiger zweisprachiger Änderungsverlauf
+
+- Die kumulative `CHANGELOG.md` enthält jetzt alle öffentlichen Releases auf Englisch und Deutsch. Der Generator erstellt sie deterministisch aus den kanonischen Notizpaaren, jeweils mit Englisch vor Deutsch.
+- Prüfungen auf Vollständigkeit und Aktualität laufen vor dem Packen; archivierte Release-Notizen bleiben unverändert.
+- Kalenderrevisionen am selben Tag erhalten einen numerischen Suffix: `2026.9.29-2` folgt auf `2026.9.29` als stabiles Release, nicht als Vorabversion. Historische dreiteilige Versionsnummern bleiben unterstützt.
+
+#### Prüfgrenzen und ausdrücklicher Testverzicht
+
+- Der Nutzer hat dieses Release ausdrücklich ohne weiteren In-Game-Test freigegeben. Die Korrektur der Fensterebene zur Laufzeit wurde nicht im WoW-Client validiert.
+- Automatisierte Mocks prüfen Lua-Logik und UI-Callbacks, nicht die tatsächliche Darstellung im Client, Schriftzeichenabdeckung, IME-Eingabe, Kopieren/Einfügen über die Zwischenablage oder SavedVariables-Speicherung auf Datenträger. Diese Client-Verhaltensweisen bleiben für dieses Release ungeprüft.
+
+---
+
 ## 2026.9.29
 
 ### English

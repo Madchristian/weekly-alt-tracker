@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.9.29-2
+
+Der **Übersetzungseditor** verwendet jetzt `FULLSCREEN_DIALOG` über der `DIALOG`-Ebene des Hauptfensters. Der vollständige **zweisprachige Änderungsverlauf** wird deterministisch aus kanonischen englischen/deutschen Release-Notizpaaren erzeugt; Prüfungen auf Vollständigkeit und Aktualität laufen vor dem Packen. Dieses Release ist ausdrücklich ohne zusätzlichen In-Game-Test freigegeben; die korrigierte Fensterebene wurde im WoW-Client nicht erneut getestet. Darstellung, IME-Eingabe, Kopieren/Einfügen und Speicherung auf Datenträger bleiben durch die automatisierten Mocks ungeprüft. Details im [Changelog zu 2026.9.29-2](changelog/CHANGELOG-2026.9.29-2-de.md).
+
 ### Version 2026.9.29
 
 Neuer **Übersetzungseditor** unter **Einstellungen → Übersetzungen** mit fünf Sprachpaketen (deDE, enUS, ruRU, zhCN, zhTW), Suche, Filter „Nur fehlende“, Export und Import als reiner Text mit Vorschau sowie stabilen Entwürfen. Das Addon liefert keine russischen oder chinesischen Übersetzungen mit; die Funktion erlaubt, eigene Pakete zu erstellen und zu teilen, was die Lizenz ausdrücklich gestattet. Dieses Release wurde bewusst ohne In-Game-Test veröffentlicht: Darstellung, IME-Eingabe und Kopieren/Einfügen im Client sind noch ungeprüft; feste Beschriftungen aktualisieren sich nach `/reload`. Details im [Changelog zu 2026.9.29](wago/CHANGELOG-2026.9.29.md).
