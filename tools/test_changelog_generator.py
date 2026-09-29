@@ -96,6 +96,45 @@ class ChangelogGeneratorTests(unittest.TestCase):
         self.assertLess(block.index("### English"), block.index("### Deutsch"))
         self.assertLess(block.index("- current"), block.index("- aktuell"))
 
+    def test_numeric_revisions_render_above_baseline_in_numeric_order(self) -> None:
+        inventory = ("2026.9.30", "2026.9.29-10", "2026.9.29-2", "2026.9.29", "0.9.0")
+        root = self.fixture(inventory[0])
+        for version in inventory:
+            self.pair(root, version, "- deutscher Eintrag", "- english entry")
+        rendered, versions = generate_changelog.render(root, inventory)
+        self.assertEqual(versions, list(inventory))
+        positions = [rendered.index(f"## {version}\n") for version in inventory]
+        self.assertEqual(positions, sorted(positions))
+        revision_root = self.fixture("2026.9.29-2")
+        self.pair(revision_root, "2026.9.29-2", "- Korrektur", "- correction")
+        self.assertEqual(generate_changelog.render(revision_root, ("2026.9.29-2",))[1], ["2026.9.29-2"])
+
+    def test_revision_format_is_strict_in_inventory_toc_and_filenames(self) -> None:
+        invalid = ("-0", "-1", "-01", "-02", "-00", "-2.0", "-alpha", "-2beta", "-2-3", "+2", "-", "-٢")
+        for suffix in invalid:
+            version = "2026.9.29" + suffix
+            with self.subTest(version=version):
+                with self.assertRaises(generate_changelog.ChangelogError):
+                    generate_changelog.validate_expected_versions((version,))
+                root = self.fixture(version)
+                with self.assertRaises(generate_changelog.ChangelogError):
+                    generate_changelog.current_version(root)
+                root = self.fixture("2026.9.29")
+                self.pair(root, "2026.9.29", "- Basis", "- baseline")
+                self.pair(root, version, "- ungültig", "- invalid")
+                with self.assertRaises(generate_changelog.ChangelogError):
+                    generate_changelog.render(root, ("2026.9.29",))
+
+    def test_revision_inventory_rejects_wrong_order_and_duplicates(self) -> None:
+        for inventory in (
+            ("2026.9.29", "2026.9.29-2"),
+            ("2026.9.29-2", "2026.9.29-10"),
+            ("2026.9.29-2", "2026.9.29-2"),
+        ):
+            with self.subTest(inventory=inventory):
+                with self.assertRaises(generate_changelog.ChangelogError):
+                    generate_changelog.validate_expected_versions(inventory)
+
     def test_semantically_duplicate_leading_zero_alias_fails(self) -> None:
         root = self.fixture("1.0.0")
         self.pair(root, "1.0.0", "## Kanonisch", "## Canonical")

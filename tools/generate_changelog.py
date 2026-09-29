@@ -32,9 +32,12 @@ SOURCE_DIR = ROOT / "changelog"
 OUTPUT = ROOT / "CHANGELOG.md"
 LANGUAGES = ("en", "de")
 LANGUAGE_HEADINGS = {"en": "English", "de": "Deutsch"}
-NOTE_NAME = re.compile(r"^CHANGELOG-(\d+)\.(\d+)\.(\d+)-(en|de)\.md$")
+# Calendar revisions are stable releases, not SemVer prereleases.
+# Unsuffixed historical three-component versions remain valid (revision 1).
+VERSION_PATTERN = r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([2-9]|[1-9][0-9]+))?"
+CANONICAL_VERSION = re.compile(VERSION_PATTERN)
+NOTE_NAME = re.compile(rf"CHANGELOG-{VERSION_PATTERN}-(en|de)\.md")
 ANY_NOTE_NAME = re.compile(r"^CHANGELOG-.*\.md$")
-CANONICAL_SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
 FENCE_OPEN = re.compile(r" {0,3}(`{3,}|~{3,}).*")
 ATX_HEADING = re.compile(r"^( {0,3})(#{1,6})(?= |$)")
 # Textzeilen, die keinen Inhalt tragen: nur Aufzaehlungszeichen, Ellipse,
@@ -44,6 +47,7 @@ PLACEHOLDER_LINE = re.compile(
     re.IGNORECASE,
 )
 RELEASE_VERSIONS = (
+    "2026.9.29-2",
     "2026.9.29", "2026.9.23", "2026.9.22", "2026.9.21", "0.9.0", "0.8.0", "0.7.0", "0.6.1", "0.6.0", "0.5.0", "0.4.2", "0.4.1",
     "0.4.0", "0.3.1", "0.3.0", "0.2.6", "0.2.5", "0.2.4",
 )
@@ -67,12 +71,12 @@ class ChangelogError(ValueError):
 
 
 def validate_expected_versions(expected_versions: tuple[str, ...]) -> None:
-    keys: list[tuple[int, int, int]] = []
+    keys: list[tuple[int, int, int, int]] = []
     for version in expected_versions:
-        match = CANONICAL_SEMVER.fullmatch(version)
+        match = CANONICAL_VERSION.fullmatch(version)
         if not match:
             raise ChangelogError(f"inventarisierte Version ist nicht kanonisch: {version!r}")
-        keys.append(tuple(int(part) for part in match.groups()))
+        keys.append(tuple(int(part) if part is not None else 1 for part in match.groups()))
     if len(expected_versions) != len(set(expected_versions)):
         raise ChangelogError("doppelte Version im Release-Inventar")
     if any(previous <= current for previous, current in zip(keys, keys[1:])):
@@ -125,7 +129,7 @@ def current_version(root: Path = ROOT) -> str:
     for line in read_utf8(toc).splitlines():
         if line.startswith("## Version:"):
             version = line.split(":", 1)[1].strip()
-            if re.fullmatch(r"\d+\.\d+\.\d+", version):
+            if CANONICAL_VERSION.fullmatch(version):
                 return version
             raise ChangelogError(f"ungültige TOC-Version: {version!r}")
     raise ChangelogError("TOC enthält keinen ## Version:-Eintrag")
@@ -156,12 +160,14 @@ def release_notes(
         if not match:
             raise ChangelogError(
                 f"nicht semantisch versionierte oder falsch benannte Release-Notiz: {path.name} "
-                "(erwartet CHANGELOG-<major>.<minor>.<patch>-en.md / -de.md)"
+                "(erwartet CHANGELOG-<major>.<minor>.<patch>[-<revision>]-en.md / -de.md)"
             )
         version = ".".join(match.groups()[:3])
-        if not CANONICAL_SEMVER.fullmatch(version):
+        if match.group(4) is not None:
+            version += "-" + match.group(4)
+        if not CANONICAL_VERSION.fullmatch(version):
             raise ChangelogError(f"nicht semantisch versionierte Release-Notiz: {path.name}")
-        found.setdefault(version, {})[match.group(4)] = path
+        found.setdefault(version, {})[match.group(5)] = path
     if not found:
         raise ChangelogError("keine zweisprachigen Release-Notizen unter changelog/ gefunden")
     missing: list[str] = []
