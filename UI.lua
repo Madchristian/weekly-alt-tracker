@@ -63,12 +63,21 @@ local COLORS = {
     staleTint = { 0.427, 0.459, 0.502, 1 },
 }
 
--- Panel- und Spaltentexte entstehen beim Laden in der aufgeloesten Sprache.
--- Die Breiten sind sprachunabhaengig und bleiben unveraendert; die englischen
--- Labels sind so gewaehlt, dass sie in dieselben Spalten passen.
+-- Panel- und Spaltentexte entstehen NICHT beim Ausfuehren dieser Datei,
+-- sondern erst in CreateUI: Benutzeruebersetzungen liegen in den
+-- SavedVariables, die beim Laden der Datei noch nicht bereitstehen. Ein beim
+-- Laden eingefrorener Text wuerde einen Override bis zum naechsten /reload
+-- verdecken. Die Breiten sind sprachunabhaengig und bleiben unveraendert; die
+-- englischen Labels sind so gewaehlt, dass sie in dieselben Spalten passen.
 local L = WAT.L
 
-local PANELS = {
+local PANELS = nil
+
+-- Baut die Paneldefinitionen beim ersten Zugriff, also fruehestens in
+-- CreateUI nach InitializeDatabase, und liefert danach dieselbe Tabelle.
+local function PanelDefinitions()
+    if PANELS then return PANELS end
+    PANELS = {
     overview = {
         label = L("PANEL_OVERVIEW"),
         shortLabel = L("PANEL_OVERVIEW_SHORT"),
@@ -176,6 +185,8 @@ local PANELS = {
         description = L("PANEL_SETTINGS_DESC"),
     },
 }
+    return PANELS
+end
 
 -- Feste Stufen statt eines Schiebereglers: der Wertebereich bleibt damit exakt
 -- der, den Core.lua beim Laden akzeptiert, und jeder Schritt ist reproduzierbar
@@ -1878,46 +1889,56 @@ local function CreateSettingsPanel(parent, definition)
         return button
     end
 
+    -- Fuenf Abschnitte in 402px Panelhoehe: Ueberschrift, eine Zeile
+    -- Schaltflaechen, eine Beschreibungszeile. Bestaetigen und Abbrechen der
+    -- Charakterverwaltung teilen sich die Zeile mit Entfernen - die drei sind
+    -- nie gleichzeitig sichtbar -, damit unten Platz fuer den
+    -- Uebersetzungseditor bleibt.
     controls.headingWindow = Heading(L("SETTINGS_HEADING_WINDOW"), 0)
-    controls.refresh = Button(L("SETTINGS_REFRESH"), 180, 0, -26)
+    controls.refresh = Button(L("SETTINGS_REFRESH"), 180, 0, -24)
     controls.refresh:SetScript("OnClick", function() WAT:Refresh("settings") end)
-    controls.resetPosition = Button(L("SETTINGS_RESET_POSITION"), 180, 192, -26)
+    controls.resetPosition = Button(L("SETTINGS_RESET_POSITION"), 180, 192, -24)
     controls.resetPosition:SetScript("OnClick", function() WAT:ResetPosition() end)
-    Description(L("SETTINGS_WINDOW_DESC"), -64)
+    Description(L("SETTINGS_WINDOW_DESC"), -60)
 
-    controls.headingMinimap = Heading(L("SETTINGS_HEADING_MINIMAP"), -82)
-    controls.minimapShow = Button(L("SETTINGS_MINIMAP_SHOW"), 120, 0, -108)
+    controls.headingMinimap = Heading(L("SETTINGS_HEADING_MINIMAP"), -78)
+    controls.minimapShow = Button(L("SETTINGS_MINIMAP_SHOW"), 120, 0, -102)
     controls.minimapShow:SetScript("OnClick", function() WAT:SetMinimapHidden(false) end)
-    controls.minimapHide = Button(L("SETTINGS_MINIMAP_HIDE"), 120, 132, -108)
+    controls.minimapHide = Button(L("SETTINGS_MINIMAP_HIDE"), 120, 132, -102)
     controls.minimapHide:SetScript("OnClick", function() WAT:SetMinimapHidden(true) end)
-    Description(L("SETTINGS_MINIMAP_DESC"), -146)
+    Description(L("SETTINGS_MINIMAP_DESC"), -138)
 
-    controls.headingScale = Heading(L("SETTINGS_HEADING_SCALE"), -182)
+    controls.headingScale = Heading(L("SETTINGS_HEADING_SCALE"), -156)
     for index, scale in ipairs(SCALE_PRESETS) do
         -- Lua 5.1: der Wert muss pro Durchlauf gebunden werden, sonst sehen
         -- alle Klickziele denselben letzten Schleifenwert.
         local presetScale = scale
         local percent = math.floor(presetScale * 100 + 0.5)
-        local button = Button(L("SETTINGS_SCALE_PERCENT", percent), 84, (index - 1) * 92, -208)
+        local button = Button(L("SETTINGS_SCALE_PERCENT", percent), 84, (index - 1) * 92, -180)
         button.scale = presetScale
         button:SetScript("OnClick", function() WAT:SetScalePreset(presetScale) end)
         controls.scalePresets[index] = button
     end
-    Description(L("SETTINGS_SCALE_DESC"), -246)
+    Description(L("SETTINGS_SCALE_DESC"), -216)
 
-    controls.character_heading = Heading(L("SETTINGS_CHARACTERS"), -280)
-    controls.character_previous = Button("<", 34, 0, -304)
-    controls.character_next = Button(">", 34, 42, -304)
+    controls.character_heading = Heading(L("SETTINGS_CHARACTERS"), -234)
+    controls.character_previous = Button("<", 34, 0, -258)
+    controls.character_next = Button(">", 34, 42, -258)
     controls.character_name = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    controls.character_name:SetPoint("TOPLEFT", 90, -313)
+    controls.character_name:SetPoint("TOPLEFT", 90, -267)
     controls.character_name:SetWidth(430)
     controls.character_name:SetJustifyH("LEFT")
     controls.character_name:SetWordWrap(false)
     controls.character_name:SetMaxLines(1)
-    controls.character_remove = Button(L("SETTINGS_CHARACTER_REMOVE"), 180, 540, -304)
-    controls.character_description = Description(L("SETTINGS_CHARACTERS_DESC"), -342)
-    controls.character_confirm = Button(L("SETTINGS_CHARACTER_REMOVE"), 180, 540, -370)
-    controls.character_cancel = Button(L("SETTINGS_CHARACTER_CANCEL"), 140, 732, -370)
+    controls.character_remove = Button(L("SETTINGS_CHARACTER_REMOVE"), 180, 540, -258)
+    controls.character_description = Description(L("SETTINGS_CHARACTERS_DESC"), -294)
+    controls.character_confirm = Button(L("SETTINGS_CHARACTER_REMOVE"), 180, 540, -258)
+    controls.character_cancel = Button(L("SETTINGS_CHARACTER_CANCEL"), 140, 732, -258)
+
+    controls.headingTranslations = Heading(L("SETTINGS_HEADING_TRANSLATIONS"), -320)
+    controls.translations = Button(L("SETTINGS_TRANSLATIONS_OPEN"), 220, 0, -344)
+    controls.translations:SetScript("OnClick", function() WAT:open_translation_editor() end)
+    Description(L("SETTINGS_TRANSLATIONS_DESC"), -380)
     controls.character_previous:SetScript("OnClick", function() step_settings_character(controls, -1) end)
     controls.character_next:SetScript("OnClick", function() step_settings_character(controls, 1) end)
     controls.character_remove:SetScript("OnClick", function()
@@ -2042,7 +2063,7 @@ function WAT:SetActiveTab(key)
     if not self.panels or not self.panels[key] then key = "overview" end
     self.activeTab = key
     self.db.settings.activeTab = key
-    local definition = PANELS[key]
+    local definition = PanelDefinitions()[key]
     if self.pageTitle then self.pageTitle:SetText(definition.label) end
     if self.pageDescription then self.pageDescription:SetText(definition.description or "") end
     for panelKey, panel in pairs(self.panels) do
@@ -3110,6 +3131,778 @@ local function EnsureUISpecialFrame(name)
     table.insert(special, name)
 end
 
+-- ---------------------------------------------------------------------------
+-- Uebersetzungseditor
+--
+-- Ein kompaktes eigenes Fenster (UIParent, DIALOG), das erst beim ersten
+-- Oeffnen aus den Einstellungen entsteht - vorher kostet es weder Rahmen noch
+-- Events. Es bearbeitet die accountweiten Overrides in
+-- WeeklyAltTrackerDB.translations je Sprachpaket. Die Paketwahl wechselt nur,
+-- WELCHES Paket bearbeitet wird; die Anzeigesprache folgt immer dem Client
+-- (Localization.override_locale) und wird hier nie umgeschaltet. Die Liste
+-- ist gepoolt und blaettert in festen Seiten; die Rahmenzahl haengt nie von
+-- der Schluesselanzahl ab. Zeilenumbrueche werden in den Feldern wie im
+-- Paketformat als \n bearbeitet. Export und Import laufen ueber ein klar
+-- gerahmtes, mehrzeiliges Textfeld (Ctrl+A, Ctrl+C/V, Escape gibt den Fokus
+-- ab); ein Import wird erst nach Vorschau und ausdruecklichem Anwenden
+-- uebernommen. Beim Laden erzeugte Beschriftungen (Seitenleiste,
+-- Spaltenkoepfe, Formulare) aktualisieren sich erst nach /reload; die
+-- Statusmeldungen sagen das.
+-- ---------------------------------------------------------------------------
+
+-- Alle Masse des Editors in EINER Tabelle: Lua 5.1 erlaubt hoechstens 200
+-- lokale Variablen je Funktion, und die Hauptfunktion dieser Datei ist
+-- nahe an dieser Grenze.
+local EDITOR = {
+    WIDTH = 780,
+    HEIGHT = 504,
+    PADDING = 16,
+    PAGE_SIZE = 8,
+    ROW_HEIGHT = 40,
+    FILTER_TOP = 56,
+    ROWS_TOP = 96,
+    TEXT_WIDTH = 300,
+    INPUT_WIDTH = 300,
+    ROW_BUTTON_WIDTH = 60,
+    ROW_BUTTON_GAP = 4,
+    SEARCH_WIDTH = 300,
+    MISSING_WIDTH = 150,
+    PAGE_WIDTH = 190,
+    LOCALE_WIDTH = 150,
+    BUTTON_WIDTH = 110,
+    APPLY_WIDTH = 190,
+    CLOSE_WIDTH = 30,
+    PACK_LINE_HEIGHT = 14,
+}
+EDITOR.INNER_WIDTH = EDITOR.WIDTH - 2 * EDITOR.PADDING
+EDITOR.ROWS_HEIGHT = EDITOR.PAGE_SIZE * EDITOR.ROW_HEIGHT
+EDITOR.BOTTOM_TOP = EDITOR.ROWS_TOP + EDITOR.ROWS_HEIGHT + 16
+EDITOR.STATUS_TOP = EDITOR.BOTTOM_TOP + 34
+EDITOR.INPUT_LEFT = EDITOR.TEXT_WIDTH + 8
+-- Viewport des Paketfelds: Rahmen minus Hinweiszeile (30) und Innenabstand (10).
+EDITOR.PACK_MIN_HEIGHT = EDITOR.ROWS_HEIGHT - 40
+
+-- Hilfsfunktionen und Tabellen des Editors als Felder EINER lokalen Tabelle
+-- (siehe EDITOR oben: 200-Locals-Grenze von Lua 5.1).
+local TranslationEditor = {}
+
+-- Fehlercodes des Parsers und der Wertpruefung -> Woerterbuchschluessel.
+-- Der dynamische Aufruf L(errorKey) ist in tools/test_v2.py eingetragen; die
+-- Existenz jedes Schluessels wird dort statisch gegen beide Woerterbuecher
+-- geprueft.
+TranslationEditor.ERROR_KEYS = {
+    type = "TR_ERR_TYPE",
+    size = "TR_ERR_SIZE",
+    lines = "TR_ERR_LINES",
+    format = "TR_ERR_FORMAT",
+    version = "TR_ERR_VERSION",
+    locale = "TR_ERR_LOCALE",
+    line = "TR_ERR_LINE",
+    key = "TR_ERR_KEY",
+    duplicate = "TR_ERR_DUPLICATE",
+    escape = "TR_ERR_ESCAPE",
+    empty = "TR_ERR_EMPTY",
+    length = "TR_ERR_LENGTH",
+    utf8 = "TR_ERR_UTF8",
+    control = "TR_ERR_CONTROL",
+    markup = "TR_ERR_MARKUP",
+    placeholders = "TR_ERR_PLACEHOLDERS",
+    storage = "TR_ERR_STORAGE",
+}
+
+function TranslationEditor.ErrorText(code, line)
+    local errorKey = TranslationEditor.ERROR_KEYS[code] or "TR_ERR_TYPE"
+    local text = L(errorKey)
+    if type(line) == "number" then return L("TR_ERR_AT_LINE", text, line) end
+    return text
+end
+
+-- kind: "error" rot, "ok" gruen, sonst neutral.
+function TranslationEditor.SetStatus(editor, text, kind)
+    local color = "|cffd8e0e7"
+    if kind == "error" then color = COLORS.red elseif kind == "ok" then color = COLORS.green end
+    editor.status:SetText(color .. text .. "|r")
+end
+
+-- Eingebauter Text eines Pakets: nur deDE und enUS haben ein Woerterbuch.
+function TranslationEditor.Builtin(locale, key)
+    local dictionaries = WAT.Localization.dictionaries
+    local dictionary = type(dictionaries) == "table" and dictionaries[locale] or nil
+    local value = type(dictionary) == "table" and dictionary[key] or nil
+    if type(value) ~= "string" then return nil end
+    return value
+end
+
+-- Wirksamer Text des bearbeiteten Pakets und ob er ein Override ist.
+function TranslationEditor.Translation(editor, key)
+    local override = WAT.Localization.get_override(editor.locale, key)
+    if override ~= nil then return override, true end
+    return TranslationEditor.Builtin(editor.locale, key), false
+end
+
+-- Schlichte Teilstringsuche ohne Gross-/Kleinschreibung ueber Schluessel,
+-- englischen Quelltext (in Escape-Form) und wirksame Uebersetzung.
+function TranslationEditor.Matches(editor, key, source, translation)
+    local search = editor.search
+    if search == "" then return true end
+    if string.find(string.lower(key), search, 1, true) then return true end
+    if string.find(string.lower(WAT.Localization.escape_value(source)), search, 1, true) then return true end
+    return translation ~= nil and string.find(string.lower(translation), search, 1, true) ~= nil
+end
+
+-- Ctrl+A markiert den gesamten Text; WoW bringt das nicht von selbst mit.
+function TranslationEditor.AttachKeys(box)
+    box:SetScript("OnKeyDown", function(self, key)
+        if key == "A" and type(IsControlKeyDown) == "function" and IsControlKeyDown() then
+            self:HighlightText()
+        end
+    end)
+end
+
+-- Zeilen-Tooltip: der volle Schluessel, der ungekuerzte englische Quelltext
+-- und die aktuelle Uebersetzung, umbrochen. Die Zeile selbst zeigt beides nur
+-- einzeilig gekuerzt.
+function TranslationEditor.HideRowTooltip(row)
+    if TooltipOwnedBy(row.frame) then GameTooltip:Hide() end
+end
+
+function TranslationEditor.ShowRowTooltip(editor, row)
+    local key = row.key
+    if not key then return end
+    local localization = WAT.Localization
+    local translation = TranslationEditor.Translation(editor, key)
+    GameTooltip:SetOwner(row.frame, "ANCHOR_RIGHT")
+    GameTooltip:ClearLines()
+    GameTooltip:AddLine(key, COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3])
+    GameTooltip:AddLine(localization.escape_value(localization.source(key)), 0.92, 0.95, 0.97, true)
+    if translation ~= nil then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(localization.escape_value(translation), 1, 0.82, 0, true)
+    end
+    GameTooltip:Show()
+end
+
+-- Entwuerfe: ungespeicherter Zeilentext je Paketsprache und Schluessel. Er
+-- ueberlebt jedes Neubefuellen der gepoolten Zeilen (Speichern anderer
+-- Zeilen, Filter, Seite, Paket, Ansicht) und wird nur durch Speichern,
+-- Zuruecksetzen oder Escape der EIGENEN Zeile bzw. durch einen Import
+-- desselben Schluessels geleert. Ein Entwurf, der dem gespeicherten Text
+-- gleicht, ist keiner. Entwuerfe werden nie exportiert oder geschrieben.
+function TranslationEditor.SetDraft(editor, locale, key, text)
+    local drafts = editor.drafts[locale]
+    if text == nil then
+        if drafts then drafts[key] = nil end
+        return
+    end
+    if not drafts then
+        drafts = {}
+        editor.drafts[locale] = drafts
+    end
+    drafts[key] = text
+end
+
+function TranslationEditor.GetDraft(editor, locale, key)
+    local drafts = editor.drafts[locale]
+    return drafts and drafts[key] or nil
+end
+
+function TranslationEditor.FillRow(editor, row)
+    TranslationEditor.HideRowTooltip(row)
+    local key = row.key
+    if not key then
+        row.frame:Hide()
+        return
+    end
+    local localization = WAT.Localization
+    local translation, isOverride = TranslationEditor.Translation(editor, key)
+    row.key_label:SetText(key)
+    if isOverride then
+        row.key_label:SetTextColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.9)
+    else
+        row.key_label:SetTextColor(1, 1, 1, 0.42)
+    end
+    row.source_label:SetText(localization.escape_value(localization.source(key)))
+    local stored = translation and localization.escape_value(translation) or ""
+    row.stored_text = stored
+    row.locale = editor.locale
+    row.input:SetText(TranslationEditor.GetDraft(editor, editor.locale, key) or stored)
+    row.reset_button:SetShown(isOverride)
+    row.frame:Show()
+end
+
+function TranslationEditor.CreateRow(editor, index)
+    local row = { index = index }
+    local frame = CreateFrame("Frame", nil, editor.frame, "BackdropTemplate")
+    frame:SetSize(EDITOR.INNER_WIDTH, EDITOR.ROW_HEIGHT)
+    frame:SetPoint("TOPLEFT", EDITOR.PADDING, -(EDITOR.ROWS_TOP + (index - 1) * EDITOR.ROW_HEIGHT))
+    SetBackdrop(frame, index % 2 == 0 and COLORS.alternate or COLORS.surface, { 1, 1, 1, 0 })
+    frame:SetClipsChildren(true)
+    frame:EnableMouse(true)
+    frame:SetScript("OnEnter", function() TranslationEditor.ShowRowTooltip(editor, row) end)
+    frame:SetScript("OnLeave", function() TranslationEditor.HideRowTooltip(row) end)
+    row.frame = frame
+
+    -- Schluessel oben, englischer Quelltext darunter; beides einzeilig und
+    -- hart auf die Textspalte begrenzt.
+    local keyLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    keyLabel:SetPoint("TOPLEFT", 8, -5)
+    keyLabel:SetWidth(EDITOR.TEXT_WIDTH - 8)
+    keyLabel:SetJustifyH("LEFT")
+    keyLabel:SetWordWrap(false)
+    keyLabel:SetMaxLines(1)
+    row.key_label = keyLabel
+
+    local sourceLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    sourceLabel:SetPoint("BOTTOMLEFT", 8, 5)
+    sourceLabel:SetWidth(EDITOR.TEXT_WIDTH - 8)
+    sourceLabel:SetJustifyH("LEFT")
+    sourceLabel:SetWordWrap(false)
+    sourceLabel:SetMaxLines(1)
+    sourceLabel:SetTextColor(1, 1, 1, 0.78)
+    row.source_label = sourceLabel
+
+    local input = CreateFrame("EditBox", nil, frame, "BackdropTemplate")
+    input:SetSize(EDITOR.INPUT_WIDTH, 30)
+    input:SetPoint("TOPLEFT", EDITOR.INPUT_LEFT, -5)
+    SetBackdrop(input, { 0.061, 0.095, 0.120, 0.60 }, { 1, 1, 1, 0.18 })
+    input:SetAutoFocus(false)
+    -- Die Escape-Form (\n, \\) ist bis zu doppelt so lang wie der Wert selbst.
+    input:SetMaxLetters(2 * WAT.Localization.LIMITS.value)
+    input:SetTextInsets(8, 8, 0, 0)
+    if GameFontHighlightSmall then input:SetFontObject(GameFontHighlightSmall) end
+    TranslationEditor.AttachKeys(input)
+    input:SetScript("OnEnterPressed", function(self)
+        WAT:save_translation_row(row)
+        self:ClearFocus()
+    end)
+    -- Escape verwirft nur den Entwurf DIESER Zeile und gibt den Fokus ab.
+    input:SetScript("OnEscapePressed", function(self)
+        self:ClearFocus()
+        if row.key and row.locale then TranslationEditor.SetDraft(editor, row.locale, row.key, nil) end
+        TranslationEditor.FillRow(editor, row)
+    end)
+    -- Jede Benutzereingabe wird sofort als Entwurf unter exakt dem Paket und
+    -- Schluessel gemerkt, den die Zeile beim Befuellen bekommen hat.
+    input:SetScript("OnTextChanged", function(self, userInput)
+        if not userInput or not row.key or not row.locale then return end
+        local text = self:GetText()
+        if type(text) ~= "string" or text == row.stored_text then text = nil end
+        TranslationEditor.SetDraft(editor, row.locale, row.key, text)
+    end)
+    input:SetScript("OnEditFocusGained", function(self)
+        self:SetBackdropBorderColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.65)
+    end)
+    input:SetScript("OnEditFocusLost", function(self)
+        self:SetBackdropBorderColor(1, 1, 1, 0.18)
+    end)
+    row.input = input
+
+    local buttonLeft = EDITOR.INPUT_LEFT + EDITOR.INPUT_WIDTH + 8
+    local save = CreateFormButton(frame, L("TR_SAVE"), EDITOR.ROW_BUTTON_WIDTH, buttonLeft, -5)
+    save:SetScript("OnClick", function() WAT:save_translation_row(row) end)
+    row.save_button = save
+    local reset = CreateFormButton(frame, L("TR_RESET"), EDITOR.ROW_BUTTON_WIDTH,
+        buttonLeft + EDITOR.ROW_BUTTON_WIDTH + EDITOR.ROW_BUTTON_GAP, -5)
+    reset:SetScript("OnClick", function() WAT:reset_translation_row(row) end)
+    row.reset_button = reset
+    frame:Hide()
+    return row
+end
+
+-- Listen- oder Paketansicht: Zeilen und Filterleiste gegen das Paketfeld.
+function TranslationEditor.ShowMode(editor)
+    local list = editor.mode == "list"
+    for _, control in ipairs(editor.filter_controls) do control:SetShown(list) end
+    editor.pack_frame:SetShown(not list)
+    editor.export_button:SetShown(list)
+    editor.import_button:SetShown(list)
+    editor.back_button:SetShown(not list)
+    editor.preview_button:SetShown(editor.mode == "import")
+    editor.apply_button:SetShown(editor.mode == "import" and editor.pending_pack ~= nil)
+    if not list then
+        for _, row in ipairs(editor.rows) do
+            TranslationEditor.HideRowTooltip(row)
+            row.frame:Hide()
+        end
+        editor.empty_text:Hide()
+    end
+end
+
+-- Hoehe des Paketfelds: mindestens der Viewport (damit die ganze Flaeche
+-- klickbar bleibt), sonst eine Zeile je Umbruch - so waechst und scrollt das
+-- Feld auch dort, wo der Client die Hoehe eines Scrollkinds nicht selbst
+-- nachfuehrt.
+function TranslationEditor.ResizePackBox(box)
+    local text = box:GetText()
+    local lines = 1
+    if type(text) == "string" then
+        for _ in string.gmatch(text, "\n") do lines = lines + 1 end
+    end
+    box:SetHeight(math.max(EDITOR.PACK_MIN_HEIGHT, lines * EDITOR.PACK_LINE_HEIGHT + 8))
+end
+
+-- Das gerahmte, scrollende Paketfeld. Ein mehrzeiliges EditBox als
+-- Scrollkind passt seine Hoehe dem Text an; der Cursor wird beim Bewegen
+-- sichtbar gehalten. Der Rahmen zeigt den Fokus.
+function TranslationEditor.CreatePackField(editor)
+    local frame = CreateFrame("Frame", nil, editor.frame, "BackdropTemplate")
+    frame:SetSize(EDITOR.INNER_WIDTH, EDITOR.ROWS_HEIGHT)
+    frame:SetPoint("TOPLEFT", EDITOR.PADDING, -EDITOR.ROWS_TOP)
+    SetBackdrop(frame, { 0.025, 0.035, 0.047, 0.98 }, { 1, 1, 1, 0.22 })
+
+    local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    hint:SetPoint("TOPLEFT", 10, -8)
+    hint:SetWidth(EDITOR.INNER_WIDTH - 20)
+    hint:SetJustifyH("LEFT")
+    hint:SetWordWrap(false)
+    hint:SetMaxLines(1)
+    hint:SetTextColor(1, 1, 1, 0.55)
+
+    local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 10, -30)
+    scroll:SetPoint("BOTTOMRIGHT", -(SCROLLBAR_GUTTER + 10), 10)
+    local box = CreateFrame("EditBox", nil, scroll, "BackdropTemplate")
+    SetBackdrop(box, { 0.035, 0.048, 0.063, 0.98 }, { 1, 1, 1, 0.10 })
+    box:SetMultiLine(true)
+    box:SetAutoFocus(false)
+    -- Kein stilles Abschneiden: keine Buchstabengrenze, die Bytegrenze liegt
+    -- ein Byte ueber dem Parserlimit. Ein vom Client gekuerztes Paket ist
+    -- damit immer zu gross und wird abgelehnt, nie als Praefix importiert.
+    box:SetMaxLetters(0)
+    box:SetMaxBytes(WAT.Localization.LIMITS.text + 1)
+    box:SetWidth(EDITOR.INNER_WIDTH - 20 - SCROLLBAR_GUTTER - 10)
+    box:SetHeight(EDITOR.PACK_MIN_HEIGHT)
+    box:SetTextInsets(6, 6, 6, 6)
+    box:EnableMouse(true)
+    box:SetScript("OnMouseDown", function(self) self:SetFocus() end)
+    if ChatFontNormal then
+        box:SetFontObject(ChatFontNormal)
+    elseif GameFontHighlightSmall then
+        box:SetFontObject(GameFontHighlightSmall)
+    end
+    scroll:SetScrollChild(box)
+    TranslationEditor.AttachKeys(box)
+    box:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    box:SetScript("OnEditFocusGained", function()
+        frame:SetBackdropBorderColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.75)
+    end)
+    box:SetScript("OnEditFocusLost", function()
+        frame:SetBackdropBorderColor(1, 1, 1, 0.22)
+    end)
+    -- Eine Aenderung nach der Vorschau macht sie ungueltig: angewendet wird
+    -- nur, was zuletzt geprueft wurde.
+    box:SetScript("OnTextChanged", function(self, userInput)
+        TranslationEditor.ResizePackBox(self)
+        if userInput and editor.pending_pack then
+            editor.pending_pack = nil
+            editor.apply_button:Hide()
+            TranslationEditor.SetStatus(editor, L("TR_IMPORT_HINT"))
+        end
+    end)
+    box:SetScript("OnCursorChanged", function(_, _, y, _, height)
+        local offset = scroll:GetVerticalScroll()
+        local viewport = scroll:GetHeight()
+        if type(y) ~= "number" or type(height) ~= "number"
+                or type(offset) ~= "number" or type(viewport) ~= "number" or viewport <= 0 then
+            return
+        end
+        local top = -y
+        if top < offset then
+            scroll:SetVerticalScroll(top)
+        elseif top + height > offset + viewport then
+            scroll:SetVerticalScroll(top + height - viewport)
+        end
+    end)
+    -- Ein Klick in die freie Flaeche des Rahmens fokussiert das Feld.
+    frame:EnableMouse(true)
+    frame:SetScript("OnMouseDown", function() box:SetFocus() end)
+
+    editor.pack_frame = frame
+    editor.pack_hint = hint
+    editor.pack_scroll = scroll
+    editor.pack_box = box
+    frame:Hide()
+end
+
+function TranslationEditor.Create()
+    local editor = {
+        rows = {}, entries = {}, page = 1, page_count = 1, search = "",
+        missing_only = false, mode = "list", pending_pack = nil, drafts = {},
+    }
+    local frame = CreateFrame("Frame", "WeeklyAltTrackerTranslationFrame", UIParent, "BackdropTemplate")
+    EnsureUISpecialFrame("WeeklyAltTrackerTranslationFrame")
+    frame:SetSize(EDITOR.WIDTH, EDITOR.HEIGHT)
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    frame:SetFrameStrata("DIALOG")
+    frame:SetToplevel(true)
+    frame:SetClampedToScreen(true)
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", function(f) f:StartMoving() end)
+    frame:SetScript("OnDragStop", function(f) f:StopMovingOrSizing() end)
+    SetBackdrop(frame, COLORS.frame, { 1, 1, 1, 0.12 })
+    -- Schliessen (auch per ESC ueber UISpecialFrames) verwirft eine offene
+    -- Vorschau; nichts wird still uebernommen.
+    frame:SetScript("OnHide", function()
+        editor.pending_pack = nil
+        editor.mode = "list"
+        for _, row in ipairs(editor.rows) do TranslationEditor.HideRowTooltip(row) end
+        TranslationEditor.ShowMode(editor)
+    end)
+    editor.frame = frame
+
+    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOPLEFT", EDITOR.PADDING, -16)
+    title:SetTextColor(1, 1, 1, 0.96)
+    title:SetText(L("TR_TITLE"))
+    editor.title = title
+    local client = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    client:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -3)
+    client:SetTextColor(1, 1, 1, 0.42)
+    client:SetText(L("TR_CLIENT", WAT.Localization.override_locale))
+    editor.client_label = client
+
+    local close = CreateFormButton(frame, "X", EDITOR.CLOSE_WIDTH, EDITOR.WIDTH - EDITOR.PADDING - EDITOR.CLOSE_WIDTH, -12)
+    close:SetScript("OnClick", function() frame:Hide() end)
+    editor.close_button = close
+
+    -- Paketwahl: nur das bearbeitete Paket, nie die Anzeigesprache.
+    local localeControl = CreateCycleFilter(frame,
+        EDITOR.WIDTH - EDITOR.PADDING - EDITOR.CLOSE_WIDTH - 8 - EDITOR.LOCALE_WIDTH, EDITOR.LOCALE_WIDTH,
+        function(direction) WAT:step_translation_editor_locale(direction) end, -12)
+    editor.locale_previous = localeControl.prev
+    editor.locale_next = localeControl.next
+    editor.locale_label = localeControl.label
+    local caption = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    caption:SetPoint("RIGHT", localeControl.frame, "LEFT", -8, 0)
+    caption:SetTextColor(1, 1, 1, 0.42)
+    caption:SetText(L("TR_LOCALE"))
+    editor.locale_caption = caption
+
+    -- Filterleiste: Suche, Nur-fehlende, Seitenwahl.
+    local search = CreateFrame("EditBox", nil, frame, "BackdropTemplate")
+    search:SetSize(EDITOR.SEARCH_WIDTH, 30)
+    search:SetPoint("TOPLEFT", EDITOR.PADDING, -EDITOR.FILTER_TOP)
+    SetBackdrop(search, { 0.061, 0.095, 0.120, 0.60 }, { 1, 1, 1, 0.18 })
+    search:SetAutoFocus(false)
+    search:SetMaxLetters(40)
+    search:SetTextInsets(8, 8, 0, 0)
+    if GameFontHighlightSmall then search:SetFontObject(GameFontHighlightSmall) end
+    local placeholder = search:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    placeholder:SetPoint("LEFT", 8, 0)
+    placeholder:SetTextColor(1, 1, 1, 0.35)
+    placeholder:SetText(L("TR_SEARCH"))
+    search:SetScript("OnTextChanged", function(self, userInput)
+        local text = self:GetText()
+        placeholder:SetShown(type(text) ~= "string" or text == "")
+        if userInput then WAT:set_translation_editor_filter(text, nil) end
+    end)
+    search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    search:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    TranslationEditor.AttachKeys(search)
+    editor.search_box = search
+    editor.search_placeholder = placeholder
+
+    local missing = CreateFormButton(frame, L("TR_MISSING_ONLY"), EDITOR.MISSING_WIDTH,
+        EDITOR.PADDING + EDITOR.SEARCH_WIDTH + 8, -EDITOR.FILTER_TOP)
+    missing:SetScript("OnClick", function() WAT:set_translation_editor_filter(nil, not editor.missing_only) end)
+    editor.missing_button = missing
+
+    local pageControl = CreateCycleFilter(frame, EDITOR.WIDTH - EDITOR.PADDING - EDITOR.PAGE_WIDTH, EDITOR.PAGE_WIDTH,
+        function(direction) WAT:set_translation_editor_page(editor.page + direction) end, -EDITOR.FILTER_TOP)
+    editor.page_previous = pageControl.prev
+    editor.page_next = pageControl.next
+    editor.page_label = pageControl.label
+    editor.filter_controls = { search, missing, pageControl.frame }
+
+    for index = 1, EDITOR.PAGE_SIZE do
+        editor.rows[index] = TranslationEditor.CreateRow(editor, index)
+    end
+
+    local empty = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    empty:SetPoint("TOPLEFT", EDITOR.PADDING + 8, -(EDITOR.ROWS_TOP + 12))
+    empty:SetWidth(EDITOR.INNER_WIDTH - 16)
+    empty:SetJustifyH("LEFT")
+    empty:SetTextColor(1, 1, 1, 0.55)
+    empty:SetText(L("TR_EMPTY"))
+    empty:Hide()
+    editor.empty_text = empty
+
+    TranslationEditor.CreatePackField(editor)
+
+    -- Fussleiste: rechts die Aktionen der jeweiligen Ansicht, darunter eine
+    -- Statuszeile ueber die volle Breite.
+    local importLeft = EDITOR.WIDTH - EDITOR.PADDING - EDITOR.BUTTON_WIDTH
+    local exportLeft = importLeft - 8 - EDITOR.BUTTON_WIDTH
+    local exportButton = CreateFormButton(frame, L("TR_EXPORT"), EDITOR.BUTTON_WIDTH, exportLeft, -EDITOR.BOTTOM_TOP)
+    exportButton:SetScript("OnClick", function() WAT:show_translation_export() end)
+    editor.export_button = exportButton
+    local importButton = CreateFormButton(frame, L("TR_IMPORT"), EDITOR.BUTTON_WIDTH, importLeft, -EDITOR.BOTTOM_TOP)
+    importButton:SetScript("OnClick", function() WAT:show_translation_import() end)
+    editor.import_button = importButton
+
+    local applyLeft = EDITOR.WIDTH - EDITOR.PADDING - EDITOR.APPLY_WIDTH
+    local previewLeft = applyLeft - 8 - EDITOR.BUTTON_WIDTH
+    local backLeft = previewLeft - 8 - EDITOR.BUTTON_WIDTH
+    local back = CreateFormButton(frame, L("TR_BACK"), EDITOR.BUTTON_WIDTH, backLeft, -EDITOR.BOTTOM_TOP)
+    back:SetScript("OnClick", function() WAT:close_translation_pack() end)
+    editor.back_button = back
+    local preview = CreateFormButton(frame, L("TR_PREVIEW"), EDITOR.BUTTON_WIDTH, previewLeft, -EDITOR.BOTTOM_TOP)
+    preview:SetScript("OnClick", function() WAT:preview_translation_import() end)
+    editor.preview_button = preview
+    local apply = CreateFormButton(frame, L("TR_APPLY", 0), EDITOR.APPLY_WIDTH, applyLeft, -EDITOR.BOTTOM_TOP)
+    apply:SetScript("OnClick", function() WAT:apply_translation_import() end)
+    editor.apply_button = apply
+
+    local status = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    status:SetPoint("TOPLEFT", EDITOR.PADDING, -EDITOR.STATUS_TOP)
+    status:SetWidth(EDITOR.INNER_WIDTH)
+    status:SetJustifyH("LEFT")
+    status:SetMaxLines(2)
+    status:SetText("")
+    editor.status = status
+
+    TranslationEditor.ShowMode(editor)
+    return editor
+end
+
+function WAT:open_translation_editor()
+    local editor = self.translation_editor
+    if not editor then
+        editor = TranslationEditor.Create()
+        self.translation_editor = editor
+    end
+    if not self.Localization.is_editor_locale(editor.locale) then
+        editor.locale = self.Localization.override_locale
+    end
+    editor.pending_pack = nil
+    editor.mode = "list"
+    TranslationEditor.ShowMode(editor)
+    local scale = self.db and self.db.settings and self.SafeNumber and self.SafeNumber(self.db.settings.scale, 1)
+    if type(scale) == "number" and scale > 0 then editor.frame:SetScale(scale) end
+    self:refresh_translation_editor()
+    editor.frame:Show()
+    return editor
+end
+
+function WAT:refresh_translation_editor()
+    local editor = self.translation_editor
+    if not editor then return end
+    local localization = self.Localization
+    if not localization.is_editor_locale(editor.locale) then editor.locale = localization.override_locale end
+    SetFittedText(editor.locale_label, editor.locale)
+    SetFormButtonActive(editor.missing_button, editor.missing_only)
+
+    local entries = editor.entries
+    for index = #entries, 1, -1 do entries[index] = nil end
+    for _, key in ipairs(localization.sorted_keys()) do
+        local translation = TranslationEditor.Translation(editor, key)
+        if not (editor.missing_only and translation ~= nil)
+                and TranslationEditor.Matches(editor, key, localization.source(key), translation) then
+            entries[#entries + 1] = key
+        end
+    end
+
+    editor.page_count = math.max(1, math.ceil(#entries / EDITOR.PAGE_SIZE))
+    if editor.page > editor.page_count then editor.page = editor.page_count end
+    if editor.page < 1 then editor.page = 1 end
+    SetFittedText(editor.page_label, L("TR_PAGE", editor.page, editor.page_count))
+    SetArrowDisabled(editor.page_previous, editor.page <= 1)
+    SetArrowDisabled(editor.page_next, editor.page >= editor.page_count)
+
+    local list = editor.mode == "list"
+    local offset = (editor.page - 1) * EDITOR.PAGE_SIZE
+    for index, row in ipairs(editor.rows) do
+        row.key = entries[offset + index]
+        if list then TranslationEditor.FillRow(editor, row) else row.frame:Hide() end
+    end
+    editor.empty_text:SetShown(list and #entries == 0)
+end
+
+function WAT:set_translation_editor_locale(locale)
+    local editor = self.translation_editor
+    if not editor or not self.Localization.is_editor_locale(locale) then return false end
+    editor.locale = locale
+    editor.page = 1
+    self:refresh_translation_editor()
+    return true
+end
+
+function WAT:step_translation_editor_locale(direction)
+    local editor = self.translation_editor
+    if not editor then return false end
+    return self:set_translation_editor_locale(
+        StepOption(self.Localization.EDITOR_LOCALES, editor.locale, direction))
+end
+
+function WAT:set_translation_editor_filter(search, missingOnly)
+    local editor = self.translation_editor
+    if not editor then return end
+    if search ~= nil then
+        editor.search = type(search) == "string" and string.lower(search) or ""
+    end
+    if missingOnly ~= nil then editor.missing_only = missingOnly and true or false end
+    editor.page = 1
+    self:refresh_translation_editor()
+end
+
+function WAT:set_translation_editor_page(page)
+    local editor = self.translation_editor
+    if not editor or type(page) ~= "number" then return end
+    editor.page = math.floor(page)
+    self:refresh_translation_editor()
+end
+
+-- Speichert die Zeileneingabe als Override. Leer oder gleich dem eingebauten
+-- Text bedeutet: kein eigener Eintrag. Ein ungueltiger Wert bleibt im Feld
+-- stehen, damit er korrigiert werden kann.
+function WAT:save_translation_row(row)
+    local editor = self.translation_editor
+    if not editor or type(row) ~= "table" or not row.key then return false end
+    local localization = self.Localization
+    local key = row.key
+    local text = row.input:GetText()
+    local value = nil
+    if type(text) == "string" and text ~= "" then
+        local unescaped, code = localization.unescape_value(text)
+        if not unescaped then
+            TranslationEditor.SetStatus(editor, TranslationEditor.ErrorText(code), "error")
+            return false
+        end
+        value = unescaped
+    end
+    local hadOverride = localization.get_override(editor.locale, key) ~= nil
+    if value ~= nil and value == TranslationEditor.Builtin(editor.locale, key) then value = nil end
+    local ok, code = localization.set_override(editor.locale, key, value)
+    if not ok then
+        TranslationEditor.SetStatus(editor, TranslationEditor.ErrorText(code), "error")
+        return false
+    end
+    TranslationEditor.SetDraft(editor, editor.locale, key, nil)
+    if value ~= nil then
+        TranslationEditor.SetStatus(editor, L("TR_SAVED", key), "ok")
+    elseif hadOverride then
+        TranslationEditor.SetStatus(editor, L("TR_RESET_DONE", key), "ok")
+    else
+        TranslationEditor.SetStatus(editor, L("TR_UNCHANGED", key))
+    end
+    self:RefreshUI()
+    self:refresh_translation_editor()
+    return true
+end
+
+function WAT:reset_translation_row(row)
+    local editor = self.translation_editor
+    if not editor or type(row) ~= "table" or not row.key then return false end
+    local ok, code = self.Localization.set_override(editor.locale, row.key, nil)
+    if not ok then
+        TranslationEditor.SetStatus(editor, TranslationEditor.ErrorText(code), "error")
+        return false
+    end
+    TranslationEditor.SetDraft(editor, editor.locale, row.key, nil)
+    TranslationEditor.SetStatus(editor, L("TR_RESET_DONE", row.key), "ok")
+    self:RefreshUI()
+    self:refresh_translation_editor()
+    return true
+end
+
+function WAT:show_translation_export()
+    local editor = self.translation_editor
+    if not editor then return end
+    local text = self.Localization.export_pack(editor.locale)
+    if not text then return end
+    editor.pending_pack = nil
+    editor.mode = "export"
+    TranslationEditor.ShowMode(editor)
+    editor.pack_hint:SetText(L("TR_EXPORT_HINT"))
+    editor.pack_box:SetText(text)
+    TranslationEditor.ResizePackBox(editor.pack_box)
+    editor.pack_scroll:SetVerticalScroll(0)
+    editor.pack_box:SetCursorPosition(0)
+    editor.pack_box:SetFocus()
+    editor.pack_box:HighlightText()
+    TranslationEditor.SetStatus(editor, L("TR_EXPORT_HINT"))
+end
+
+function WAT:show_translation_import()
+    local editor = self.translation_editor
+    if not editor then return end
+    editor.pending_pack = nil
+    editor.mode = "import"
+    TranslationEditor.ShowMode(editor)
+    editor.pack_hint:SetText(L("TR_IMPORT_HINT"))
+    editor.pack_box:SetText("")
+    TranslationEditor.ResizePackBox(editor.pack_box)
+    editor.pack_scroll:SetVerticalScroll(0)
+    editor.pack_box:SetFocus()
+    TranslationEditor.SetStatus(editor, L("TR_IMPORT_HINT"))
+end
+
+-- Vorschau: parst atomar, meldet Fehler mit Zeile und haelt ein gueltiges
+-- Paket zum ausdruecklichen Anwenden bereit. Es wird nichts geschrieben.
+function WAT:preview_translation_import()
+    local editor = self.translation_editor
+    if not editor or editor.mode ~= "import" then return false end
+    local localization = self.Localization
+    local pack, code, line = localization.parse_pack(editor.pack_box:GetText())
+    if not pack then
+        editor.pending_pack = nil
+        editor.apply_button:Hide()
+        TranslationEditor.SetStatus(editor, TranslationEditor.ErrorText(code, line), "error")
+        return false
+    end
+    local diff = localization.diff_pack(pack) or { added = 0, changed = 0, same = 0 }
+    editor.pending_pack = pack
+    SetFittedText(editor.apply_button.label, L("TR_APPLY", pack.count))
+    editor.apply_button:Show()
+    local summary = L("TR_PREVIEW_SUMMARY", pack.locale, pack.count, diff.added, diff.changed, diff.same)
+    -- Entwuerfe importierter Schluessel gehen beim Anwenden verloren: das
+    -- steht in der Vorschau, bevor jemand bestaetigt.
+    local overlapping = 0
+    for key in pairs(pack.entries) do
+        if TranslationEditor.GetDraft(editor, pack.locale, key) ~= nil then overlapping = overlapping + 1 end
+    end
+    if overlapping > 0 then summary = summary .. " " .. L("TR_PREVIEW_DRAFTS", overlapping) end
+    TranslationEditor.SetStatus(editor, summary)
+    return true
+end
+
+function WAT:apply_translation_import()
+    local editor = self.translation_editor
+    if not editor then return false end
+    local pack = editor.pending_pack
+    if not pack then
+        TranslationEditor.SetStatus(editor, L("TR_NOTHING_PENDING"), "error")
+        return false
+    end
+    local applied = self.Localization.apply_pack(pack)
+    editor.pending_pack = nil
+    if not applied then
+        editor.apply_button:Hide()
+        TranslationEditor.SetStatus(editor, TranslationEditor.ErrorText("type"), "error")
+        return false
+    end
+    for key in pairs(pack.entries) do TranslationEditor.SetDraft(editor, pack.locale, key, nil) end
+    editor.locale = pack.locale
+    editor.page = 1
+    editor.mode = "list"
+    TranslationEditor.ShowMode(editor)
+    TranslationEditor.SetStatus(editor, L("TR_APPLIED", applied, pack.locale), "ok")
+    self:RefreshUI()
+    self:refresh_translation_editor()
+    return true
+end
+
+function WAT:close_translation_pack()
+    local editor = self.translation_editor
+    if not editor then return end
+    editor.pending_pack = nil
+    editor.mode = "list"
+    TranslationEditor.ShowMode(editor)
+    self:refresh_translation_editor()
+end
+
 function WAT:CreateUI()
     if self.frame then return end
     local frame = CreateFrame("Frame", "WeeklyAltTrackerFrame", UIParent, "BackdropTemplate")
@@ -3196,9 +3989,10 @@ function WAT:CreateUI()
     -- damit ohne hoeheren Rahmen in die 600er Seitenleiste.
     local tabOrder = { "overview", "midnight", "weeklies", "professions", "sources", "keystones",
                        "statistics", "settings" }
+    local definitions = PanelDefinitions()
     for index, key in ipairs(tabOrder) do
         local targetKey = key
-        local definition = PANELS[targetKey]
+        local definition = definitions[targetKey]
         local button = CreateNavButton(sidebar, definition, -108 - ((index - 1) * 42))
         button:SetScript("OnClick", function() WAT:SetActiveTab(targetKey) end)
         self.tabButtons[targetKey] = button

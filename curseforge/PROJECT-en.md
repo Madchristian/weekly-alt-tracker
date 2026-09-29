@@ -74,6 +74,8 @@ All data stays in local SavedVariables. The addon has no telemetry, advertising,
 
 The language follows the WoW client automatically. Names supplied by the game are localized at display time through the WoW API.
 
+You can adjust the addon's own texts in the Translation editor under Settings per language pack (deDE, enUS, ruRU, zhCN, zhTW) and export them as a text-only pack or import one after a preview. Russian and Chinese translations are not shipped; the feature lets you author and share your own packs.
+
 ### Usage
 
 - `/wat` or `/weeklyalt`: open and close the window

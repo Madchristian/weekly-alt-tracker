@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#070b10">
-  <meta name="description" content="Deutsche Anleitung für WeeklyAltTracker 2026.9.23: Installation, Funktionen, Sprachen, erste Schritte und Fehlerbehebung.">
-  <title>WeeklyAltTracker 2026.9.23 – Anleitung</title>
+  <meta name="description" content="Deutsche Anleitung für WeeklyAltTracker 2026.9.29: Installation, Funktionen, Sprachen, erste Schritte und Fehlerbehebung.">
+  <title>WeeklyAltTracker 2026.9.29 – Anleitung</title>
   <style>
     :root {
       --bg: #070b10;
@@ -536,7 +536,7 @@
     <div class="topbar-inner">
       <a class="brand" href="#start" aria-label="Zur Startseite der Anleitung">
         <span class="brand-mark" aria-hidden="true">W</span>
-        <span>WeeklyAltTracker<small>ANLEITUNG · 2026.9.23</small></span>
+        <span>WeeklyAltTracker<small>ANLEITUNG · 2026.9.29</small></span>
       </a>
       <nav class="nav" aria-label="Inhaltsnavigation">
         <a href="#installation">Installation</a>
@@ -555,7 +555,7 @@
         <h1>Deine Woche.<br><span class="hero-accent">Alle Charaktere.</span></h1>
         <p class="lead">WeeklyAltTracker bündelt Schatzkammer, Midnight-Aktivitäten, Berufe, Wissenspunkte, Wappenquellen und Mythic+-Schlüsselsteine in einer kompakten Übersicht.</p>
         <div class="badges" aria-label="Versionsinformationen">
-          <span class="badge live">Release 2026.9.23</span>
+          <span class="badge live">Release 2026.9.29</span>
           <span class="badge">Retail 12.1.0</span>
           <span class="badge">Deutsch &amp; Englisch</span>
           <span class="badge">Keine Abhängigkeiten</span>
@@ -583,7 +583,7 @@
       <div class="install-grid">
         <article class="step">
           <h3>ZIP herunterladen</h3>
-          <p>Lade <strong>WeeklyAltTracker-2026.9.23.zip</strong> von der offiziellen Projektseite oder direkt vom Autor herunter.</p>
+          <p>Lade <strong>WeeklyAltTracker-2026.9.29.zip</strong> von der offiziellen Projektseite oder direkt vom Autor herunter.</p>
         </article>
         <article class="step">
           <h3>Archiv entpacken</h3>
@@ -642,7 +642,8 @@
         <aside class="note-panel">
           <h3>Sprache</h3>
           <p>Die Oberfläche folgt automatisch der Sprache deines WoW-Clients: <strong>deDE</strong> ist vollständig deutsch, <strong>enUS</strong> und <strong>enGB</strong> sind vollständig englisch.</p>
-          <p>Jede andere Clientsprache verwendet sicher die englische Fassung. Eine eigene Einstellung gibt es bewusst nicht.</p>
+          <p>Jede andere Clientsprache verwendet sicher die englische Fassung. Eine Sprachumschaltung gibt es bewusst nicht.</p>
+          <p>Eigene Texte lassen sich unter <strong>Einstellungen → Übersetzungseditor</strong> je Sprachpaket (deDE, enUS, ruRU, zhCN, zhTW) anpassen und als reines Textpaket exportieren oder importieren. Angezeigt wird immer das Paket deiner Clientsprache; ein Import wird erst nach Vorschau und Anwenden übernommen, feste Beschriftungen erscheinen nach <code>/reload</code>.</p>
           <p>Namen aus dem Spiel – Klasse, Dungeon, Gegenstand, Beruf und Erfolg – kommen immer aus WoW selbst und werden nie vom Addon übersetzt.</p>
         </aside>
         <aside class="note-panel">
@@ -704,7 +705,7 @@
         <article class="feature">
           <span class="feature-index">08</span>
           <h3>Einstellungen</h3>
-          <div><p>Bündelt alle Optionen: Aktualisieren, Fensterposition zurücksetzen, Minimap-Symbol ein- oder ausblenden und sechs feste Skalierungsstufen von 70 % bis 150 %. Unter <strong>Charaktere verwalten</strong> mit den Pfeilen einen Charakter auswählen, <strong>Charakter entfernen</strong> anklicken und bestätigen. Abbrechen erhält die Daten. Der gerade eingeloggte Charakter ist geschützt; zum Entfernen auf einen anderen Charakter wechseln. Beim erneuten Einloggen mit aktiviertem WAT wird der Charakter wieder erfasst.</p><div class="feature-tags"><span>Skalierung</span><span>Minimap</span><span>Position</span></div></div>
+          <div><p>Bündelt alle Optionen: Aktualisieren, Fensterposition zurücksetzen, Minimap-Symbol ein- oder ausblenden und sechs feste Skalierungsstufen von 70 % bis 150 %. Unter <strong>Charaktere verwalten</strong> mit den Pfeilen einen Charakter auswählen, <strong>Charakter entfernen</strong> anklicken und bestätigen. Abbrechen erhält die Daten. Der gerade eingeloggte Charakter ist geschützt; zum Entfernen auf einen anderen Charakter wechseln. Beim erneuten Einloggen mit aktiviertem WAT wird der Charakter wieder erfasst. Der <strong>Übersetzungseditor</strong> öffnet ein kompaktes Fenster: Schlüssel oder Text suchen, nur fehlende Einträge zeigen, je Eintrag speichern oder zurücksetzen und Sprachpakete als Text exportieren oder nach Vorschau importieren.</p><div class="feature-tags"><span>Skalierung</span><span>Minimap</span><span>Position</span><span>Übersetzungen</span></div></div>
         </article>
       </div>
     </section>
@@ -763,7 +764,8 @@
         </details>
         <details>
           <summary>Kann ich die Sprache umstellen?</summary>
-          <p>Nicht im Addon selbst – sie folgt der Sprache deines WoW-Clients. Stellst du den Client auf Englisch um, erscheint die Oberfläche nach einem Neustart des WoW-Clients vollständig englisch, inklusive bereits erfasster Charaktere. Eigene Übersetzungslabels speichert das Addon nämlich nicht mehr als Anzeigequelle: Es legt stabile IDs ab und lokalisiert sie erst beim Anzeigen, und diese Laufzeitauflösung hat Vorrang. Von WoW gelieferte, bereits lokalisierte Namen können weiterhin im Snapshot stehen, dienen dort aber nur der Rückwärtskompatibilität und als Fallback; ist keine Lokalisierung verfügbar, siehst du eine neutrale <code>Dungeon-ID</code> statt eines fremdsprachig gespeicherten Namens.</p>
+          <p>Die Sprache selbst nicht – sie folgt der Sprache deines WoW-Clients. Die Texte des Addons kannst du aber im <strong>Übersetzungseditor</strong> unter <strong>Einstellungen</strong> für dein Sprachpaket anpassen und als Textpaket mit anderen tauschen; feste Beschriftungen erscheinen nach <code>/reload</code>.</p>
+          <p>Zur Sprache des Clients: Stellst du den Client auf Englisch um, erscheint die Oberfläche nach einem Neustart des WoW-Clients vollständig englisch, inklusive bereits erfasster Charaktere. Eigene Übersetzungslabels speichert das Addon nämlich nicht mehr als Anzeigequelle: Es legt stabile IDs ab und lokalisiert sie erst beim Anzeigen, und diese Laufzeitauflösung hat Vorrang. Von WoW gelieferte, bereits lokalisierte Namen können weiterhin im Snapshot stehen, dienen dort aber nur der Rückwärtskompatibilität und als Fallback; ist keine Lokalisierung verfügbar, siehst du eine neutrale <code>Dungeon-ID</code> statt eines fremdsprachig gespeicherten Namens.</p>
         </details>
         <details>
           <summary>Warum gibt es kein Raid-Tracking?</summary>
@@ -798,7 +800,7 @@
   </main>
 
   <footer>
-    <div><strong>WeeklyAltTracker 2026.9.23</strong><br>Für WoW Retail 12.1.0 · Midnight</div>
+    <div><strong>WeeklyAltTracker 2026.9.29</strong><br>Für WoW Retail 12.1.0 · Midnight</div>
     <div>Copyright © 2026 Christian. All Rights Reserved.<br>Unabhängiges Fanprojekt, nicht mit Blizzard Entertainment verbunden.<br>Angezeigte Spielsymbole sind Client-Assets von Blizzard und werden nur zur Laufzeit referenziert, nicht mitgeliefert. Datenherkunft und Referenzen sind in <code>THIRD_PARTY_NOTICES.md</code> im Addon-Ordner offengelegt.</div>
   </footer>
 

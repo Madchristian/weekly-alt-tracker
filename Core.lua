@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "2026.9.23"
+WAT.version = "2026.9.29"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -272,6 +272,20 @@ function WAT:InitializeDatabase()
     -- eigentliche Inhalt wird gleich unten durch NormalizeCharacterOrder
     -- gegen db.characters gefiltert und ergaenzt.
     settings.characterOrder = SafeTable(settings.characterOrder) or {}
+    -- Additiv: accountweite Benutzeruebersetzungen (db.translations) liegen
+    -- neben characters/settings und ueberleben Updates. Localization.lua ist
+    -- laut TOC bereits geladen; sie normalisiert den Container fail-closed
+    -- (nur editierbare Sprachen, bekannte Schluessel und geprueft sichere
+    -- Werte) und bindet danach genau diese Tabelle, damit jede Aenderung im
+    -- Editor direkt in den SavedVariables landet. Ohne Lokalisierung bleibt
+    -- der Container eine leere Tabelle, nie ein Fremdtyp.
+    local localization = self.Localization
+    if localization and localization.normalize_overrides and localization.set_overrides then
+        db.translations = localization.normalize_overrides(db.translations)
+        localization.set_overrides(db.translations)
+    else
+        db.translations = SafeTable(db.translations) or {}
+    end
     db.version = 2
     self.db = db
     self:NormalizeCharacterOrder()

@@ -76,6 +76,8 @@ Alle Daten bleiben lokal in den SavedVariables. Das Addon enthält keine Telemet
 
 Die Sprache folgt automatisch dem WoW-Client. Namen aus dem Spiel werden zur Laufzeit über die WoW-API lokalisiert.
 
+Eigene Texte lassen sich im Übersetzungseditor unter Einstellungen je Sprachpaket (deDE, enUS, ruRU, zhCN, zhTW) anpassen und als reines Textpaket exportieren oder nach Vorschau importieren. Russische und chinesische Übersetzungen werden nicht mitgeliefert; die Funktion erlaubt, eigene Pakete zu erstellen und zu teilen.
+
 ### Bedienung
 
 - `/wat` oder `/weeklyalt`: Fenster öffnen und schließen

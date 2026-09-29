@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#070b10">
-  <meta name="description" content="English guide for WeeklyAltTracker 2026.9.23: installation, features, languages, first steps and troubleshooting.">
-  <title>WeeklyAltTracker 2026.9.23 &ndash; Guide</title>
+  <meta name="description" content="English guide for WeeklyAltTracker 2026.9.29: installation, features, languages, first steps and troubleshooting.">
+  <title>WeeklyAltTracker 2026.9.29 &ndash; Guide</title>
   <style>
     :root {
       --bg: #070b10;
@@ -536,7 +536,7 @@
     <div class="topbar-inner">
       <a class="brand" href="#start" aria-label="Back to the top of the guide">
         <span class="brand-mark" aria-hidden="true">W</span>
-        <span>WeeklyAltTracker<small>GUIDE &middot; 2026.9.23</small></span>
+        <span>WeeklyAltTracker<small>GUIDE &middot; 2026.9.29</small></span>
       </a>
       <nav class="nav" aria-label="Table of contents">
         <a href="#installation">Installation</a>
@@ -555,7 +555,7 @@
         <h1>Your week.<br><span class="hero-accent">All characters.</span></h1>
         <p class="lead">WeeklyAltTracker brings the Great Vault, Midnight activities, professions, knowledge points, crest sources and Mythic+ keystones together in one compact overview.</p>
         <div class="badges" aria-label="Version information">
-          <span class="badge live">Release 2026.9.23</span>
+          <span class="badge live">Release 2026.9.29</span>
           <span class="badge">Retail 12.1.0</span>
           <span class="badge">German &amp; English</span>
           <span class="badge">No dependencies</span>
@@ -583,7 +583,7 @@
       <div class="install-grid">
         <article class="step">
           <h3>Download the ZIP</h3>
-          <p>Download <strong>WeeklyAltTracker-2026.9.23.zip</strong> from the official project page or directly from the author.</p>
+          <p>Download <strong>WeeklyAltTracker-2026.9.29.zip</strong> from the official project page or directly from the author.</p>
         </article>
         <article class="step">
           <h3>Extract the archive</h3>
@@ -642,7 +642,8 @@
         <aside class="note-panel">
           <h3>Language</h3>
           <p>The interface follows your WoW client language automatically: <strong>deDE</strong> is fully German, <strong>enUS</strong> and <strong>enGB</strong> are fully English.</p>
-          <p>Every other client language safely uses the English version. There is deliberately no separate setting.</p>
+          <p>Every other client language safely uses the English version. There is deliberately no language switch.</p>
+          <p>You can adjust the addon's own labels under <strong>Settings &rarr; Translation editor</strong> per language pack (deDE, enUS, ruRU, zhCN, zhTW) and export or import them as a text-only pack. The display always uses the pack of your client language; an import is applied only after preview and confirmation, and fixed labels appear after <code>/reload</code>.</p>
           <p>Names that come from the game &ndash; class, dungeon, item, profession and achievement &ndash; always come from WoW itself and are never translated by the addon.</p>
         </aside>
         <aside class="note-panel">
@@ -704,7 +705,7 @@
         <article class="feature">
           <span class="feature-index">08</span>
           <h3>Settings</h3>
-          <div><p>Bundles every option: refresh, reset the window position, show or hide the minimap button and six fixed scale steps from 70% to 150%. Under <strong>Manage characters</strong>, select a character with the arrows, click <strong>Remove character</strong> and confirm. Cancel preserves the data. The currently logged-in character is protected; log in on another character to remove it. Logging in with WAT enabled records it again.</p><div class="feature-tags"><span>Scale</span><span>Minimap</span><span>Position</span></div></div>
+          <div><p>Bundles every option: refresh, reset the window position, show or hide the minimap button and six fixed scale steps from 70% to 150%. Under <strong>Manage characters</strong>, select a character with the arrows, click <strong>Remove character</strong> and confirm. Cancel preserves the data. The currently logged-in character is protected; log in on another character to remove it. Logging in with WAT enabled records it again. The <strong>Translation editor</strong> opens a compact window: search keys or text, show only missing entries, save or reset per entry, and export language packs as text or import them after a preview.</p><div class="feature-tags"><span>Scale</span><span>Minimap</span><span>Position</span><span>Translations</span></div></div>
         </article>
       </div>
     </section>
@@ -762,7 +763,8 @@
         </details>
         <details>
           <summary>Can I switch the language?</summary>
-          <p>Not in the addon itself &ndash; it follows your WoW client language. If you switch the client to German, the interface appears fully German after restarting the WoW client, including characters already recorded. That works because the addon no longer stores its own translation labels as the display source: it stores stable IDs and localizes them only when displaying, and that runtime resolution takes precedence. Already-localized names supplied by WoW may still sit in the snapshot, but only for backwards compatibility and as a fallback; if no localization is available you see a neutral <code>Dungeon ID</code> instead of a name stored in another language.</p>
+          <p>Not the language itself &ndash; it follows your WoW client language. You can, however, adjust the addon's texts for your language pack in the <strong>Translation editor</strong> under <strong>Settings</strong> and share them as a text pack; fixed labels appear after <code>/reload</code>.</p>
+          <p>About the client language: If you switch the client to German, the interface appears fully German after restarting the WoW client, including characters already recorded. That works because the addon no longer stores its own translation labels as the display source: it stores stable IDs and localizes them only when displaying, and that runtime resolution takes precedence. Already-localized names supplied by WoW may still sit in the snapshot, but only for backwards compatibility and as a fallback; if no localization is available you see a neutral <code>Dungeon ID</code> instead of a name stored in another language.</p>
         </details>
         <details>
           <summary>Why is there no raid tracking?</summary>
@@ -797,7 +799,7 @@
   </main>
 
   <footer>
-    <div><strong>WeeklyAltTracker 2026.9.23</strong><br>For WoW Retail 12.1.0 &middot; Midnight</div>
+    <div><strong>WeeklyAltTracker 2026.9.29</strong><br>For WoW Retail 12.1.0 &middot; Midnight</div>
     <div>Copyright &copy; 2026 Christian. All Rights Reserved.<br>Independent fan project, not affiliated with Blizzard Entertainment.<br>Game icons shown are Blizzard client assets and are only referenced at runtime, not shipped. Data provenance and references are disclosed in <code>THIRD_PARTY_NOTICES.md</code> inside the addon folder.</div>
   </footer>
 

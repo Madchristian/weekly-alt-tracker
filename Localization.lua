@@ -573,6 +573,53 @@ local enUS = {
     WQ_QUEST_93712 = "Style and Skill",
     WQ_QUEST_93713 = "Essential Materials",
     WQ_QUEST_93714 = "Minor Scales",
+
+    -- Benutzeruebersetzungen: Einstellungs-Einstieg und Uebersetzungseditor.
+    -- Sprachcodes (deDE, zhTW, ...) bleiben bewusst unuebersetzt.
+    SETTINGS_HEADING_TRANSLATIONS = "Translations",
+    SETTINGS_TRANSLATIONS_OPEN = "Translation editor",
+    SETTINGS_TRANSLATIONS_DESC = "Edit the addon's own labels for your client language or exchange language packs as text. The display language always follows the WoW client; fixed labels update after /reload.",
+    TR_TITLE = "Translation editor",
+    TR_LOCALE = "Language pack",
+    TR_CLIENT = "Client: %s",
+    TR_SEARCH = "Search key or text",
+    TR_MISSING_ONLY = "Missing only",
+    TR_PAGE = "Page %d/%d",
+    TR_SAVE = "Save",
+    TR_RESET = "Reset",
+    TR_EXPORT = "Export",
+    TR_IMPORT = "Import",
+    TR_BACK = "Back",
+    TR_PREVIEW = "Preview",
+    TR_APPLY = "Apply %d entries",
+    TR_EMPTY = "No entries match this filter.",
+    TR_EXPORT_HINT = "Ctrl+A selects the text, Ctrl+C copies it. The pack contains only keys and translations of this language.",
+    TR_IMPORT_HINT = "Paste a language pack with Ctrl+V and click Preview. Nothing is applied before you confirm.",
+    TR_PREVIEW_SUMMARY = "%s: %d entries. %d new, %d overwrite existing entries, %d unchanged. Entries not in the pack stay untouched.",
+    TR_APPLIED = "%d entries applied to %s. Fixed labels update after /reload.",
+    TR_SAVED = "%s saved. Fixed labels update after /reload.",
+    TR_RESET_DONE = "%s reset to the built-in text.",
+    TR_UNCHANGED = "%s matches the built-in text; no custom entry stored.",
+    TR_NOTHING_PENDING = "Preview the pack first.",
+    TR_PREVIEW_DRAFTS = "%d unsaved drafts of imported keys will be discarded.",
+    TR_ERR_AT_LINE = "%s (line %d)",
+    TR_ERR_TYPE = "The text is not readable.",
+    TR_ERR_SIZE = "The text is larger than allowed.",
+    TR_ERR_LINES = "The text has more lines than allowed.",
+    TR_ERR_FORMAT = "The first line must be WAT-LANG 1.",
+    TR_ERR_VERSION = "Unsupported pack version.",
+    TR_ERR_LOCALE = "The second line must name a supported language, for example locale=zhTW.",
+    TR_ERR_LINE = "Malformed line; expected KEY=text.",
+    TR_ERR_KEY = "Unknown key.",
+    TR_ERR_DUPLICATE = "Duplicate key.",
+    TR_ERR_ESCAPE = "Malformed escape; only \\n and \\\\ are allowed.",
+    TR_ERR_EMPTY = "The text must not be empty.",
+    TR_ERR_LENGTH = "The text is too long.",
+    TR_ERR_UTF8 = "The text is not valid UTF-8.",
+    TR_ERR_CONTROL = "Control characters are not allowed.",
+    TR_ERR_MARKUP = "The vertical bar character is not allowed.",
+    TR_ERR_PLACEHOLDERS = "Placeholders must match the English text exactly and in the same order.",
+    TR_ERR_STORAGE = "Translations cannot be stored right now.",
 }
 
 local deDE = {
@@ -1132,6 +1179,52 @@ local deDE = {
     WQ_QUEST_93712 = "Style and Skill",
     WQ_QUEST_93713 = "Essential Materials",
     WQ_QUEST_93714 = "Minor Scales",
+
+    -- Benutzeruebersetzungen: Einstellungs-Einstieg und Uebersetzungseditor.
+    SETTINGS_HEADING_TRANSLATIONS = "Übersetzungen",
+    SETTINGS_TRANSLATIONS_OPEN = "Übersetzungseditor",
+    SETTINGS_TRANSLATIONS_DESC = "Eigene Texte des Addons für die Clientsprache bearbeiten oder Sprachpakete als Text tauschen. Die Anzeigesprache folgt immer dem WoW-Client; feste Beschriftungen aktualisieren sich nach /reload.",
+    TR_TITLE = "Übersetzungseditor",
+    TR_LOCALE = "Sprachpaket",
+    TR_CLIENT = "Client: %s",
+    TR_SEARCH = "Schlüssel oder Text suchen",
+    TR_MISSING_ONLY = "Nur fehlende",
+    TR_PAGE = "Seite %d/%d",
+    TR_SAVE = "Speichern",
+    TR_RESET = "Zurücksetzen",
+    TR_EXPORT = "Exportieren",
+    TR_IMPORT = "Importieren",
+    TR_BACK = "Zurück",
+    TR_PREVIEW = "Vorschau",
+    TR_APPLY = "%d Einträge anwenden",
+    TR_EMPTY = "Keine Einträge für diesen Filter.",
+    TR_EXPORT_HINT = "Strg+A markiert den Text, Strg+C kopiert ihn. Das Paket enthält nur Schlüssel und Übersetzungen dieser Sprache.",
+    TR_IMPORT_HINT = "Ein Sprachpaket mit Strg+V einfügen und auf Vorschau klicken. Vor der Bestätigung wird nichts übernommen.",
+    TR_PREVIEW_SUMMARY = "%s: %d Einträge. %d neu, %d überschreiben vorhandene Einträge, %d unverändert. Einträge, die nicht im Paket stehen, bleiben erhalten.",
+    TR_APPLIED = "%d Einträge für %s übernommen. Feste Beschriftungen aktualisieren sich nach /reload.",
+    TR_SAVED = "%s gespeichert. Feste Beschriftungen aktualisieren sich nach /reload.",
+    TR_RESET_DONE = "%s auf den eingebauten Text zurückgesetzt.",
+    TR_UNCHANGED = "%s entspricht dem eingebauten Text; kein eigener Eintrag gespeichert.",
+    TR_NOTHING_PENDING = "Zuerst die Vorschau des Pakets prüfen.",
+    TR_PREVIEW_DRAFTS = "%d ungespeicherte Entwürfe importierter Schlüssel werden verworfen.",
+    TR_ERR_AT_LINE = "%s (Zeile %d)",
+    TR_ERR_TYPE = "Der Text ist nicht lesbar.",
+    TR_ERR_SIZE = "Der Text ist größer als erlaubt.",
+    TR_ERR_LINES = "Der Text hat mehr Zeilen als erlaubt.",
+    TR_ERR_FORMAT = "Die erste Zeile muss WAT-LANG 1 lauten.",
+    TR_ERR_VERSION = "Nicht unterstützte Paketversion.",
+    TR_ERR_LOCALE = "Die zweite Zeile muss eine unterstützte Sprache nennen, zum Beispiel locale=zhTW.",
+    TR_ERR_LINE = "Fehlerhafte Zeile; erwartet wird SCHLÜSSEL=Text.",
+    TR_ERR_KEY = "Unbekannter Schlüssel.",
+    TR_ERR_DUPLICATE = "Doppelter Schlüssel.",
+    TR_ERR_ESCAPE = "Fehlerhaftes Escape; erlaubt sind nur \\n und \\\\.",
+    TR_ERR_EMPTY = "Der Text darf nicht leer sein.",
+    TR_ERR_LENGTH = "Der Text ist zu lang.",
+    TR_ERR_UTF8 = "Der Text ist kein gültiges UTF-8.",
+    TR_ERR_CONTROL = "Steuerzeichen sind nicht erlaubt.",
+    TR_ERR_MARKUP = "Der senkrechte Strich ist nicht erlaubt.",
+    TR_ERR_PLACEHOLDERS = "Platzhalter müssen dem englischen Text exakt und in derselben Reihenfolge entsprechen.",
+    TR_ERR_STORAGE = "Übersetzungen können gerade nicht gespeichert werden.",
 }
 
 -- Test-API: die Roh-Woerterbuecher selbst. Bewusst keine Setter oder sonstige
@@ -1161,13 +1254,48 @@ local clientLocale = ReadClientLocale()
 Localization.clientLocale = clientLocale
 Localization.locale = (clientLocale and SUPPORTED[clientLocale]) or "enUS"
 
+-- Benutzeruebersetzungen (Overrides). Sie liegen accountweit in
+-- WeeklyAltTrackerDB.translations[locale][KEY] und werden von Core.lua nach
+-- dem Laden der SavedVariables ueber set_overrides gebunden. Die
+-- Nachschlagereihenfolge ist: Override der Override-Sprache des Clients ->
+-- eingebautes Woerterbuch der Anzeigesprache -> enUS. Die Anzeigesprache
+-- (Localization.locale) bleibt davon unberuehrt: ein zhTW-Client zeigt
+-- weiterhin enUS als eingebautes Woerterbuch, seine Overrides gehoeren aber
+-- zum Paket zhTW. Nicht editierbare Clientsprachen (frFR, koKR, ...) zeigen
+-- Englisch und nutzen deshalb das Paket enUS.
+local EDITOR_LOCALES = { "deDE", "enUS", "ruRU", "zhCN", "zhTW" }
+local EDITOR_LOCALE_SET = {}
+for _, editorLocale in ipairs(EDITOR_LOCALES) do EDITOR_LOCALE_SET[editorLocale] = true end
+local OVERRIDE_LOCALES = {
+    deDE = "deDE", enUS = "enUS", enGB = "enUS", ruRU = "ruRU", zhCN = "zhCN", zhTW = "zhTW",
+}
+Localization.EDITOR_LOCALES = EDITOR_LOCALES
+Localization.override_locale = (clientLocale and OVERRIDE_LOCALES[clientLocale]) or "enUS"
+
+-- Gebundener Speicher (die SavedVariables-Tabelle selbst). Vor der Bindung
+-- gibt es keine Overrides; jeder Zugriff prueft Typ und Secret-Status erneut,
+-- weil die Tabelle von aussen (SavedVariables) stammt.
+local overrides = nil
+
+local function ActiveOverrides()
+    if type(overrides) ~= "table" then return nil end
+    local active = overrides[Localization.override_locale]
+    if issecretvalue and issecretvalue(active) then return nil end
+    if type(active) ~= "table" then return nil end
+    return active
+end
+
 local function Lookup(key)
     if issecretvalue and issecretvalue(key) then return nil end
     if type(key) ~= "string" then return nil end
+    local active = ActiveOverrides()
+    local value = active and active[key] or nil
+    if issecretvalue and issecretvalue(value) then value = nil end
+    if type(value) == "string" then return value end
     local dictionaries = Localization.dictionaries
     if type(dictionaries) ~= "table" then return nil end
-    local active = dictionaries[Localization.locale]
-    local value = type(active) == "table" and active[key] or nil
+    local dictionary = dictionaries[Localization.locale]
+    value = type(dictionary) == "table" and dictionary[key] or nil
     if type(value) ~= "string" then
         local fallback = dictionaries.enUS
         value = type(fallback) == "table" and fallback[key] or nil
@@ -1196,6 +1324,392 @@ end
 
 WAT.L = L
 Localization.Get = L
+
+-- ---------------------------------------------------------------------------
+-- Sprachpakete und Wertpruefung
+--
+-- Ein Sprachpaket ist reiner Text, nie Lua: Zeile 1 "WAT-LANG 1", Zeile 2
+-- "locale=xxYY", danach je Eintrag "KEY=Text" mit \n und \\ als einzigen
+-- Escapes; Leerzeilen und "#"-Zeilen werden ueberlesen. Der Parser ist
+-- zeilenbasiert und begrenzt (Bytes, Zeilen, Schluessel- und Wertlaenge),
+-- arbeitet ohne loadstring und atomar: ein einziger Fehler verwirft das
+-- gesamte Paket mit Code und Zeilennummer. Jeder Wert - ob aus Paket, Editor
+-- oder SavedVariables - durchlaeuft dieselbe Pruefung: gueltiges UTF-8, keine
+-- Steuerzeichen ausser dem Zeilenumbruch, kein senkrechter Strich (WoW-Markup)
+-- und exakt die Platzhalter des englischen Quelltexts in derselben
+-- Reihenfolge inklusive literaler (%%) und nackter (%) Prozentzeichen.
+-- ---------------------------------------------------------------------------
+
+local PACK_MAGIC = "WAT-LANG"
+local PACK_VERSION = 1
+local LIMITS = { key = 64, value = 1024, text = 200000, lines = 4000 }
+Localization.PACK_MAGIC = PACK_MAGIC
+Localization.PACK_VERSION = PACK_VERSION
+Localization.LIMITS = LIMITS
+
+local function IsSecret(value)
+    return issecretvalue and issecretvalue(value) or false
+end
+
+function Localization.is_editor_locale(locale)
+    if IsSecret(locale) or type(locale) ~= "string" then return false end
+    return EDITOR_LOCALE_SET[locale] == true
+end
+
+-- Technische Schluessel sind nicht editierbar: DATE_FORMAT_SHORT ist ein
+-- date()-Format, kein string.format-Text, und SLASH_DEBUG eine Debugzeile
+-- mit Pipes fuer den Chat. Beide fielen sonst durch die Wertpruefung.
+local TECHNICAL_KEYS = { DATE_FORMAT_SHORT = true, SLASH_DEBUG = true }
+
+-- Sortierte editierbare enUS-Schluessel; einmal gebaut, danach nur gelesen.
+local sortedKeys = nil
+function Localization.sorted_keys()
+    if not sortedKeys then
+        local keys = {}
+        for key, value in pairs(enUS) do
+            if type(key) == "string" and type(value) == "string" and not TECHNICAL_KEYS[key] then
+                keys[#keys + 1] = key
+            end
+        end
+        table.sort(keys)
+        sortedKeys = keys
+    end
+    return sortedKeys
+end
+
+-- Englischer Quelltext eines editierbaren Schluessels, sonst nil.
+function Localization.source(key)
+    if IsSecret(key) or type(key) ~= "string" or TECHNICAL_KEYS[key] then return nil end
+    local value = enUS[key]
+    if type(value) ~= "string" then return nil end
+    return value
+end
+
+-- Paketgrenzen aus dem Schluesselinventar statt einer festen Zahl: der eigene
+-- Export mit lauter Maximalwerten (Escape-Form bis doppelt so lang wie der
+-- Wert, dazu je Eintrag die Kommentarzeile mit dem Quelltext) muss immer
+-- wieder importierbar sein. Alles darueber ist kein gueltiges Paket.
+do
+    local bytes, count = 64, 0
+    for _, key in ipairs(Localization.sorted_keys()) do
+        count = count + 1
+        bytes = bytes + 8 + 2 * #enUS[key] + #key + 2 + 2 * LIMITS.value
+    end
+    LIMITS.text = bytes + 4096
+    LIMITS.lines = 2 * count + 64
+end
+
+-- Platzhalter in Reihenfolge: "%d", "%.1f", "%%" (literal) oder "%" (nackt,
+-- also ohne gueltige Konversion - so steht es etwa in RITUAL_DONE).
+local function PlaceholderTokens(value)
+    local tokens = {}
+    local position, length = 1, #value
+    while position <= length do
+        local start = string.find(value, "%", position, true)
+        if not start then break end
+        if string.sub(value, start + 1, start + 1) == "%" then
+            tokens[#tokens + 1] = "%%"
+            position = start + 2
+        else
+            local token = string.match(value, "^%%[%-%+ #0]*%d*%.?%d*[diouxXeEfgGqsc]", start)
+            if token then
+                tokens[#tokens + 1] = token
+                position = start + #token
+            else
+                tokens[#tokens + 1] = "%"
+                position = start + 1
+            end
+        end
+    end
+    return tokens
+end
+Localization.placeholder_tokens = PlaceholderTokens
+
+local function SameTokens(a, b)
+    if #a ~= #b then return false end
+    for index = 1, #a do
+        if a[index] ~= b[index] then return false end
+    end
+    return true
+end
+
+-- Wohlgeformtes UTF-8 nach RFC 3629: keine ueberlangen Formen, keine
+-- Surrogate, nichts jenseits von U+10FFFF.
+local function ValidUTF8(value)
+    local index, length = 1, #value
+    while index <= length do
+        local byte = string.byte(value, index)
+        if byte < 0x80 then
+            index = index + 1
+        else
+            local size, minimum, codepoint
+            if byte >= 0xC2 and byte <= 0xDF then
+                size, minimum, codepoint = 2, 0x80, byte - 0xC0
+            elseif byte >= 0xE0 and byte <= 0xEF then
+                size, minimum, codepoint = 3, 0x800, byte - 0xE0
+            elseif byte >= 0xF0 and byte <= 0xF4 then
+                size, minimum, codepoint = 4, 0x10000, byte - 0xF0
+            else
+                return false
+            end
+            if index + size - 1 > length then return false end
+            for offset = 1, size - 1 do
+                local continuation = string.byte(value, index + offset)
+                if continuation < 0x80 or continuation > 0xBF then return false end
+                codepoint = codepoint * 64 + (continuation - 0x80)
+            end
+            if codepoint < minimum or codepoint > 0x10FFFF
+                    or (codepoint >= 0xD800 and codepoint <= 0xDFFF) then
+                return false
+            end
+            index = index + size
+        end
+    end
+    return true
+end
+
+-- Steuerzeichen ausser dem Zeilenumbruch (0x0A), einschliesslich NUL und DEL.
+-- NUL wird plain gesucht: Lua 5.1 erlaubt kein eingebettetes Nullbyte in
+-- einem Muster.
+local function HasControl(value)
+    if string.find(value, "\0", 1, true) then return true end
+    return string.find(value, "[\1-\9\11-\31\127]") ~= nil
+end
+
+local function ValidateValue(key, value)
+    local source = Localization.source(key)
+    if source == nil then return false, "key" end
+    if IsSecret(value) or type(value) ~= "string" then return false, "type" end
+    if value == "" then return false, "empty" end
+    if #value > LIMITS.value then return false, "length" end
+    if not ValidUTF8(value) then return false, "utf8" end
+    if HasControl(value) then return false, "control" end
+    if string.find(value, "|", 1, true) then return false, "markup" end
+    if not SameTokens(PlaceholderTokens(value), PlaceholderTokens(source)) then
+        return false, "placeholders"
+    end
+    return true
+end
+Localization.validate_value = ValidateValue
+
+function Localization.escape_value(value)
+    if type(value) ~= "string" then return "" end
+    return (string.gsub(string.gsub(value, "\\", "\\\\"), "\n", "\\n"))
+end
+
+function Localization.unescape_value(text)
+    if IsSecret(text) or type(text) ~= "string" then return nil, "escape" end
+    local parts, position, length = {}, 1, #text
+    while position <= length do
+        local start = string.find(text, "\\", position, true)
+        if not start then
+            parts[#parts + 1] = string.sub(text, position)
+            break
+        end
+        parts[#parts + 1] = string.sub(text, position, start - 1)
+        local code = string.sub(text, start + 1, start + 1)
+        if code == "n" then
+            parts[#parts + 1] = "\n"
+        elseif code == "\\" then
+            parts[#parts + 1] = "\\"
+        else
+            return nil, "escape"
+        end
+        position = start + 2
+    end
+    return table.concat(parts)
+end
+
+-- ---------------------------------------------------------------------------
+-- Override-Speicher
+-- ---------------------------------------------------------------------------
+
+function Localization.set_overrides(storage)
+    if IsSecret(storage) or type(storage) ~= "table" then storage = {} end
+    overrides = storage
+    return storage
+end
+
+function Localization.get_overrides()
+    return overrides
+end
+
+local function LocaleTable(locale, create)
+    if type(overrides) ~= "table" then return nil end
+    local entries = overrides[locale]
+    if IsSecret(entries) or type(entries) ~= "table" then
+        if not create then return nil end
+        entries = {}
+        overrides[locale] = entries
+    end
+    return entries
+end
+
+function Localization.get_override(locale, key)
+    if not Localization.is_editor_locale(locale) then return nil end
+    if IsSecret(key) or type(key) ~= "string" then return nil end
+    local entries = LocaleTable(locale, false)
+    local value = entries and entries[key] or nil
+    if IsSecret(value) or type(value) ~= "string" then return nil end
+    return value
+end
+
+-- nil oder "" entfernt den Eintrag. Ein ungueltiger Wert aendert nichts.
+function Localization.set_override(locale, key, value)
+    if not Localization.is_editor_locale(locale) then return false, "locale" end
+    if Localization.source(key) == nil then return false, "key" end
+    if type(overrides) ~= "table" then return false, "storage" end
+    if value == nil or value == "" then
+        local entries = LocaleTable(locale, false)
+        if entries then entries[key] = nil end
+        return true
+    end
+    local ok, code = ValidateValue(key, value)
+    if not ok then return false, code end
+    LocaleTable(locale, true)[key] = value
+    return true
+end
+
+function Localization.count_overrides(locale)
+    local count = 0
+    if not Localization.is_editor_locale(locale) then return count end
+    local entries = LocaleTable(locale, false)
+    if not entries then return count end
+    for key, value in pairs(entries) do
+        if Localization.get_override(locale, key) == value then count = count + 1 end
+    end
+    return count
+end
+
+-- Fail-closed-Normalisierung der SavedVariables: nur editierbare Sprachen,
+-- nur bekannte Schluessel, nur Werte, die die Pruefung bestehen. Liefert
+-- immer eine neue Tabelle.
+function Localization.normalize_overrides(raw)
+    local clean = {}
+    if IsSecret(raw) or type(raw) ~= "table" then return clean end
+    for _, locale in ipairs(EDITOR_LOCALES) do
+        local entries = raw[locale]
+        if not IsSecret(entries) and type(entries) == "table" then
+            local kept = nil
+            for key, value in pairs(entries) do
+                if not IsSecret(key) and type(key) == "string" and ValidateValue(key, value) then
+                    kept = kept or {}
+                    kept[key] = value
+                end
+            end
+            if kept then clean[locale] = kept end
+        end
+    end
+    return clean
+end
+
+-- ---------------------------------------------------------------------------
+-- Export, Parser, Vorschau, Anwenden
+-- ---------------------------------------------------------------------------
+
+-- Deterministisch: Kopf, dann je Override in Schluesselreihenfolge eine
+-- Kommentarzeile mit dem englischen Quelltext und die Eintragszeile. Keine
+-- Charakter- oder Accountdaten, nur Schluessel und Werte.
+function Localization.export_pack(locale)
+    if not Localization.is_editor_locale(locale) then return nil, "locale" end
+    local lines = { PACK_MAGIC .. " " .. PACK_VERSION, "locale=" .. locale }
+    for _, key in ipairs(Localization.sorted_keys()) do
+        local value = Localization.get_override(locale, key)
+        if value ~= nil and ValidateValue(key, value) then
+            lines[#lines + 1] = "# EN: " .. Localization.escape_value(enUS[key])
+            lines[#lines + 1] = key .. "=" .. Localization.escape_value(value)
+        end
+    end
+    lines[#lines + 1] = ""
+    return table.concat(lines, "\n")
+end
+
+local function Trim(text)
+    return (string.gsub(string.gsub(text, "^ +", ""), " +$", ""))
+end
+
+-- Liefert { locale, entries, count } oder nil, Fehlercode, Zeilennummer.
+function Localization.parse_pack(text)
+    if IsSecret(text) or type(text) ~= "string" then return nil, "type" end
+    if #text > LIMITS.text then return nil, "size" end
+
+    local lines, start = {}, 1
+    while true do
+        local newline = string.find(text, "\n", start, true)
+        local line = string.sub(text, start, (newline or (#text + 1)) - 1)
+        if string.sub(line, -1) == "\r" then line = string.sub(line, 1, -2) end
+        lines[#lines + 1] = line
+        if #lines > LIMITS.lines then return nil, "lines" end
+        if not newline then break end
+        start = newline + 1
+    end
+    for number, line in ipairs(lines) do
+        if HasControl(line) then return nil, "control", number end
+        if not ValidUTF8(line) then return nil, "utf8", number end
+    end
+
+    local version = string.match(Trim(lines[1] or ""), "^WAT%-LANG (%d+)$")
+    if not version then return nil, "format", 1 end
+    if tonumber(version) ~= PACK_VERSION then return nil, "version", 1 end
+    local locale = string.match(Trim(lines[2] or ""), "^locale=(%a%a%a%a)$")
+    if not locale or not Localization.is_editor_locale(locale) then return nil, "locale", 2 end
+
+    local entries, count = {}, 0
+    for number = 3, #lines do
+        local line = lines[number]
+        if not string.match(line, "^ *$") and string.sub(line, 1, 1) ~= "#" then
+            local key, raw = string.match(line, "^([A-Z][A-Z0-9_]*)=(.*)$")
+            if not key then return nil, "line", number end
+            if #key > LIMITS.key or Localization.source(key) == nil then return nil, "key", number end
+            if entries[key] ~= nil then return nil, "duplicate", number end
+            local value = Localization.unescape_value(raw)
+            if not value then return nil, "escape", number end
+            local ok, code = ValidateValue(key, value)
+            if not ok then return nil, code, number end
+            entries[key] = value
+            count = count + 1
+        end
+    end
+    return { locale = locale, entries = entries, count = count }
+end
+
+local function ValidPack(pack)
+    if IsSecret(pack) or type(pack) ~= "table" then return false end
+    if not Localization.is_editor_locale(pack.locale) then return false end
+    if IsSecret(pack.entries) or type(pack.entries) ~= "table" then return false end
+    return true
+end
+
+-- Vorschau ohne Nebenwirkung: neu / ueberschreibt / unveraendert.
+function Localization.diff_pack(pack)
+    if not ValidPack(pack) then return nil end
+    local added, changed, same = 0, 0, 0
+    for key, value in pairs(pack.entries) do
+        local current = Localization.get_override(pack.locale, key)
+        if current == nil then
+            added = added + 1
+        elseif current == value then
+            same = same + 1
+        else
+            changed = changed + 1
+        end
+    end
+    return { added = added, changed = changed, same = same }
+end
+
+-- Merge: nur die Schluessel des Pakets werden geschrieben, alle anderen
+-- Eintraege der Sprache bleiben. Erst wird alles geprueft, dann geschrieben.
+function Localization.apply_pack(pack)
+    if not ValidPack(pack) or type(overrides) ~= "table" then return nil end
+    local count = 0
+    for key, value in pairs(pack.entries) do
+        if IsSecret(key) or type(key) ~= "string" or not ValidateValue(key, value) then return nil end
+        count = count + 1
+    end
+    local target = LocaleTable(pack.locale, true)
+    for key, value in pairs(pack.entries) do target[key] = value end
+    return count
+end
 
 -- Quest titles belong to the client locale, not the addon dictionary. Keep
 -- them in memory only: saved snapshots must remain portable between locales.

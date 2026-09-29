@@ -11,6 +11,10 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.9.29
+
+New **Translation editor** under **Settings → Translations** with five language packs (deDE, enUS, ruRU, zhCN, zhTW), search, a "Missing only" filter, text-only export and import with preview, and stable drafts. The addon does not ship Russian or Chinese translations; the feature lets you author and share your own packs, which the license explicitly permits. This release was deliberately published without an in-game test: client rendering, IME input and copy/paste are still unverified; fixed labels update after `/reload`. Details in the [2026.9.29 changelog](curseforge/CHANGELOG-2026.9.29-en.md).
+
 ### Version 2026.9.23
 
 The Weekly Quests page stays readable with wider client fonts such as zhTW: labels shrink or truncate instead of overlapping. Pool headings such as "Fortify the Runestones" use the client language without repeating the title.
@@ -39,13 +43,23 @@ Since version 0.2.6 the interface is fully bilingual:
 - **enUS / enGB** – fully English
 - every other client language falls back safely to English
 
-The language follows the WoW client automatically (`GetLocale`); there is no separate setting. If the client language cannot be read safely, the addon uses English instead of raising an error.
+The language follows the WoW client automatically (`GetLocale`); there is no separate language setting. Custom translations (see below) change only the texts, never the language. If the client language cannot be read safely, the addon uses English instead of raising an error.
 
 Names that come from the game – class, dungeon, item, profession and achievement – are never translated by the addon. They are always taken from the WoW API in the client's own language. The addon's own translation labels are no longer stored as the authoritative display source: for the Midnight weekly quest, professions and the keystone, stable IDs (`questID`, `baseSkillLineID`, `mapID`) are stored and resolved only when they are displayed – that runtime resolution wins over whatever the snapshot contains. Client-localized names supplied by the WoW API may still end up in the snapshot; they are kept for backwards compatibility and as a fallback. After restarting WoW with the changed client language, already-recorded data appears in the new language as well. If no localization is available at display time, the keystone view shows the language-neutral dungeon ID instead of a name stored in another language.
 
 The slash command `/wat` is identical in both languages; only its output is translated.
 
 The Weekly Quests page loads individual quest names and known pool variants from the WoW API in the client language, including French, Chinese and other clients using the English addon interface. Unavailable names are requested once per session; existing fallback labels remain visible until the data arrives. Display, search, sorting and tooltips use the same names. The title cache lasts only for the current session and does not modify saved character progress.
+
+### Custom translations and language packs
+
+Under **Settings → Translations → Translation editor** you can adjust the addon's own labels. The compact editor shows the English source and the editable translation per key, filters by search or `Missing only` and pages in fixed steps; `Save` and `Reset` work per entry, line breaks are written as `\n`. The editable language packs are `deDE`, `enUS`, `ruRU`, `zhCN` and `zhTW`. The pack selection in the editor only changes which pack you edit, never the client language: the display always uses the pack of your own client language (`enGB` and every client language not listed use `enUS`), and missing entries fall back to the built-in dictionary and finally to English. Entries are stored account-wide in the SavedVariables (`WeeklyAltTrackerDB.translations`) and survive updates; on load only known keys with safe values are accepted.
+
+`Export` produces a text-only pack (`WAT-LANG 1`, `locale=…`, then one `KEY=text` line per entry) without any character or account data that you copy with Ctrl+A and Ctrl+C. `Import` accepts such a pack via Ctrl+V, shows language, count, new and overwritten entries after `Preview` and applies only after `Apply`; entries not contained in the pack stay untouched. The parser is strict and never executes code: unknown or duplicate keys, a wrong version or language, malformed escapes, invalid UTF-8, control characters, the vertical bar (WoW markup) and mismatching placeholders reject the whole pack with a line number. Size, line count and text length are bounded; the date format and the debug chat line are deliberately not editable.
+
+Unsaved drafts survive paging, filtering and language-pack changes within the session. Saving or resetting one row does not change other drafts; Escape discards only the draft in the current input. Import preview warns about affected drafts and replaces them only on Apply. Only saved entries are exported and retained across `/reload` or logout.
+
+Tables and tooltips use changed texts immediately. Labels created at load time – sidebar, column heads, buttons – update after `/reload`; the editor's status line says so.
 
 ## What it tracks
 
@@ -160,6 +174,8 @@ New in 0.3.0. Every option lives in the last section of the left navigation inst
 - `Reset position` - centres the window
 - Minimap button `Visible` / `Hidden` - applies immediately and account-wide
 - Window scale as fixed steps: 70%, 85%, 100%, 115%, 130%, 150%
+- `Manage characters` - remove individual offline characters after confirmation
+- `Translation editor` - edit the addon's labels per language pack, export and import language packs as text (see [Languages](#languages))
 
 There is deliberately no slider: the fixed steps stay exactly inside the range the addon accepts on load. There is likewise deliberately no action to delete the database - such a loss would be unrecoverable and does not belong behind a single click.
 
@@ -233,7 +249,8 @@ The overview shows `M+10` in green as `Yes` as soon as the Blizzard vault report
 11. In the `Keystones` section check dungeon name and level of a character holding a Mythic+ keystone.
 12. In the `Statistics` section check that the logged-in character's values appear and that the account total really adds up across at least two characters. Statistics are only filled once the achievement data has been loaded; until then `-` is shown.
 13. Log in an alt and check that both character snapshots are visible.
-14. Check for Lua errors with BugSack/!BugGrabber.
+14. In the `Settings` section open the `Translation editor`: change and save an entry, have an invalid value (for example containing `|cff`) rejected, copy `Export` with Ctrl+A/Ctrl+C, feed the same pack through `Import`, `Preview` and `Apply`, then check after `/reload` that the changed labels appear everywhere.
+15. Check for Lua errors with BugSack/!BugGrabber.
 
 ## Development
 
@@ -260,7 +277,7 @@ Lua runtime tests of the harnesses in `tools/*.lua` against the real addon files
 
 The runtime harnesses are executed with Fengari, a Lua implementation in JavaScript. Fengari runs the tests but does not check the Lua 5.1 syntax of every source file. For that, `luaparse@0.3.1` is additionally run manually over the Lua files in the development workflow; `luaparse` is not wired into `tools/check.py`.
 
-The localization harness `tools/test_localization_runtime.lua` loads the real `Localization.lua` once per locale scenario (deDE, enUS, enGB, frFR, missing `GetLocale`, throwing `GetLocale`, secret value, non-string) and verifies key parity and placeholder parity between both dictionaries. The UI harness runs the complete suite once in deDE, once in enUS and once in frFR against the real `UI.lua`.
+The localization harness `tools/test_localization_runtime.lua` loads the real `Localization.lua` once per locale scenario (deDE, enUS, enGB, frFR, missing `GetLocale`, throwing `GetLocale`, secret value, non-string) and verifies key parity and placeholder parity between both dictionaries. The UI harness runs the complete suite once in deDE, once in enUS and once in frFR against the real `UI.lua`. The translations harness `tools/test_translations_runtime.lua` checks the language-pack parser and export, value validation, the lookup order with overrides, the fail-closed normalization of `WeeklyAltTrackerDB.translations` in `Core.lua` and the translation editor callbacks in `UI.lua` against the real addon files.
 
 Fengari, luaparse and the Python scripts are pure development tools and are not shipped with the addon. The addon itself deliberately uses neither Ace3 nor any other third-party library at runtime.
 

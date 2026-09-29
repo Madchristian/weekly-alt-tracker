@@ -13,6 +13,10 @@ Erlaubt ist:
 3. die Weitergabe eines unveränderten, vom Rechteinhaber bereitgestellten Originalarchivs innerhalb einer privaten Gilde oder Spielgemeinschaft;
 4. die Verbreitung über vom Rechteinhaber ausdrücklich autorisierte Projektseiten und Plattformen, und zwar ausschließlich die offizielle Wago-Projektseite und die offizielle CurseForge-Projektseite des Rechteinhabers.
 
+Zusätzlich erlaubt ist das private, nicht kommerzielle Erstellen, Bearbeiten, Importieren, Exportieren und Weitergeben reiner Übersetzungspakete über die dafür vorgesehene Übersetzungsfunktion des Addons. Diese Erlaubnis gilt ausschließlich für Übersetzungsdaten; sie erlaubt keine Änderung oder Weitergabe veränderter Addon-Dateien und keine Neuveröffentlichung des Addons. Die nachfolgenden Einschränkungen gelten vorbehaltlich dieser ausdrücklichen Ausnahme.
+
+Translation packs: users may create, edit, import, export and share text-only translation packs through the addon's translation feature for private, non-commercial use. This exception applies only to translation data, not to modified addon files or redistribution of the addon itself.
+
 Ohne vorherige schriftliche Genehmigung des Rechteinhabers ist insbesondere nicht erlaubt:
 
 1. die Software oder Teile davon zu verändern, zu übersetzen, zu bearbeiten oder daraus abgeleitete Werke zu erstellen;

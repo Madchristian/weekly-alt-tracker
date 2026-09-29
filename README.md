@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.9.29
+
+Neuer **Übersetzungseditor** unter **Einstellungen → Übersetzungen** mit fünf Sprachpaketen (deDE, enUS, ruRU, zhCN, zhTW), Suche, Filter „Nur fehlende“, Export und Import als reiner Text mit Vorschau sowie stabilen Entwürfen. Das Addon liefert keine russischen oder chinesischen Übersetzungen mit; die Funktion erlaubt, eigene Pakete zu erstellen und zu teilen, was die Lizenz ausdrücklich gestattet. Dieses Release wurde bewusst ohne In-Game-Test veröffentlicht: Darstellung, IME-Eingabe und Kopieren/Einfügen im Client sind noch ungeprüft; feste Beschriftungen aktualisieren sich nach `/reload`. Details im [Changelog zu 2026.9.29](wago/CHANGELOG-2026.9.29.md).
+
 ### Version 2026.9.23
 
 Die Wochenquest-Seite bleibt auch mit breiteren Clientschriften wie zhTW lesbar: Beschriftungen schrumpfen oder werden gekürzt statt zu überlappen. Pool-Überschriften wie „Fortify the Runestones“ erscheinen in der Clientsprache, ohne den Titel doppelt zu zeigen.
@@ -39,13 +43,23 @@ Seit Version 0.2.6 ist die Oberfläche vollständig zweisprachig:
 - **enUS / enGB** – vollständig englisch
 - jede andere Clientsprache fällt sicher auf Englisch zurück
 
-Die Sprache richtet sich automatisch nach dem WoW-Client (`GetLocale`); es gibt keine eigene Einstellung. Lässt sich die Clientsprache nicht sicher lesen, verwendet das Addon Englisch, statt einen Fehler zu erzeugen.
+Die Sprache richtet sich automatisch nach dem WoW-Client (`GetLocale`); es gibt keine eigene Spracheinstellung. Eigene Übersetzungen (siehe unten) ändern nur die Texte, nie die Sprache. Lässt sich die Clientsprache nicht sicher lesen, verwendet das Addon Englisch, statt einen Fehler zu erzeugen.
 
 Namen aus dem Spiel – Klasse, Dungeon, Gegenstand, Beruf und Erfolg – werden nie vom Addon übersetzt, sondern zur Laufzeit clientlokalisiert aus der WoW-API bezogen. Eigene Übersetzungslabels des Addons speichert der Snapshot nicht mehr als maßgebliche Anzeigequelle: Für Midnight-Wochenquest, Beruf und Schlüsselstein werden stabile IDs (`questID`, `baseSkillLineID`, `mapID`) abgelegt und erst beim Anzeigen aufgelöst – diese Laufzeitauflösung hat Vorrang vor allem, was im Snapshot steht. Von der WoW-API gelieferte, bereits clientlokalisierte Namen können weiterhin im Snapshot landen; sie dienen der Rückwärtskompatibilität und als Fallback. Nach einem Neustart von WoW mit der geänderten Clientsprache erscheint deshalb auch der bereits erfasste Altbestand in der neuen Sprache. Ist zur Anzeigezeit keine Lokalisierung verfügbar, zeigt die Schlüsselstein-Ansicht die sprachneutrale Dungeon-ID statt eines fremdsprachig gespeicherten Namens.
 
 Der Slash-Befehl `/wat` ist in beiden Sprachen identisch; nur seine Ausgabe ist übersetzt.
 
 Die Wochenquest-Seite lädt konkrete Questnamen und bekannte Pool-Varianten direkt aus der WoW-API in der Clientsprache – auch bei französischen, chinesischen und anderen Clients mit englischer Addon-Oberfläche. Noch nicht verfügbare Namen werden einmal pro Sitzung angefordert; bis zur Antwort bleiben die vorhandenen Ersatztexte sichtbar. Anzeige, Suche, Sortierung und Tooltips verwenden dieselben Namen. Der Namenscache gilt nur für die laufende Sitzung und verändert keine gespeicherten Charakterfortschritte.
+
+### Eigene Übersetzungen und Sprachpakete
+
+Unter **Einstellungen → Übersetzungen → Übersetzungseditor** lassen sich die eigenen Texte des Addons anpassen. Der kompakte Editor zeigt je Schlüssel den englischen Quelltext und die editierbare Übersetzung, filtert per Suche oder `Nur fehlende` und blättert in festen Seiten; `Speichern` und `Zurücksetzen` wirken je Eintrag, Zeilenumbrüche werden als `\n` geschrieben. Bearbeitbar sind die Sprachpakete `deDE`, `enUS`, `ruRU`, `zhCN` und `zhTW`. Die Paketwahl im Editor wechselt nur das bearbeitete Paket, nie die Clientsprache: angezeigt wird immer das Paket der eigenen Clientsprache (`enGB` und alle nicht aufgeführten Clientsprachen verwenden `enUS`), fehlende Einträge fallen auf das eingebaute Wörterbuch und zuletzt auf Englisch zurück. Die Einträge liegen accountweit in den SavedVariables (`WeeklyAltTrackerDB.translations`) und überleben Updates; beim Laden werden nur bekannte Schlüssel mit sicheren Werten übernommen.
+
+`Exportieren` erzeugt ein reines Textpaket (`WAT-LANG 1`, `locale=…`, danach je Eintrag `SCHLÜSSEL=Text`) ohne Charakter- oder Accountdaten, das sich mit Strg+A und Strg+C kopieren lässt. `Importieren` nimmt ein solches Paket per Strg+V entgegen, zeigt nach `Vorschau` Sprache, Anzahl sowie neue und zu überschreibende Einträge und übernimmt erst nach `Anwenden`; Einträge, die nicht im Paket stehen, bleiben erhalten. Der Parser ist strikt und führt keinen Code aus: unbekannte oder doppelte Schlüssel, falsche Version oder Sprache, fehlerhafte Escapes, ungültiges UTF-8, Steuerzeichen, der senkrechte Strich (WoW-Markup) und abweichende Platzhalter lehnen das gesamte Paket mit Zeilenangabe ab. Größe, Zeilenzahl und Textlänge sind begrenzt; das Datumsformat und die Debug-Chatzeile sind bewusst nicht editierbar.
+
+Ungespeicherte Entwürfe bleiben beim Blättern, Filtern und Wechseln des Sprachpakets innerhalb der Sitzung erhalten. Speichern oder Zurücksetzen einer Zeile verändert keine anderen Entwürfe; Escape verwirft nur den Entwurf im aktuellen Eingabefeld. Ein Import warnt in der Vorschau vor betroffenen Entwürfen und ersetzt sie erst beim Anwenden. Nur gespeicherte Einträge werden exportiert und über `/reload` oder Logout hinweg aufbewahrt.
+
+Tabellen und Tooltips verwenden geänderte Texte sofort. Beim Laden erzeugte Beschriftungen – Seitenleiste, Spaltenköpfe, Schaltflächen – aktualisieren sich erst nach `/reload`; der Editor weist in seiner Statuszeile darauf hin.
 
 ## Enthalten
 
@@ -158,6 +172,8 @@ Neu in 0.3.0. Alle Optionen liegen im letzten Bereich der linken Navigation, nic
 - `Position zurücksetzen` – zentriert das Fenster
 - Minimap-Symbol `Sichtbar` / `Verborgen` – gilt sofort und accountweit
 - Fensterskalierung als feste Stufen: 70 %, 85 %, 100 %, 115 %, 130 %, 150 %
+- `Charaktere verwalten` – einzelne Offline-Charaktere nach Bestätigung entfernen
+- `Übersetzungseditor` – eigene Texte je Sprachpaket bearbeiten, Sprachpakete als Text exportieren und importieren (siehe [Sprachen](#sprachen))
 
 Es gibt bewusst keinen Schieberegler: die festen Stufen bleiben exakt im Wertebereich, den das Addon beim Laden akzeptiert. Es gibt ebenso bewusst keine Aktion zum Löschen der Datenbank – ein solcher Verlust wäre nicht wiederherstellbar und gehört nicht hinter einen einzelnen Klick.
 
@@ -231,7 +247,8 @@ Die Übersicht zeigt `M+10` grün als `Ja`, sobald die Blizzard-Schatzkammer min
 11. Im Bereich `Schlüsselsteine` Dungeonname und Stufe eines Charakters mit Mythic+-Schlüsselstein prüfen.
 12. Im Bereich `Statistiken` prüfen, ob die Werte des eingeloggten Charakters erscheinen und die Accountsumme über mindestens zwei Charaktere tatsächlich addiert. Statistiken werden erst nach dem Nachladen der Erfolgsdaten gefüllt; bis dahin steht dort `-`.
 13. Einen Alt einloggen und prüfen, ob beide Charakter-Snapshots sichtbar sind.
-14. Lua-Fehler mit BugSack/!BugGrabber kontrollieren.
+14. Im Bereich `Einstellungen` den `Übersetzungseditor` öffnen: einen Eintrag ändern und speichern, einen ungültigen Wert (etwa mit `|cff`) ablehnen lassen, `Exportieren` mit Strg+A/Strg+C kopieren, dasselbe Paket über `Importieren`, `Vorschau` und `Anwenden` einspielen und nach `/reload` prüfen, dass die geänderten Beschriftungen überall erscheinen.
+15. Lua-Fehler mit BugSack/!BugGrabber kontrollieren.
 
 ## Entwicklung
 
@@ -255,6 +272,8 @@ Separater V2-Akzeptanztest:
 Lua-Runtime-Tests der Harnesses in `tools/*.lua` gegen die echten Addon-Dateien:
 
 `python tools/test_runtime.py`
+
+Der Übersetzungs-Harness `tools/test_translations_runtime.lua` prüft gegen die echten Addon-Dateien den Sprachpaket-Parser und -Export, die Wertprüfung, die Nachschlagereihenfolge mit Overrides, die fail-closed-Normalisierung von `WeeklyAltTrackerDB.translations` in `Core.lua` sowie die Rückrufe des Übersetzungseditors in `UI.lua`.
 
 Die Runtime-Harnesses werden mit Fengari ausgeführt, einer Lua-Implementierung in JavaScript. Fengari führt die Tests aus, prüft aber nicht die Lua-5.1-Syntax aller Quelldateien. Dafür wird im Entwicklungsworkflow zusätzlich `luaparse@0.3.1` manuell über die Lua-Dateien laufen gelassen; `luaparse` ist nicht in `tools/check.py` eingebunden.
 

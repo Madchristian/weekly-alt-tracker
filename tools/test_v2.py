@@ -92,9 +92,18 @@ def check_catalog_harness_registered() -> None:
             "der Wochenquest-Katalog-Harness muss im Runtime-Orchestrator registriert sein")
 
 
+def check_translations_harness_registered() -> None:
+    import test_runtime
+
+    harnesses = getattr(test_runtime, "HARNESSES", {})
+    require(harnesses.get("test_translations_runtime.lua") == "LUA TRANSLATIONS RUNTIME OK:",
+            "der Übersetzungs-Harness muss im Runtime-Orchestrator registriert sein")
+
+
 def main() -> int:
     check_runtime_npm_resolution()
     check_catalog_harness_registered()
+    check_translations_harness_registered()
     toc = text("WeeklyAltTracker.toc")
     data = text("Data.lua")
     scanner = text("Scanner.lua")
@@ -441,7 +450,48 @@ def main() -> int:
         # dynamische Stelle. Jedes WQ_-Literal in Data.lua/UI.lua wird unten
         # gegen beide Wörterbücher geprüft, Variantenlabels im Katalog-Harness.
         ("UI.lua", "catalogKey"),
+        # Übersetzungseditor: Fehlercode des Parsers -> Schlüssel aus der
+        # Literaltabelle TranslationEditor.ERROR_KEYS in UI.lua. Ihre Werte
+        # werden unmittelbar darunter gegen beide Wörterbücher geprüft.
+        ("UI.lua", "errorKey"),
     }
+
+    # Statische Absicherung von L(errorKey): jeder Fehlercode des Parsers und
+    # der Wertprüfung in Localization.lua braucht einen Eintrag, und jeder
+    # Eintrag einen Schlüssel in beiden Wörterbüchern.
+    error_table = re.search(r"TranslationEditor\.ERROR_KEYS = \{(.*?)\n\}", strip_comments(ui), re.S)
+    require(error_table is not None,
+            "TranslationEditor.ERROR_KEYS fehlt in UI.lua - der dynamische L(errorKey)-Aufruf wäre ungedeckt")
+    error_entries = dict(re.findall(r'(\w+)\s*=\s*"([A-Za-z_][A-Za-z0-9_]*)"', error_table.group(1) if error_table else ""))
+    expected_error_codes = {"type", "size", "lines", "format", "version", "locale", "line", "key", "duplicate",
+                            "escape", "empty", "length", "utf8", "control", "markup", "placeholders", "storage"}
+    require(set(error_entries) == expected_error_codes,
+            f"TranslationEditor.ERROR_KEYS muss genau die Fehlercodes des Parsers führen, gefunden: "
+            f"{sorted(error_entries)}")
+    for code, key in sorted(error_entries.items()):
+        require(key in en_keys, f"UI.lua: Fehlerschlüssel {key} ({code}) fehlt im enUS-Wörterbuch")
+        require(key in de_keys, f"UI.lua: Fehlerschlüssel {key} ({code}) fehlt im deDE-Wörterbuch")
+    for code in sorted(expected_error_codes):
+        require(f'"{code}"' in strip_comments(localization),
+                f"Localization.lua kennt den Fehlercode {code!r} nicht mehr, UI.lua übersetzt ihn aber")
+
+    # Der Sprachpaket-Parser ist reiner Text: kein loadstring/load, kein
+    # setfenv, keine Ausführung von Nutzereingaben. Beide Wörterbücher tragen
+    # die Editor-Texte; Sprachcodes bleiben unübersetzt.
+    for forbidden in ("loadstring", "setfenv", "load(", "dofile", "RunScript"):
+        require(forbidden not in strip_comments(localization),
+                f"Localization.lua darf keine Codeausführung enthalten: {forbidden}")
+    require("WAT-LANG" in localization and "parse_pack" in localization and "export_pack" in localization,
+            "Sprachpaket-Parser und -Export fehlen in Localization.lua")
+    require("db.translations" in core and "normalize_overrides" in core and "set_overrides" in core,
+            "InitializeDatabase muss db.translations fail-closed normalisieren und binden")
+    require('SETTINGS_HEADING_TRANSLATIONS = "Übersetzungen"' in de_dict
+            and 'SETTINGS_HEADING_TRANSLATIONS = "Translations"' in en_dict,
+            "Titel des Übersetzungsabschnitts fehlt in einem der beiden Wörterbücher")
+    require("open_translation_editor" in ui and "WeeklyAltTrackerTranslationFrame" in ui,
+            "Übersetzungseditor fehlt in UI.lua oder hat keinen globalen Namen für UISpecialFrames")
+    require("PanelDefinitions()" in ui and re.search(r"(?m)^local PANELS = nil", ui) is not None,
+            "Paneldefinitionen dürfen nicht beim Laden der Datei eingefroren werden (Overrides kämen zu spät)")
 
     wq_literals = set(re.findall(r'"(WQ_[A-Z0-9_]*[A-Z0-9])"', strip_comments(data) + strip_comments(ui)))
     require(len(wq_literals) > 100,
