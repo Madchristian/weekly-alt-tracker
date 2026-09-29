@@ -3,6 +3,10 @@ package-as: WeeklyAltTracker
 enable-nolib-creation: no
 
 # Kanonische kumulative Release-Historie statt automatisch erzeugter Commitliste.
+# CHANGELOG.md wird von tools/generate_changelog.py deterministisch aus den
+# zweisprachigen Paaren changelog/CHANGELOG-<version>-en.md und -de.md
+# erzeugt (je Version einmal, zuerst Englisch, dann Deutsch) und nie von Hand
+# bearbeitet; tools/check.py und die Release-Workflows pruefen das fail-closed.
 # Die skalare Form ist die gemeinsame Schnittmenge des BigWigs-Packagers und
 # des CurseForge-Repository-Packagers; die verschachtelte BigWigs-Form wird von
 # CurseForge ignoriert.
@@ -11,6 +15,7 @@ manual-changelog: CHANGELOG.md
 ignore:
   - .github
   - .gitignore
+  - .gitattributes
   - .pkgmeta
   - .claude
   - CLAUDE.md
@@ -23,4 +28,5 @@ ignore:
   - tools
   - wago
   - curseforge
+  - changelog
   - Media/README.md

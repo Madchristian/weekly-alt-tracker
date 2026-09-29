@@ -1,0 +1,2 @@
+# Deterministic generated output must retain LF even with core.autocrlf.
+/CHANGELOG.md text eol=lf

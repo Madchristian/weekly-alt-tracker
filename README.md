@@ -261,9 +261,15 @@ Die Übersicht zeigt `M+10` grün als `Ja`, sobald die Blizzard-Schatzkammer min
 
 ### Prüfläufe
 
-Statische und funktionale Projektprüfung; führt `tools/test_v2.py` und `tools/test_runtime.py` mit aus:
+Statische und funktionale Projektprüfung; führt `tools/test_changelog_generator.py`, `tools/test_v2.py` und `tools/test_runtime.py` mit aus und prüft das zweisprachige Changelog-Gate:
 
 `python tools/check.py`
+
+Unit-Tests des Changelog-Generators und reine Prüfung der erzeugten `CHANGELOG.md`:
+
+`python tools/test_changelog_generator.py`
+
+`python tools/generate_changelog.py --check`
 
 Separater V2-Akzeptanztest:
 
@@ -283,11 +289,24 @@ Fengari, luaparse und die Python-Skripte sind reine Entwicklungswerkzeuge und we
 
 Releases werden von [BigWigsMods/packager](https://github.com/BigWigsMods/packager) über GitHub Actions erzeugt (`.github/workflows/release.yml`).
 
-Der Workflow läuft ausschließlich bei Tags nach dem Muster `v*`, zum Beispiel `v0.3.0`. Normale Pushes auf `main` erzeugen kein Release. Zusätzlich gibt es `workflow_dispatch` für einen manuellen Trockenlauf; dieser packt nur und lädt nichts hoch (Packager-Option `-d`).
+Der Workflow läuft ausschließlich bei Tags nach dem Muster `v*`, zum Beispiel `v0.3.0`. Normale Pushes auf `main` erzeugen kein Release. Zusätzlich gibt es `workflow_dispatch` für einen manuellen Trockenlauf; dieser packt nur und lädt nichts hoch (Packager-Option `-d`). Vor dem Packager richtet der Workflow Python und Node ein und führt `python tools/generate_changelog.py --check` sowie das vollständige `python tools/check.py` aus; schlägt eines davon fehl, wird weder gepackt noch hochgeladen.
 
-Vor jedem Tag müssen die feste Version in `WeeklyAltTracker.toc` und `Core.lua` sowie Anleitung und Changelog auf denselben Release-Stand aktualisiert werden. Der Packager benennt das Release nach dem Tag, ersetzt die feste Addon-Version aber bewusst nicht automatisch. Die kanonische [`CHANGELOG.md`](CHANGELOG.md) ist eine kumulative, absteigend sortierte Historie aller öffentlichen Versionen seit 0.2.4; ältere Einträge bleiben als tatsächlicher damaliger Release-Stand erhalten.
+Vor jedem Tag müssen die feste Version in `WeeklyAltTracker.toc` und `Core.lua` sowie Anleitung und Changelog auf denselben Release-Stand aktualisiert werden. Der Packager benennt das Release nach dem Tag, ersetzt die feste Addon-Version aber bewusst nicht automatisch. Die kanonische [`CHANGELOG.md`](CHANGELOG.md) ist eine kumulative, absteigend sortierte zweisprachige Historie aller öffentlichen Versionen seit 0.2.4; ältere Einträge bleiben als tatsächlicher damaliger Release-Stand erhalten.
 
-Der Paketumfang wird über `.pkgmeta` gesteuert. Das ZIP enthält den Ordner `WeeklyAltTracker` mit den sechs Lua-Dateien (`Localization.lua`, `Core.lua`, `Data.lua`, `Scanner.lua`, `Activities.lua`, `UI.lua`), der TOC, `README.md`, `README.en.md`, `Anleitung.html`, `Guide.en.html`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, der Textur `Media/WeeklyAltTrackerIcon.tga` sowie der manuell gepflegten vollständigen `CHANGELOG.md`. `.pkgmeta` weist sie zugleich als öffentlichen Markdown-Changelog für GitHub und Wago aus, sodass der Packager die Historie nicht durch eine reine Liste der letzten Commits ersetzt. Nicht enthalten sind `.github`, `.gitignore`, `.pkgmeta`, `.claude`, `artwork/`, `design/`, `tools/`, `wago/`, `curseforge/`, `Media/README.md` und alle lokalen Arbeitsordner. `.pkgmeta` arbeitet mit einer `ignore`-Liste, daher wird eine neue Datei im Projektstamm automatisch mitgepackt.
+#### Zweisprachiger Changelog
+
+`CHANGELOG.md` wird **nicht von Hand bearbeitet**, sondern von `tools/generate_changelog.py` deterministisch erzeugt. Kanonische Quelle ist je Version das Paar `changelog/CHANGELOG-<version>-en.md` und `changelog/CHANGELOG-<version>-de.md`; jede Version erscheint genau einmal, zuerst Englisch, dann Deutsch. Die Originale unter `wago/` und die historischen Veröffentlichungstexte unter `curseforge/` bleiben als Archive erhalten und werden vom Generator nicht gelesen. `WAGO_ARCHIVE_VERSIONS` in `tools/check.py` bleibt auf dem Bestand bis 2026.9.29 eingefroren; neue Releases brauchen kein zusätzliches Wago-Original. Beide Prüfläufe vergleichen die erzeugte Datei bytegenau, einschließlich LF-Zeilenenden; `.gitattributes` verhindert eine CRLF-Konvertierung beim Checkout.
+
+Ablauf für ein neues Release:
+
+1. `changelog/CHANGELOG-<version>-en.md` und `-de.md` anlegen, beide mit dem Titel `# WeeklyAltTracker <version>`. Die Übersetzung wird von Hand geschrieben und muss semantisch von einem Menschen geprüft werden; Vollständigkeit und Erzeugung sind automatisiert, eine inhaltliche Sprachprüfung gibt es bewusst nicht.
+2. Die Version am Anfang von `RELEASE_VERSIONS` in `tools/generate_changelog.py` und `IMMUTABLE_RELEASE_VERSIONS` in `tools/check.py` eintragen.
+3. `python tools/generate_changelog.py` ausführen und die erzeugte `CHANGELOG.md` mit committen.
+4. `python tools/generate_changelog.py --check` und `python tools/check.py` müssen grün sein.
+
+Der Generator bricht ab und schreibt nichts, wenn eine Sprachfassung fehlt, leer ist, nur aus Titel und Überschriften oder aus Platzhaltern besteht, wenn beide Sprachfassungen identisch sind, wenn Titel und Dateiname nicht zusammenpassen oder wenn im Ordner `changelog/` eine nicht inventarisierte oder falsch benannte `CHANGELOG-*.md` liegt. Dieselbe Prüfung läuft in `tools/check.py`, im Workflow **Build CurseForge ZIP** und im Release-Workflow vor dem Packager.
+
+Der Paketumfang wird über `.pkgmeta` gesteuert. Das ZIP enthält den Ordner `WeeklyAltTracker` mit den sechs Lua-Dateien (`Localization.lua`, `Core.lua`, `Data.lua`, `Scanner.lua`, `Activities.lua`, `UI.lua`), der TOC, `README.md`, `README.en.md`, `Anleitung.html`, `Guide.en.html`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, der Textur `Media/WeeklyAltTrackerIcon.tga` sowie der aus den zweisprachigen Release-Notizen erzeugten vollständigen `CHANGELOG.md`. `.pkgmeta` weist sie zugleich als öffentlichen Markdown-Changelog für GitHub und Wago aus, sodass der Packager die Historie nicht durch eine reine Liste der letzten Commits ersetzt. Nicht enthalten sind `.github`, `.gitignore`, `.gitattributes`, `.pkgmeta`, `.claude`, `artwork/`, `design/`, `tools/`, `wago/`, `curseforge/`, `changelog/`, `Media/README.md` und alle lokalen Arbeitsordner. `.pkgmeta` arbeitet mit einer `ignore`-Liste, daher wird eine neue Datei im Projektstamm automatisch mitgepackt.
 
 Der versionierte Original-Master des Logos liegt als Vektorgrafik unter `artwork/WeeklyAltTracker-Logo.svg` und wird bewusst **nicht** ausgeliefert. Ausgeliefert wird nur der daraus erzeugte Rasterexport `Media/WeeklyAltTrackerIcon.tga`, den `UI.lua` als Minimap-Symbol referenziert.
 
@@ -307,7 +326,7 @@ Die projektseitigen CurseForge-Texte liegen versioniert unter `curseforge/`:
 
 - `PROJECT-en.md` – allgemeine englische Projektbeschreibung für CurseForge.
 - `PROJECT-de.md` – inhaltsgleiche deutsche Zusatzfassung.
-- `CHANGELOG-<version>-en.md` und `CHANGELOG-<version>-de.md` – release-spezifische Änderungsprotokolle; veröffentlichte Vorversionen bleiben unverändert als Historie erhalten.
+- `CHANGELOG-<version>-en.md` und `CHANGELOG-<version>-de.md` – historische CurseForge-Veröffentlichungstexte; bereits versionierte Dateien bleiben unverändert. Die vollständigen kanonischen Sprachpaare für alle Versionen liegen getrennt unter `changelog/`.
 
 Der Ordner ist reine Projektdokumentation und wird über `.pkgmeta` **nicht** mit ausgeliefert.
 

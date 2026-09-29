@@ -24,6 +24,29 @@ jobs:
           # weder Version noch Changelog aus dem Tag ableiten.
           fetch-depth: 0
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node
+        # Nur fuer die Fengari-Runtime-Harnesses aus tools/test_runtime.py.
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Bilingual changelog gate
+        # Fail-closed: jede inventarisierte Version braucht das vollstaendige
+        # Paar changelog/CHANGELOG-<version>-en.md + -de.md, und die
+        # ausgelieferte CHANGELOG.md muss byteweise dem Generator entsprechen.
+        run: python tools/generate_changelog.py --check
+
+      - name: Quality gate
+        # Vollstaendiges Gate vor dem Packager: TOC, statische Lua-Pruefung,
+        # Generator-Unit-Tests, Vertragstests und Lua-Runtime-Harnesses.
+        # Schlaegt es fehl, wird weder gepackt noch hochgeladen.
+        run: python tools/check.py
+
       - name: Package and release
         uses: BigWigsMods/packager@v2
         with:

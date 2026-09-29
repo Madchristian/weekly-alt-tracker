@@ -13,7 +13,7 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 
 ### Version 2026.9.29
 
-New **Translation editor** under **Settings → Translations** with five language packs (deDE, enUS, ruRU, zhCN, zhTW), search, a "Missing only" filter, text-only export and import with preview, and stable drafts. The addon does not ship Russian or Chinese translations; the feature lets you author and share your own packs, which the license explicitly permits. This release was deliberately published without an in-game test: client rendering, IME input and copy/paste are still unverified; fixed labels update after `/reload`. Details in the [2026.9.29 changelog](curseforge/CHANGELOG-2026.9.29-en.md).
+New **Translation editor** under **Settings → Translations** with five language packs (deDE, enUS, ruRU, zhCN, zhTW), search, a "Missing only" filter, text-only export and import with preview, and stable drafts. The addon does not ship Russian or Chinese translations; the feature lets you author and share your own packs, which the license explicitly permits. This release was deliberately published without an in-game test: client rendering, IME input and copy/paste are still unverified; fixed labels update after `/reload`. Details in the [2026.9.29 changelog](changelog/CHANGELOG-2026.9.29-en.md).
 
 ### Version 2026.9.23
 
@@ -29,7 +29,7 @@ Remove individual characters under **Settings → Manage characters**. Select a 
 
 ### Version 0.9.0
 
-Version **0.9.0** adds the **Weekly Quests** page, filters, search and sorting, plus season-bound Hero hints without consumption counters. The eight pages include a decluttered overview without duplicated crest and stash columns and a ritual reference instead of double counting on the Midnight Week page. The Season 2 recognition pool is cleaned up (without the live-obsolete variant 93891, with 96727 and 98232). See the [0.9.0 changelog](curseforge/CHANGELOG-0.9.0-en.md) for details.
+Version **0.9.0** adds the **Weekly Quests** page, filters, search and sorting, plus season-bound Hero hints without consumption counters. The eight pages include a decluttered overview without duplicated crest and stash columns and a ritual reference instead of double counting on the Midnight Week page. The Season 2 recognition pool is cleaned up (without the live-obsolete variant 93891, with 96727 and 98232). See the [0.9.0 changelog](changelog/CHANGELOG-0.9.0-en.md) for details.
 
 A detailed installation, usage and troubleshooting guide is in `Guide.en.html`. The terms of use are in `LICENSE.txt`; WeeklyAltTracker is published under **All Rights Reserved**.
 
@@ -263,9 +263,15 @@ The overview shows `M+10` in green as `Yes` as soon as the Blizzard vault report
 
 ### Check runs
 
-Static and functional project check; also runs `tools/test_v2.py` and `tools/test_runtime.py`:
+Static and functional project check; also runs `tools/test_changelog_generator.py`, `tools/test_v2.py` and `tools/test_runtime.py` and checks the bilingual changelog gate:
 
 `python tools/check.py`
+
+Unit tests of the changelog generator and a read-only check of the generated `CHANGELOG.md`:
+
+`python tools/test_changelog_generator.py`
+
+`python tools/generate_changelog.py --check`
 
 Separate V2 acceptance test:
 
@@ -285,11 +291,24 @@ Fengari, luaparse and the Python scripts are pure development tools and are not 
 
 Releases are produced by [BigWigsMods/packager](https://github.com/BigWigsMods/packager) via GitHub Actions (`.github/workflows/release.yml`).
 
-The workflow runs only for tags matching `v*`, for example `v0.3.0`. Normal pushes to `main` do not create a release. There is also `workflow_dispatch` for a manual dry run; it only packages and uploads nothing (packager option `-d`).
+The workflow runs only for tags matching `v*`, for example `v0.3.0`. Normal pushes to `main` do not create a release. There is also `workflow_dispatch` for a manual dry run; it only packages and uploads nothing (packager option `-d`). Before the packager, the workflow sets up Python and Node and runs `python tools/generate_changelog.py --check` and the full `python tools/check.py`; if either fails, nothing is packaged or uploaded.
 
-Before every tag, the fixed version in `WeeklyAltTracker.toc` and `Core.lua` as well as the guides and changelog must be updated to the same release state. The packager names the release after the tag but deliberately does not replace the fixed addon version automatically. The canonical [`CHANGELOG.md`](CHANGELOG.md) is a cumulative, newest-first history of every public version since 0.2.4; older entries remain as a factual record of what was released at the time.
+Before every tag, the fixed version in `WeeklyAltTracker.toc` and `Core.lua` as well as the guides and changelog must be updated to the same release state. The packager names the release after the tag but deliberately does not replace the fixed addon version automatically. The canonical [`CHANGELOG.md`](CHANGELOG.md) is a cumulative, newest-first bilingual history of every public version since 0.2.4; older entries remain as a factual record of what was released at the time.
 
-The package contents are controlled by `.pkgmeta`. The ZIP contains the folder `WeeklyAltTracker` with the six Lua files (`Localization.lua`, `Core.lua`, `Data.lua`, `Scanner.lua`, `Activities.lua`, `UI.lua`), the TOC, `README.md`, `README.en.md`, `Anleitung.html`, `Guide.en.html`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, the texture `Media/WeeklyAltTrackerIcon.tga` and the manually maintained complete `CHANGELOG.md`. `.pkgmeta` also declares it as the public Markdown changelog for GitHub and Wago, so the packager cannot replace the full history with only the latest commit list. Not included are `.github`, `.gitignore`, `.pkgmeta`, `.claude`, `artwork/`, `design/`, `tools/`, `wago/`, `curseforge/`, `Media/README.md` and all local working folders.
+#### Bilingual changelog
+
+`CHANGELOG.md` is **never edited by hand**; `tools/generate_changelog.py` generates it deterministically. The canonical source per version is the pair `changelog/CHANGELOG-<version>-en.md` and `changelog/CHANGELOG-<version>-de.md`; every version appears exactly once, English first, then German. The originals under `wago/` and historical publication texts under `curseforge/` remain archives and are not read by the generator. `WAGO_ARCHIVE_VERSIONS` in `tools/check.py` stays frozen at the inventory through 2026.9.29; new releases need no additional Wago original. Both checks compare the generated file byte for byte, including LF line endings; `.gitattributes` prevents CRLF conversion on checkout.
+
+Steps for a new release:
+
+1. Create `changelog/CHANGELOG-<version>-en.md` and `-de.md`, both titled `# WeeklyAltTracker <version>`. The translation is written by hand and needs a human semantic review; completeness and generation are automated, and there is deliberately no automatic check of the text's language.
+2. Add the version at the front of `RELEASE_VERSIONS` in `tools/generate_changelog.py` and `IMMUTABLE_RELEASE_VERSIONS` in `tools/check.py`.
+3. Run `python tools/generate_changelog.py` and commit the generated `CHANGELOG.md`.
+4. `python tools/generate_changelog.py --check` and `python tools/check.py` must pass.
+
+The generator aborts without writing when a language file is missing, empty, consists only of the title and headings or only of placeholders, when both language bodies are identical, when title and filename do not match, or when `changelog/` contains a `CHANGELOG-*.md` that is not inventoried or is misnamed. The same check runs in `tools/check.py`, in the **Build CurseForge ZIP** workflow and in the release workflow before the packager.
+
+The package contents are controlled by `.pkgmeta`. The ZIP contains the folder `WeeklyAltTracker` with the six Lua files (`Localization.lua`, `Core.lua`, `Data.lua`, `Scanner.lua`, `Activities.lua`, `UI.lua`), the TOC, `README.md`, `README.en.md`, `Anleitung.html`, `Guide.en.html`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, the texture `Media/WeeklyAltTrackerIcon.tga` and the complete `CHANGELOG.md` generated from the bilingual release notes. `.pkgmeta` also declares it as the public Markdown changelog for GitHub and Wago, so the packager cannot replace the full history with only the latest commit list. Not included are `.github`, `.gitignore`, `.gitattributes`, `.pkgmeta`, `.claude`, `artwork/`, `design/`, `tools/`, `wago/`, `curseforge/`, `changelog/`, `Media/README.md` and all local working folders.
 
 The versioned original master of the logo is a vector graphic at `artwork/WeeklyAltTracker-Logo.svg` and is deliberately **not** shipped. Only the raster export `Media/WeeklyAltTrackerIcon.tga` derived from it is shipped, which `UI.lua` references as the minimap icon.
 
@@ -309,7 +328,7 @@ The project-side CurseForge texts are versioned under `curseforge/`:
 
 - `PROJECT-en.md` – general English project description for CurseForge.
 - `PROJECT-de.md` – matching German supplementary version.
-- `CHANGELOG-<version>-en.md` and `CHANGELOG-<version>-de.md` – release-specific change logs; published earlier versions remain unchanged as history.
+- `CHANGELOG-<version>-en.md` and `CHANGELOG-<version>-de.md` – historical CurseForge publication texts; already versioned files remain unchanged. Complete canonical language pairs for every version live separately under `changelog/`.
 
 The folder is pure project documentation and is **not** shipped via `.pkgmeta`.
 
