@@ -35,7 +35,7 @@ WeeklyAltTracker sammelt den Fortschritt deiner WoW-Retail-Charaktere und zeigt 
 
 Raid-Fortschritt und Raid-Vault werden bewusst nicht getrackt.
 
-### Acht Ansichten
+### Neun Ansichten
 
 1. Übersicht
 2. Midnight-Woche
@@ -43,8 +43,11 @@ Raid-Fortschritt und Raid-Vault werden bewusst nicht getrackt.
 4. Berufe
 5. Wappenquellen
 6. Schlüsselsteine
-7. Statistiken
-8. Einstellungen
+7. Ausrüstung
+8. Statistiken
+9. Einstellungen
+
+Ausrüstung zeigt zuletzt angelegte Gegenstände mit Icons, Qualitätsrahmen, tatsächlichem Itemlevel, angelegtem Durchschnitt und Zeitstempeln im Charakterfenster-Stil. Jeden Alt zuerst einloggen; danach reine Offline-Snapshots ohne Wochenreset. Unbekannt, leer und nachladend bleiben getrennt. Gespeicherte Itemlinks liefern Tooltips; kein 3D-Modell, kein Transmog, keine Taschen-/Bankansicht oder Beratung.
 
 Die Ansicht Wochenquests zeigt die recherchierten und belegten Wochenquests der aktiven Saison als kompakte Tabelle mit Quest, Bereich, Charakter, Status, Fortschritt und Stand, dazu Filter für Charakter, Kategorie, Status und Titel sowie eine Sortierung nach jeder Spalte, auf- oder absteigend. Der Status lautet Offen, Aktiv, Abgabebereit, Abgegeben oder Unbekannt. Ort, Questgeber, Voraussetzung, Belohnung, Rotation und Quest-ID stehen im Zeilen-Tooltip; rotierende Angebote und unsichere Angaben sind als solche gekennzeichnet, einen erfundenen Gesamtzähler gibt es nicht.
 

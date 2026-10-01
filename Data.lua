@@ -3,6 +3,28 @@ local _, WAT = ...
 local Data = {}
 WAT.Data = Data
 
+-- Charakterfenster: acht Slots links/rechts, Waffen unten. Kein Fernkampfslot.
+Data.EQUIPMENT_SLOTS = {
+    { id = 1, labelKey = "GEAR_HEAD", side = 1, row = 1 },
+    { id = 2, labelKey = "GEAR_NECK", side = 1, row = 2 },
+    { id = 3, labelKey = "GEAR_SHOULDER", side = 1, row = 3 },
+    { id = 15, labelKey = "GEAR_BACK", side = 1, row = 4 },
+    { id = 5, labelKey = "GEAR_CHEST", side = 1, row = 5 },
+    { id = 4, labelKey = "GEAR_SHIRT", side = 1, row = 6 },
+    { id = 19, labelKey = "GEAR_TABARD", side = 1, row = 7 },
+    { id = 9, labelKey = "GEAR_WRIST", side = 1, row = 8 },
+    { id = 10, labelKey = "GEAR_HANDS", side = 2, row = 1 },
+    { id = 6, labelKey = "GEAR_WAIST", side = 2, row = 2 },
+    { id = 7, labelKey = "GEAR_LEGS", side = 2, row = 3 },
+    { id = 8, labelKey = "GEAR_FEET", side = 2, row = 4 },
+    { id = 11, labelKey = "GEAR_FINGER1", side = 2, row = 5 },
+    { id = 12, labelKey = "GEAR_FINGER2", side = 2, row = 6 },
+    { id = 13, labelKey = "GEAR_TRINKET1", side = 2, row = 7 },
+    { id = 14, labelKey = "GEAR_TRINKET2", side = 2, row = 8 },
+    { id = 16, labelKey = "GEAR_MAINHAND", side = 3, row = 1 },
+    { id = 17, labelKey = "GEAR_OFFHAND", side = 3, row = 2 },
+}
+
 -- Currency-IDs der Saison-2-Nebelwappen (Mistcrests). Namen kommen zur
 -- Laufzeit lokalisiert aus C_CurrencyInfo; labelKey verweist auf das eigene
 -- Kurzlabel in Localization.lua. Der Kurzbuchstabe ist in beiden Sprachen
@@ -692,4 +714,39 @@ Data.WEEKLY_HERO_REWARDS["midnight-s2"] = {
           rewardItemID = 279574, minimumJourneyRank = 9, minimumDelveTier = 6,
           capMaximum = 1, capScope = "character" },
     },
+}
+
+-- ---------------------------------------------------------------------------
+-- Majestätische Kürschnerei-Köder ("professionLures")
+--
+-- Fünf saisonunabhängige Midnight-Definitionen. Item-, Rezeptspell-,
+-- Benutzungsspell- und NPC-ID sind einzeln direkt gegen den Wowhead-
+-- Tooltipdienst geprüft (design/research/skinning-majestic-lures.md, lokal,
+-- nicht Teil des Pakets; Kurzfassung und Quellen: tools/PROFESSION_LURES.md).
+-- uiMapID/x/y sind praktische Platzierpunkte aus einem Method-Guide, keine
+-- nachgewiesene Triggerfläche.
+--
+-- Manuelle Bestaetigung ist kein Killbeweis. Kandidaten aus MajesticBeastTracker
+-- sind UNVERIFIZIERT und werden ausschliesslich auf ausdruecklichen Klick
+-- diagnostisch gelesen. Niemals Verfuegbarkeit/Fortschritt daraus ableiten.
+-- Versions- UND ID-Bindung verhindert Umdeutung alter Eintraege.
+Data.PROFESSION_LURE_SCHEMA = 2
+Data.PROFESSION_LURE_SAMPLE_LIMIT = 24
+Data.PROFESSION_LURE_PHASES = {
+    "beforeSummon", "afterSummon", "beforeKill", "afterKill",
+    "beforeSkinning", "afterSkinning", "afterLoot",
+}
+-- Kürschnerei-Basis-Skill-Line, siehe MIDNIGHT_PROFESSION_SKILL_LINES[393].
+Data.PROFESSION_LURE_SKILL_LINE = 393
+Data.PROFESSION_LURES = {
+    { key = "eversong", definitionVersion = 1, itemID = 238652, recipeSpellID = 1225943,
+      useSpellID = 1226226, npcID = 245688, candidateQuestID = 88545, uiMapID = 2395, x = 41.94, y = 79.71 },
+    { key = "zulaman", definitionVersion = 1, itemID = 238653, recipeSpellID = 1225944,
+      useSpellID = 1226227, npcID = 245699, candidateQuestID = 88526, uiMapID = 2437, x = 47.56, y = 52.63 },
+    { key = "harandar", definitionVersion = 1, itemID = 238654, recipeSpellID = 1225945,
+      useSpellID = 1226228, npcID = 245690, candidateQuestID = 88531, uiMapID = 2413, x = 66.61, y = 47.84 },
+    { key = "voidstorm", definitionVersion = 1, itemID = 238655, recipeSpellID = 1225946,
+      useSpellID = 1226229, npcID = 247096, candidateQuestID = 88532, uiMapID = 2405, x = 54.12, y = 65.23 },
+    { key = "grandbeast", definitionVersion = 1, itemID = 238656, recipeSpellID = 1225948,
+      useSpellID = 1226230, npcID = 247101, candidateQuestID = 88524, uiMapID = 2405, x = 43.24, y = 82.83 },
 }

@@ -55,6 +55,5 @@ jobs:
         env:
           # Vom Runner automatisch bereitgestellt, kein eigenes Secret noetig.
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
-          # Aktiver Wago-Releasekanal. Der Tokenwert liegt ausschliesslich im
-          # gleichnamigen GitHub-Actions-Secret und niemals im Repository.
-          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+          # Wago importiert das fertige GitHub-Release ueber die verbundene
+          # Repository-Automation. Kein paralleler API-Upload durch den Packager.

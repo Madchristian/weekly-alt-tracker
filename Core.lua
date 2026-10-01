@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "2026.9.29-2"
+WAT.version = "2026.10.1"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -177,6 +177,13 @@ local function NormalizeWeeklyCatalog(weekly)
     }
 end
 
+-- Langlebige, identitaetsgebundene Notizen; nie Bestandteil von weekly.
+local function NormalizeProfessionLures(record)
+    if WAT.GetProfessionLureSnapshot then
+        record.professionLures = WAT:GetProfessionLureSnapshot(record)
+    end
+end
+
 local function NormalizeCharacter(record, oldKey)
     if issecretvalue and issecretvalue(record) then return nil end
     if type(record) ~= "table" then return nil end
@@ -192,7 +199,11 @@ local function NormalizeCharacter(record, oldKey)
     -- Container wird verworfen, nie mit erfundenem Inhalt gefuellt.
     record.resources = SafeTable(record.resources) or {}
     NormalizeDundunSnapshot(record.resources)
+    -- Additiv wie resources/statistics: character.professionLures ueberlebt
+    -- den Wochenreset und wird nie erfunden, nur fail-closed geprueft.
+    NormalizeProfessionLures(record)
     record.guid = SafeString(record.guid)
+    if WAT.GetEquipmentSnapshot then record.equipment = WAT:GetEquipmentSnapshot(record) end
     -- Kein Ersatztext: ein unlesbarer Name bleibt nil und wird erst zur
     -- Renderzeit lokalisiert. In die SavedVariables gehoert kein Locale-Text.
     record.name = SafeString(record.name)
@@ -265,7 +276,7 @@ function WAT:InitializeDatabase()
     settings.activeTab = (activeTab == "overview" or activeTab == "midnight"
         or activeTab == "weeklies"
         or activeTab == "professions" or activeTab == "sources" or activeTab == "keystones"
-        or activeTab == "statistics" or activeTab == "settings")
+        or activeTab == "equipment" or activeTab == "statistics" or activeTab == "settings")
         and activeTab or "overview"
     -- Additiv: eine Datenbank vor dieser Version kennt noch keine gespeicherte
     -- Charakterreihenfolge. Das Schema bleibt deshalb bei Version 2; der
@@ -466,9 +477,14 @@ function WAT:PrepareCurrentCharacter()
     character.faction = SafeString(UnitFactionGroup("player"), character.faction)
     local level = SafeNumber(UnitLevel("player"))
     if level ~= nil then character.level = level end
-    local _, equipped = GetAverageItemLevel()
-    equipped = SafeNumber(equipped)
-    if equipped ~= nil then character.itemLevel = equipped end
+    local averageGetter = GetAverageItemLevel
+    if not (issecretvalue and issecretvalue(averageGetter)) and type(averageGetter) == "function" then
+        local ok, _, equipped = pcall(averageGetter)
+        equipped = ok and SafeNumber(equipped) or nil
+        if equipped and equipped == equipped and equipped >= 0 and equipped < math.huge then
+            character.itemLevel = equipped
+        end
+    end
     character.lastSeen = time()
     self.currentKey = key
     return character
@@ -491,6 +507,13 @@ function WAT:RefreshKeystone(reason)
     local character = self:PrepareCurrentCharacter()
     if self.ScanKeystone then self:ScanKeystone(character, true) end
     character.lastSeen = time()
+    if self.RefreshUI then self:RefreshUI() end
+end
+
+function WAT:RefreshEquipment(reason, slot, hasCurrent)
+    if not self.db or not self.ScanEquipment then return end
+    local character = self:PrepareCurrentCharacter()
+    self:ScanEquipment(character, reason, slot, hasCurrent)
     if self.RefreshUI then self:RefreshUI() end
 end
 
@@ -579,6 +602,13 @@ WAT.events:SetScript("OnEvent", function(_, event, ...)
         RegisterEventSafely("PLAYER_ENTERING_WORLD")
         RegisterEventSafely("PLAYER_LEVEL_UP")
         RegisterEventSafely("PLAYER_EQUIPMENT_CHANGED")
+        RegisterEventSafely("EQUIPMENT_SETS_CHANGED")
+        RegisterEventSafely("EQUIPMENT_SWAP_FINISHED")
+        RegisterEventSafely("PLAYER_SPECIALIZATION_CHANGED")
+        RegisterEventSafely("ACTIVE_PLAYER_SPECIALIZATION_CHANGED")
+        RegisterEventSafely("ACTIVE_TALENT_GROUP_CHANGED")
+        RegisterEventSafely("ITEM_DATA_LOAD_RESULT")
+        RegisterEventSafely("ITEM_CHANGED")
         RegisterEventSafely("CURRENCY_DISPLAY_UPDATE")
         RegisterEventSafely("UPDATE_UI_WIDGET")
         RegisterEventSafely("ZONE_CHANGED_NEW_AREA")
@@ -607,6 +637,29 @@ WAT.events:SetScript("OnEvent", function(_, event, ...)
     elseif event == "PLAYER_LOGIN" then
         WAT:Refresh(event)
         C_Timer.After(2, function() WAT:Refresh("delayed-login") end)
+    elseif event == "PLAYER_SPECIALIZATION_CHANGED" then
+        local unit = ...
+        if SafeString(unit) == "player" then WAT:RefreshEquipment(event) end
+    elseif event == "EQUIPMENT_SETS_CHANGED" or event == "EQUIPMENT_SWAP_FINISHED"
+            or event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED" or event == "ACTIVE_TALENT_GROUP_CHANGED" then
+        -- Event-Set-ID ist keine Beobachtung: nach Erfolg wie Fehlschlag neu lesen.
+        WAT:RefreshEquipment(event)
+    elseif event == "PLAYER_EQUIPMENT_CHANGED" then
+        local slot, hasCurrent = ...
+        WAT:RefreshEquipment(event, slot, hasCurrent)
+    elseif event == "ITEM_DATA_LOAD_RESULT" then
+        local itemID, success = ...
+        itemID, success = SafeNumber(itemID), SafeBoolean(success)
+        if not itemID or success ~= true or not WAT.db then return end
+        local character = WAT.db.characters[WAT.currentKey]
+        local snapshot = WAT.GetEquipmentSnapshot and WAT:GetEquipmentSnapshot(character)
+        if snapshot then
+            for _, slot in pairs(snapshot.slots) do
+                if slot.itemID == itemID then WAT:RefreshEquipment(event); break end
+            end
+        end
+    elseif event == "ITEM_CHANGED" then
+        WAT:RefreshEquipment(event)
     elseif event == "PLAYER_DEAD" then
         -- Die Statistikaufrufe genuegen. Vault, Taschen, Widgets und Berufe
         -- muessen im Todesmoment nicht komplett neu gescannt werden. Die

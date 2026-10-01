@@ -1,5 +1,5 @@
 -- Ausführbarer Runtime-Smoke-Test für UI.lua außerhalb von WoW.
--- Prüft Fenstererstellung, acht Sidebar-Klickziele, die Schlüsselstein-Zelle,
+-- Prüft Fenstererstellung, neun Sidebar-Klickziele, die Schlüsselstein-Zelle,
 -- die Wappensymbole der Wappenquellen inklusive Fallback ohne Symbol, die
 -- entlastete Übersicht, den Ritual-Verweis, die Statistikseite mit
 -- Accountsumme und das Einstellungsformular. Die Katalogseite selbst prüft
@@ -188,7 +188,8 @@ function GameTooltip:AddLine(text) self.lines[#self.lines + 1] = tostring(text) 
 function GameTooltip:AddDoubleLine(left, right)
     self.lines[#self.lines + 1] = tostring(left) .. "\t" .. tostring(right)
 end
-function GameTooltip:SetOwner(...) end
+function GameTooltip:SetOwner(owner) self.owner = owner end
+function GameTooltip:IsOwned(owner) return self.owner == owner end
 function GameTooltip:ClearLines() self.lines = {} end
 function GameTooltip:TooltipText() return table.concat(self.lines, "\n") end
 
@@ -553,10 +554,10 @@ local function RunSuite(locale, expect)
         context("gezogene Minimap-Position wurde nicht als Winkel gespeichert"))
 
     local order = { "overview", "midnight", "weeklies", "professions", "sources", "keystones",
-                    "statistics", "settings" }
+                    "equipment", "statistics", "settings" }
     local buttonCount = 0
     for _ in pairs(WAT.tabButtons) do buttonCount = buttonCount + 1 end
-    assert(buttonCount == #order, context("es muss genau acht Navigationsziele geben, gefunden " .. buttonCount))
+    assert(buttonCount == #order, context("es muss genau neun Navigationsziele geben, gefunden " .. buttonCount))
     for index, key in ipairs(order) do
         local button = WAT.tabButtons[key]
         assert(button and type(button.scripts.OnClick) == "function", context("Klickziel fehlt: " .. key))
@@ -1628,7 +1629,7 @@ RunSuite("deDE", {
     legacyMetaLabel = "Dungeons",
     settingsPanel = "Einstellungen",
     settingsWindow = "Fenster",
-    rowHint = "Zeile berühren",
+    rowHint = "Maus über eine Zeile",
     statisticsPanel = "Statistiken",
     accountTotal = "ALLE CHARAKTERE",
     accountTooltip = "Accountsumme",
@@ -2793,16 +2794,16 @@ RunDragReorderSuite()
 RunWeeklyQuestRenderingSuite()
 RunDundunSuite()
 RunDundunLocaleSuite("deDE", {
-    "Splitter von Dundun", "5/8", "accountweit", "Offline-Ressourcen-Snapshot",
+    "Splitter von Dundun", "5/8", "accountweit", "Gespeicherter Ressourcenbestand",
     "Panra hält die Front, Cataline hält ihn im Licht",
 })
 RunDundunLocaleSuite("frFR", {
-    "Shard of Dundun", "5/8", "account-wide", "Offline resource snapshot",
+    "Shard of Dundun", "5/8", "account-wide", "Saved resource balance",
     "Panra holds the line, Cataline keeps him in the Light",
 })
 RunEasterEggSuite()
 
-print("LUA UI RUNTIME OK: 8/8 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10/318,"
+print("LUA UI RUNTIME OK: 9/9 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10/318,"
     .. " entlastete Übersicht ohne Wappen-/Truhenduplikate, Ritual-Verweis statt Doppelzählung,"
     .. " Saison-2-Wappenquellen mit M+ ab +9 und fünf Nebelwappenbeständen,"
     .. " offene Berufs-Wochenquest und Wappensymbole in den Wappenquellen"

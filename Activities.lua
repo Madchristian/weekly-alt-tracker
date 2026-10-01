@@ -638,6 +638,177 @@ function WAT:ScanProfessions(previousProgress, previousWeekly, allowRemoval)
     return professions, progress
 end
 
+-- Manuelle Notizen und ausdrueckliche Messungen, keine Gameplay-Erkennung.
+local function LureTable(value)
+    if IsSafe(value) and type(value) == "table" then return value end
+end
+
+local function LureInteger(value)
+    value = SafeNumber(value)
+    if value and value == value and value > 0 and value < 100000000000
+            and value == math.floor(value) then return value end
+end
+
+local function LureGUID(value)
+    value = SafeString(value)
+    if value and string.match(value, "^Player%-%d+%-%x%x%x%x%x%x%x%x$") then return value end
+end
+
+local function LureDefinition(key)
+    key = SafeString(key)
+    if not key then return nil end
+    for _, definition in ipairs(Data.PROFESSION_LURES) do
+        if definition.key == key then return definition end
+    end
+end
+
+local function LureFunction(namespace, key)
+    namespace = LureTable(namespace)
+    if not namespace then return nil end
+    local ok, fn = pcall(function() return namespace[key] end)
+    if ok and IsSafe(fn) and type(fn) == "function" then return fn end
+end
+
+function WAT:GetProfessionLureServerTime()
+    if not IsSafe(GetServerTime) or type(GetServerTime) ~= "function" then return nil end
+    local ok, value = pcall(GetServerTime)
+    if ok then return LureInteger(value) end
+end
+
+local function LureResetHint(now)
+    local fn = LureFunction(C_DateAndTime, "GetSecondsUntilDailyReset")
+    if not fn then return nil end
+    local ok, seconds = pcall(fn)
+    if not ok then return nil end
+    seconds = SafeNumber(seconds)
+    if seconds and seconds == seconds and seconds >= 0 and seconds <= 172800
+            and seconds == math.floor(seconds) then return now + seconds end
+end
+
+-- Kein Name-/Realm-Fallback und kein frei waehlbarer Zielcharakter beim Schreiben.
+function WAT:IsCurrentProfessionLureCharacter(character)
+    character = LureTable(character)
+    if not character or not IsSafe(UnitGUID) or type(UnitGUID) ~= "function" then return false end
+    local ok, guid = pcall(UnitGUID, "player")
+    guid = ok and LureGUID(guid) or nil
+    local db = LureTable(self.db)
+    local characters = db and LureTable(db.characters)
+    return guid ~= nil and LureGUID(character.guid) == guid
+        and characters ~= nil and characters[guid] == character
+end
+
+local function LureIdentity(raw, definition, guid)
+    raw = LureTable(raw)
+    return raw and SafeString(raw.characterGUID) == guid
+        and SafeNumber(raw.definitionVersion) == definition.definitionVersion
+        and SafeNumber(raw.npcID) == definition.npcID
+        and SafeNumber(raw.itemID) == definition.itemID
+        and SafeNumber(raw.recipeSpellID) == definition.recipeSpellID
+        and SafeNumber(raw.useSpellID) == definition.useSpellID
+end
+
+local function LureIdentityCopy(definition, guid)
+    return { characterGUID = guid, definitionVersion = definition.definitionVersion,
+        npcID = definition.npcID, itemID = definition.itemID,
+        recipeSpellID = definition.recipeSpellID, useSpellID = definition.useSpellID }
+end
+
+local function LurePhase(phase)
+    phase = SafeString(phase)
+    if not phase then return nil end
+    for _, key in ipairs(Data.PROFESSION_LURE_PHASES) do
+        if key == phase then return key end
+    end
+end
+
+-- Reine fail-closed Kopie; kein Uhrvergleich beim Laden (auch offline sicher).
+function WAT:GetProfessionLureSnapshot(character)
+    character = LureTable(character)
+    local guid = character and LureGUID(character.guid)
+    local raw = character and LureTable(character.professionLures)
+    if not guid or not raw or SafeNumber(raw.schemaVersion) ~= Data.PROFESSION_LURE_SCHEMA
+            or SafeString(raw.characterGUID) ~= guid then return nil end
+    local result = { schemaVersion = Data.PROFESSION_LURE_SCHEMA, characterGUID = guid,
+        entries = {}, samples = {} }
+    local entries = LureTable(raw.entries)
+    for _, definition in ipairs(Data.PROFESSION_LURES) do
+        local entry = entries and LureTable(entries[definition.key])
+        if LureIdentity(entry, definition, guid) and SafeString(entry.source) == "manual"
+                and LureInteger(entry.confirmedAt) then
+            local copy = LureIdentityCopy(definition, guid)
+            copy.source, copy.confirmedAt = "manual", entry.confirmedAt
+            local reset = LureInteger(entry.dailyResetHint)
+            if reset and reset >= copy.confirmedAt then copy.dailyResetHint = reset end
+            result.entries[definition.key] = copy
+        end
+    end
+    local samples = LureTable(raw.samples)
+    -- Maximal 24 gespeicherte Proben, jede enthaelt exakt fuenf Kandidaten.
+    for index = 1, Data.PROFESSION_LURE_SAMPLE_LIMIT do
+        local sample = samples and LureTable(samples[index])
+        local definition = sample and LureDefinition(sample.lureKey)
+        local flags = sample and LureTable(sample.flags)
+        if definition and LureIdentity(sample, definition, guid) and flags
+                and SafeString(sample.source) == "diagnostic-unverified"
+                and LurePhase(sample.phase) and LureInteger(sample.capturedAt) then
+            local copy = LureIdentityCopy(definition, guid)
+            copy.source, copy.lureKey, copy.phase = "diagnostic-unverified", definition.key, sample.phase
+            copy.capturedAt, copy.flags = sample.capturedAt, {}
+            local reset = LureInteger(sample.dailyResetHint)
+            if reset and reset >= copy.capturedAt then copy.dailyResetHint = reset end
+            for _, candidate in ipairs(Data.PROFESSION_LURES) do
+                local flag = LureTable(flags[candidate.key])
+                local value
+                if flag and SafeNumber(flag.questID) == candidate.candidateQuestID then
+                    value = SafeBoolean(flag.value)
+                end
+                copy.flags[candidate.key] = { questID = candidate.candidateQuestID, value = value }
+            end
+            result.samples[#result.samples + 1] = copy
+        end
+    end
+    return result
+end
+
+local function LureWriteSnapshot(self, character)
+    return self:GetProfessionLureSnapshot(character) or {
+        schemaVersion = Data.PROFESSION_LURE_SCHEMA, characterGUID = character.guid,
+        entries = {}, samples = {},
+    }
+end
+
+function WAT:ConfirmProfessionLure(character, key)
+    if not self:IsCurrentProfessionLureCharacter(character) then return false end
+    local definition, now = LureDefinition(key), self:GetProfessionLureServerTime()
+    if not definition or not now then return false end
+    local snapshot = LureWriteSnapshot(self, character)
+    local entry = LureIdentityCopy(definition, character.guid)
+    entry.source, entry.confirmedAt, entry.dailyResetHint = "manual", now, LureResetHint(now)
+    snapshot.entries[definition.key] = entry
+    character.professionLures = snapshot
+    return true
+end
+
+function WAT:CaptureProfessionLureMeasurement(character, key, phase)
+    if not self:IsCurrentProfessionLureCharacter(character) then return false end
+    local definition, now = LureDefinition(key), self:GetProfessionLureServerTime()
+    phase = LurePhase(phase)
+    if not definition or not now or not phase then return false end
+    local snapshot = LureWriteSnapshot(self, character)
+    local sample = LureIdentityCopy(definition, character.guid)
+    sample.source, sample.lureKey, sample.phase = "diagnostic-unverified", key, phase
+    sample.capturedAt, sample.dailyResetHint, sample.flags = now, LureResetHint(now), {}
+    for _, candidate in ipairs(Data.PROFESSION_LURES) do
+        -- Frische Einzelmessung, kein Scan-Cache und kein Fortschritts-Merge.
+        sample.flags[candidate.key] = { questID = candidate.candidateQuestID,
+            value = ReadQuestCompleted(candidate.candidateQuestID) }
+    end
+    if #snapshot.samples >= Data.PROFESSION_LURE_SAMPLE_LIMIT then table.remove(snapshot.samples, 1) end
+    snapshot.samples[#snapshot.samples + 1] = sample
+    character.professionLures = snapshot
+    return true
+end
+
 -- ---------------------------------------------------------------------------
 -- Erfolgsstatistiken
 --

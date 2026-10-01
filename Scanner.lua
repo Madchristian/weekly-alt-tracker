@@ -344,7 +344,199 @@ local function MergeVault(previous, fresh)
     return fresh
 end
 
+-- Ausruestung bleibt ausserhalb von weekly. API- und Persistenzgrenzen teilen
+-- dieselben Guards; Renderer erhalten ausschliesslich primitive Kopien.
+local function GearTable(value)
+    if not IsSafeValue(value) or type(value) ~= "table" then return nil end
+    return value
+end
+
+local function GearNumber(value, integer)
+    value = CopyNumber(value)
+    if not value or value ~= value or value < 0 or value == math.huge then return nil end
+    if integer and value % 1 ~= 0 then return nil end
+    return value
+end
+
+local function GearCall(namespace, name, ...)
+    namespace = GearTable(namespace)
+    local fn = namespace and namespace[name]
+    if not IsSafeValue(fn) or type(fn) ~= "function" then return nil end
+    local result = { pcall(fn, ...) }
+    if not result[1] then return nil end
+    return result
+end
+
+local function GearLink(value, itemID)
+    value = CopyString(value)
+    if not value or #value > 4096 then return nil end
+    local id = tonumber(string.match(value, "^item:(%d+):") or string.match(value, "|Hitem:(%d+):"))
+    if id ~= itemID then return nil end
+    return value
+end
+
+function WAT:GetEquipmentSnapshot(character)
+    character = GearTable(character)
+    local raw = character and GearTable(character.equipment)
+    local guid = character and CopyString(character.guid)
+    if not raw or not guid or CopyString(raw.guid) ~= guid or GearNumber(raw.schemaVersion) ~= 1 then return nil end
+    local slots = GearTable(raw.slots)
+    if not slots then return nil end
+    local result = { schemaVersion = 1, guid = guid, slots = {}, updated = GearNumber(raw.updated, true),
+        averageEquipped = GearNumber(raw.averageEquipped), averageUpdated = GearNumber(raw.averageUpdated, true) }
+    local equipmentSet = GearTable(raw.equipmentSet)
+    if equipmentSet then
+        local state, updated = CopyString(equipmentSet.state), GearNumber(equipmentSet.updated, true)
+        local id, name = GearNumber(equipmentSet.id, true), CopyString(equipmentSet.name)
+        if updated then
+            if state == "equipped" and id and name and name ~= "" then
+                result.equipmentSet = { state = state, id = id, name = name, updated = updated }
+            elseif state == "none" or state == "ambiguous" then
+                result.equipmentSet = { state = state, updated = updated }
+            end
+        end
+    end
+    local specialization = GearTable(raw.specialization)
+    if specialization then
+        local id, name = GearNumber(specialization.id, true), CopyString(specialization.name)
+        local updated = GearNumber(specialization.updated, true)
+        if id and id > 0 and name and name ~= "" and updated then
+            result.specialization = { id = id, name = name, updated = updated }
+        end
+    end
+    for _, definition in ipairs(self.Data.EQUIPMENT_SLOTS) do
+        local slot = GearTable(slots[definition.id])
+        local state = slot and CopyString(slot.state)
+        local updated = slot and GearNumber(slot.updated, true)
+        if updated and (state == "empty" or state == "pending" or state == "item") then
+            local entry = { state = state, updated = updated }
+            local id = GearNumber(slot.itemID, true)
+            if state ~= "empty" and id and id > 0 then entry.itemID = id end
+            local link = entry.itemID and GearLink(slot.link, entry.itemID)
+            if state == "item" and link then
+                entry.link = link
+                entry.itemLevel = GearNumber(slot.itemLevel)
+                entry.icon = GearNumber(slot.icon, true)
+                local quality = GearNumber(slot.quality, true)
+                if quality and quality <= 8 then entry.quality = quality end
+            elseif state == "item" then
+                entry.state = "pending"
+            end
+            result.slots[definition.id] = entry
+        end
+    end
+    return result
+end
+
+-- Nur ein vollstaendig lesbarer Managerbestand bestaetigt ein Set. Kopien
+-- koennen gleichzeitig passen: dann wird bewusst kein einzelner Name gewaehlt.
+local function ReadEquippedSet(now)
+    local response = GearCall(C_EquipmentSet, "GetEquipmentSetIDs")
+    local ids = response and GearTable(response[2])
+    if not ids then return nil end
+    local seen, count, maximum, matches, selected = {}, 0, 0, 0, nil
+    for key, rawID in pairs(ids) do
+        local position, id = GearNumber(key, true), GearNumber(rawID, true)
+        if not position or position < 1 or not id or seen[id] then return nil end
+        seen[id], count, maximum = true, count + 1, math.max(maximum, position)
+        local info = GearCall(C_EquipmentSet, "GetEquipmentSetInfo", id)
+        if not info then return nil end
+        local name, returnedID, equipped = CopyString(info[2]), GearNumber(info[4], true), CopyBoolean(info[5])
+        if not name or name == "" or returnedID ~= id or equipped == nil then return nil end
+        if equipped then
+            matches = matches + 1
+            selected = { state = "equipped", id = id, name = name, updated = now }
+        end
+    end
+    if count ~= maximum then return nil end
+    if matches == 1 then return selected end
+    return { state = matches == 0 and "none" or "ambiguous", updated = now }
+end
+
+function WAT:ScanEquipment(character, reason, changedSlot, hasCurrent)
+    local identity = GearCall(_G, "UnitGUID", "player")
+    local guid = identity and CopyString(identity[2])
+    if not guid or not GearTable(character) or CopyString(character.guid) ~= guid
+            or not self.db or self.db.characters[guid] ~= character then return end
+    local stamp = GearCall(_G, "GetServerTime")
+    local now = stamp and GearNumber(stamp[2], true)
+    if not now or now <= 0 then return end
+    local snapshot = self:GetEquipmentSnapshot(character) or { schemaVersion = 1, guid = guid, slots = {} }
+    local changed = false
+    local equipmentSet = ReadEquippedSet(now)
+    if equipmentSet then snapshot.equipmentSet, changed = equipmentSet, true end
+    local spec = GearCall(C_SpecializationInfo, "GetSpecialization")
+    local index = spec and GearNumber(spec[2], true)
+    if index and index > 0 then
+        local info = GearCall(C_SpecializationInfo, "GetSpecializationInfo", index)
+        local id = info and GearNumber(info[2], true)
+        local name = info and CopyString(info[3])
+        if id and id > 0 and name and name ~= "" then
+            snapshot.specialization = { id = id, name = name, updated = now }
+            changed = true
+        end
+    end
+    changedSlot, hasCurrent = GearNumber(changedSlot, true), CopyBoolean(hasCurrent)
+    local allowEmpty = reason == "delayed-login" or reason == "delayed-zone"
+    self.equipmentRequests = self.equipmentRequests or {}
+    local requests = {}
+    for _, definition in ipairs(self.Data.EQUIPMENT_SLOTS) do
+        local slotID = definition.id
+        local previous = snapshot.slots[slotID]
+        -- Das bestaetigte Ereignis entwertet auch bei unlesbarer neuer Identitaet
+        -- die alten Details. Ein Secret-Ereignis darf dagegen nichts loeschen.
+        if reason == "PLAYER_EQUIPMENT_CHANGED" and changedSlot == slotID and hasCurrent ~= nil then
+            previous = { state = hasCurrent and "pending" or "empty", updated = now }
+            snapshot.slots[slotID], changed = previous, true
+        end
+        local location = GearCall(ItemLocation, "CreateFromEquipmentSlot", ItemLocation, slotID)
+        location = location and GearTable(location[2])
+        local exists = location and GearCall(C_Item, "DoesItemExist", location)
+        exists = exists and CopyBoolean(exists[2])
+        if exists == false and allowEmpty then
+            snapshot.slots[slotID], changed = { state = "empty", updated = now }, true
+        elseif exists == true and not (reason == "PLAYER_EQUIPMENT_CHANGED" and changedSlot == slotID and hasCurrent == false) then
+            local rawID = GearCall(C_Item, "GetItemID", location)
+            local id = rawID and GearNumber(rawID[2], true)
+            if id and id > 0 then
+                local rawLink = GearCall(C_Item, "GetItemLink", location)
+                local link = rawLink and GearLink(rawLink[2], id)
+                local fresh = { state = link and "item" or "pending", itemID = id, link = link, updated = now }
+                if not link and previous and previous.itemID == id and previous.state == "item" then
+                    fresh = previous
+                end
+                if link then
+                    local old = previous and previous.link == link and previous or {}
+                    local info = GearCall(C_Item, "GetItemInfo", link)
+                    local level = GearCall(C_Item, "GetDetailedItemLevelInfo", link)
+                    fresh.itemLevel = level and GearNumber(level[2]) or old.itemLevel
+                    fresh.icon = info and GearNumber(info[11], true) or old.icon
+                    local quality = info and GearNumber(info[4], true)
+                    fresh.quality = quality and quality <= 8 and quality or old.quality
+                end
+                snapshot.slots[slotID], changed = fresh, true
+                -- Eine Anforderung pro GUID/Item/Sitzung. Antworten lesen stets
+                -- den aktuellen Slot neu; keine Callback-Kopie eines alten Items.
+                local requestKey = guid .. ":" .. id
+                if (not link or not fresh.itemLevel or not fresh.icon) and not self.equipmentRequests[requestKey] then
+                    self.equipmentRequests[requestKey] = true
+                    requests[#requests + 1] = id
+                end
+            end
+        end
+    end
+    local average = GearCall(_G, "GetAverageItemLevel")
+    average = average and GearNumber(average[3])
+    if average then snapshot.averageEquipped, snapshot.averageUpdated, changed = average, now, true end
+    if changed then snapshot.updated = now; character.equipment = snapshot end
+    -- Erst publizieren, dann anfordern: Blizzard kennzeichnet das Ergebnis-
+    -- Event als synchron. Ein sofortiger Rueckruf muss die neue Identitaet
+    -- sehen und darf nicht anschliessend vom aeusseren Scan ueberschrieben werden.
+    for _, id in ipairs(requests) do GearCall(C_Item, "RequestLoadItemDataByID", id) end
+end
+
 function WAT:ScanCharacter(character, reason)
+    self:ScanEquipment(character, reason)
     character.weekly = character.weekly or {}
     local weekly = character.weekly
     -- Offline-Ressourcen-Snapshot: kein Wochenwert, deshalb Geschwister von

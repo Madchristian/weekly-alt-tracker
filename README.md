@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.1
+
+Die neue Ausrüstungsseite zeigt gespeicherte Ausrüstung mit 18 Slots, Itemleveln und angelegtem Durchschnitt. Sechs Charakterkacheln lassen sich unabhängig von der Detailauswahl durchblättern. Die Kopfzeile zeigt Klassenfarbe, zuletzt aktive Spezialisierung und ein eindeutig angelegtes Ausrüstungsset. Dazu kommen überarbeitete deutsche und englische UI-Texte sowie manuelle Ködernotizen mit Ortsreferenz und ausdrücklich unverifizierter Diagnose. Christian hat die installierte Vorschau im Spiel mit „sieht gut aus“ angenommen; eine vollständige Client-Testmatrix ist damit nicht belegt. Details im [Changelog zu 2026.10.1](changelog/CHANGELOG-2026.10.1-de.md).
+
 ### Version 2026.9.29-2
 
 Der **Übersetzungseditor** verwendet jetzt `FULLSCREEN_DIALOG` über der `DIALOG`-Ebene des Hauptfensters. Der vollständige **zweisprachige Änderungsverlauf** wird deterministisch aus kanonischen englischen/deutschen Release-Notizpaaren erzeugt; Prüfungen auf Vollständigkeit und Aktualität laufen vor dem Packen. Dieses Release ist ausdrücklich ohne zusätzlichen In-Game-Test freigegeben; die korrigierte Fensterebene wurde im WoW-Client nicht erneut getestet. Darstellung, IME-Eingabe, Kopieren/Einfügen und Speicherung auf Datenträger bleiben durch die automatisierten Mocks ungeprüft. Details im [Changelog zu 2026.9.29-2](changelog/CHANGELOG-2026.9.29-2-de.md).
@@ -119,6 +123,14 @@ Für die beiden Hauptberufe des Charakters:
 
 Unterstützt werden Alchemie, Schmiedekunst, Ingenieurskunst, Inschriftenkunde, Juwelierskunst, Lederverarbeitung, Schneiderei, Verzauberkunst, Kräuterkunde, Bergbau und Kürschnerei.
 
+#### Kürschnerei-Köder: manuelle Notiz und Messung
+
+Unter **Berufe → Köder anzeigen** bleiben die Berufsspalten erhalten; darunter stehen fünf Köder mit Orten/Koordinaten und NPC-IDs im Tooltip. **Jetzt besiegt** speichert nur für den eingeloggten Charakter eine manuelle Notiz, angezeigt als **Zuletzt bestätigt**. Keine automatische Killerkennung, Verfügbarkeit oder 24-Stunden-Sperre. Der allgemeine Tagesreset ist nur ein Hinweis; Notizen überleben den Wochenreset. Offlinecharaktere sind schreibgeschützt, fehlende Notizen bleiben `-`.
+
+Für eine Probe die **Phase** per Klick wählen und beim getesteten Köder **Messung erfassen** drücken: vor/nach Beschwörung, vor/nach Kill, vor/nach Kürschnern, optional nach Loot. Jede Probe liest alle fünf **UNVERIFIZIERTEN** Questflag-Kandidaten; sie ändert niemals die manuelle Bestätigung oder Fortschritt. Maximal 24 Proben je Charakter bleiben gespeichert; die neueste wird mit Phase, Serverzeit, Resethinweis und allen fünf Flags sichtbar angezeigt. Unlesbar ist `-`, nicht `false`.
+
+Danach normal ausloggen oder `/reload`: WoW schreibt `WTF/Account/<Account>/SavedVariables/WeeklyAltTracker.lua`. Diese Datei kann anschließend **nur lesend** für den Vorher/Nachher-Vergleich ausgewertet werden; kein externer Writer. Die Flag-Zuordnung und ihr Reset sind noch nicht im Spiel bestätigt. Details: `tools/PROFESSION_LURES.md`.
+
 ### Wappenquellen
 
 - Splitter von Dundun pro Charakter als Offline-Ressourcen-Snapshot, mit dynamischem Maximum wie `5/8`
@@ -137,6 +149,16 @@ Der Dundun-Bestand liegt bewusst außerhalb des Wochenresets. Ein unlesbarer ode
 - Offline-Snapshot mit Datenstand
 - Partielle oder geheime API-Werte überschreiben keinen sicheren Snapshot
 - Ein sicher erkannter fehlender Schlüsselstein erscheint als `kein Schlüsselstein`
+
+### Ausrüstung
+
+Die eigene Charakterfenster-Ansicht zeigt acht Slots links, acht rechts und Waffenhand/Schildhand unten, einschließlich Hemd und Wappenrock. Pro Gegenstand stehen Icon, Qualitätsrahmen und die zuletzt erfasste tatsächliche Gegenstandsstufe; in der Mitte der von WoW gelieferte **angelegte Durchschnitt** (kein Maximum aus Taschen und kein selbst berechneter Slotdurchschnitt). Oben wählst du einen Charakter über eine von sechs Kacheln mit klassenfarbigem Namen und Realm. Die seitlichen Pfeile blättern um sechs Plätze; am Ende bleibt das letzte volle Fenster stehen. Beim Blättern bleibt die angezeigte Ausrüstung unverändert, bis du eine Kachel anklickst. Die Kopfzeile zeigt Name, zuletzt aktive Spezialisierung, ein eindeutig angelegtes Ausrüstungsset und Realm, soweit erfasst. Auswahl und Leiste folgen stabilen Charakterschlüsseln; die Anzeige nennt den sichtbaren Bereich und die Gesamtzahl. Lange Namen bleiben einzeilig; im Slot-Tooltip steht die volle Identität.
+
+**Jeden Alt zunächst mit aktiviertem Addon einloggen.** Angezeigt wird zuletzt getragene Ausrüstung, keine Live-Abfrage ausgeloggter Charaktere. `Unbekannt` bedeutet nie oder nicht sicher erfasst, `Leer` einen sicher leeren Slot, `Lädt` noch fehlende Itemdetails. Erfassungszeit und eigener Zeitstempel des Durchschnitts stehen in der Mitte; der Tooltip nennt den Slot-Zeitpunkt. Ein später Teilscan kann ältere sichere Slots erhalten. Offline ist nicht automatisch veraltet; der Wochenreset löscht Ausrüstung nicht.
+
+Item-Tooltips öffnen den gespeicherten Link des ausgewählten Alts, nicht den aktuellen Spieler-Slot. Blizzard kann Tooltipdetails im aktuellen Clientkontext darstellen; maßgeblich für das erfasste tatsächliche Itemlevel ist der Wert am Slot. Sockel, Verzauberungen und Aufwertungsstufen werden nicht als eigene Vollständigkeitsprüfung ausgewertet. Keine Taschen, Bank, Setverwaltung, Empfehlungen, Simulation oder Attribute. **Kein 3D-Modell:** eine exakte Offline-Darstellung samt Körpermerkmalen und Transmog ist nicht mit kleinem belegtem Aufwand verfügbar.
+
+Nach separater Installationsfreigabe bleiben zwei echte Charaktere, Wechsel/Ablegen/Nachladen, Reload und Screenshots bei 70/100/150 % im Spiel abzunehmen. Lokale Runtime-Tests ersetzen diese Abnahme nicht.
 
 ### Statistiken
 
@@ -185,7 +207,7 @@ Es gibt bewusst keinen Schieberegler: die festen Stufen bleiben exakt im Wertebe
 
 Version 0.3.0 verwendet ein eigenständiges, von EllesmereUI-Prinzipien inspiriertes Midnight-Dark-Layout: eine feste linke Navigation, einen großen Seitenkopf mit Beschreibung, flache Schaltflächen und kompakte Vergleichstabellen. Das Addon kopiert keine EllesmereUI-Assets und benötigt EllesmereUI nicht als Abhängigkeit.
 
-Die linke Navigation besitzt acht Bereiche:
+Die linke Navigation besitzt neun Bereiche:
 
 1. `Übersicht`
 2. `Midnight-Woche`
@@ -193,8 +215,9 @@ Die linke Navigation besitzt acht Bereiche:
 4. `Berufe`
 5. `Wappenquellen`
 6. `Schlüsselsteine`
-7. `Statistiken`
-8. `Einstellungen`
+7. `Ausrüstung`
+8. `Statistiken`
+9. `Einstellungen`
 
 Statusfarben:
 
@@ -239,7 +262,7 @@ Die Übersicht zeigt `M+10` grün als `Ja`, sobald die Blizzard-Schatzkammer min
 ## Testablauf im Spiel
 
 1. Addon aktivieren und `/reload` ausführen.
-2. `/wat` öffnen und alle acht Einträge der linken Navigation anklicken.
+2. `/wat` öffnen und alle neun Einträge der linken Navigation anklicken.
 3. Im Bereich `Einstellungen` eine Skalierungsstufe wählen, das Minimap-Symbol aus- und wieder einblenden und die Position zurücksetzen.
 4. Große Schatzkammer öffnen und im Bereich `Einstellungen` auf `Jetzt aktualisieren` klicken.
 5. Vault-Zeile berühren und Itemlevel pro Slot prüfen.
@@ -322,7 +345,7 @@ Das Addon ist auf Wago Addons veröffentlicht: [addons.wago.io/addons/weekly-alt
 
 Die [Wago-Projektseite](https://addons.wago.io/addons/weekly-alt-tracker) stellt die aktuellen Stable-, Beta- und Alpha-Versionen bereit. Release-spezifische Änderungen stehen im jeweiligen Versions-Changelog und in der vollständigen [`CHANGELOG.md`](CHANGELOG.md); die allgemeine Projektbeschreibung bleibt bewusst versionsunabhängig.
 
-Das Secret `WAGO_API_TOKEN` ist im Repository unter *Settings → Secrets and variables → Actions* hinterlegt. Der Tokenwert gehört ausschließlich in dieses Secret und niemals in das Repository. Damit lädt jeder künftige `v*`-Tag über den BigWigs-Packager automatisch sowohl zum GitHub-Release als auch zu Wago hoch.
+Wago übernimmt die ZIP-Datei aus dem GitHub-Release über die verbundene Repository-Automation. Der Tag-Workflow veröffentlicht auf GitHub und übergibt keinen Wago-API-Token an den Packager. So gibt es nur einen Veröffentlichungsweg zu Wago. In den Wago-Einstellungen bleiben Retail sowie der Import von Beschreibung und Kurzbeschreibung aktiviert; die unterstützte Spielversion soll aus der TOC gelesen werden. Ein Import gilt erst nach Prüfung des öffentlichen Downloads als erfolgreich.
 
 ### CurseForge-Veröffentlichung
 

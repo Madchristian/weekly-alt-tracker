@@ -68,6 +68,8 @@ local de = LoadWith(Constant("deDE"))
 local en = LoadWith(Constant("enUS"))
 
 local VALUE_CASES = {
+    { key = "PANEL_KEYSTONES_DESC", de = "Gespeicherter Mythic+-Schlüsselstein je Charakter, auch offline einsehbar.", en = "Each character's saved Mythic+ keystone, also available offline." },
+    { key = "TR_ERR_SIZE", de = "Das Sprachpaket ist zu groß.", en = "The language pack is too large." },
     { key = "PANEL_OVERVIEW", de = "Übersicht", en = "Overview" },
     { key = "PANEL_MIDNIGHT", de = "Midnight-Woche", en = "Midnight Week" },
     { key = "PANEL_PROFESSIONS", de = "Berufe", en = "Professions" },

@@ -1185,7 +1185,7 @@ local EXPECT = {
         unknown = "Unbekannt", open = "Offen", goals = "1/2 Ziele", purging = "Die Kammern läutern",
         surge = "Kehrt die Woge um", search = "Kehrt", staleWeek = "alte Woche", oldSeason = "alte Saison",
         oldSeasonTip = "anderen Saison", staleTip = "alten Woche", goal2 = "Ziel 2",
-        emptyFilter = "Keine Einträge für diesen Filter", noCatalog = "kein freigegebener Wochenquest-Katalog",
+        emptyFilter = "Keine Einträge für diesen Filter", noCatalog = "keinen freigegebenen Wochenquest-Katalog",
         allCharacters = "Alle Charaktere", panel = "Wochenquests",
     },
     enUS = {
@@ -1193,7 +1193,7 @@ local EXPECT = {
         unknown = "Unknown", open = "Open", goals = "1/2 goals", purging = "Purging the Vaults",
         surge = "Turn Back the Surge", search = "Surge", staleWeek = "old week", oldSeason = "old season",
         oldSeasonTip = "another season", staleTip = "old week", goal2 = "Objective 2",
-        emptyFilter = "No entries for this filter", noCatalog = "No released weekly quest catalog",
+        emptyFilter = "No entries for this filter", noCatalog = "No approved weekly quest catalog",
         allCharacters = "All characters", panel = "Weekly Quests",
     },
 }
@@ -1251,11 +1251,11 @@ local function RunVerticalSuite(locale)
     check(DeepEqual(WeeklyAltTrackerDB.characters["Player-Alt"], offlineCopy),
         context("Refresh des Hauptcharakters darf den Offline-Snapshot nicht umschreiben"))
 
-    -- Acht Navigationsziele in fester Reihenfolge, Wochenquests nach Midnight.
-    local ORDER = { "overview", "midnight", "weeklies", "professions", "sources", "keystones", "statistics", "settings" }
+    -- Neun Navigationsziele in fester Reihenfolge, Wochenquests nach Midnight.
+    local ORDER = { "overview", "midnight", "weeklies", "professions", "sources", "keystones", "equipment", "statistics", "settings" }
     local count = 0
     for _ in pairs(WAT.tabButtons) do count = count + 1 end
-    checkEqual(count, 8, context("Anzahl Navigationsziele"))
+    checkEqual(count, 9, context("Anzahl Navigationsziele"))
     for index, key in ipairs(ORDER) do
         local button = WAT.tabButtons[key]
         check(button ~= nil, context("Navigationsziel fehlt: " .. key))
@@ -1268,7 +1268,7 @@ local function RunVerticalSuite(locale)
         end
     end
     local lastButton = WAT.tabButtons.settings
-    checkEqual(108 + 7 * 42 + (lastButton and lastButton.height or 0), 444, context("Sidebar-Unterkante"))
+    checkEqual(108 + 8 * 42 + (lastButton and lastButton.height or 0), 486, context("Sidebar-Unterkante"))
 
     WAT:SetActiveTab("weeklies")
     local panel = WAT.panels.weeklies
@@ -2665,6 +2665,312 @@ do
     FONT_WIDTH_PER_POINT = 0.55
     ResetQuests()
 end
+-- Vertikaler Ausruestungsweg: Ereignis -> echter Scanner -> gepoolte Slots.
+local function RunEquipmentSuite(locale)
+    local failuresBefore = failures
+    ResetQuests()
+    player = MainPlayer()
+    local savedItem, savedLocation, savedServer = C_Item, ItemLocation, GetServerTime
+    local equipped = { id = 12345, link = "item:12345:0:0", level = 277 }
+    local calls = 0
+    ItemLocation = { CreateFromEquipmentSlot = function(_, slot) return { equipmentSlotIndex = slot } end }
+    GetServerTime = function() return NOW end
+    C_Item = {
+        DoesItemExist = function(loc) calls = calls + 1; return loc.equipmentSlotIndex == 1 and equipped ~= nil end,
+        GetItemID = function() return equipped.id end,
+        GetItemLink = function() return equipped.link end,
+        GetDetailedItemLevelInfo = function() return equipped.level, false, 1 end,
+        GetItemInfo = function() return "Fixture", equipped.link, 4, 1, 1, nil, nil, nil, nil, 123 end,
+        RequestLoadItemDataByID = function() end,
+    }
+    local savedSpec, savedSets = C_SpecializationInfo, C_EquipmentSet
+    C_SpecializationInfo = {
+        GetSpecialization = function() calls = calls + 1; return 1 end,
+        GetSpecializationInfo = function() calls = calls + 1; return 71, "Arms" end,
+    }
+    C_EquipmentSet = {
+        GetEquipmentSetIDs = function() calls = calls + 1; return { 0 } end,
+        GetEquipmentSetInfo = function() calls = calls + 1; return "Dungeon", 123, 0, true end,
+    }
+    function GameTooltip:SetHyperlink(link) self.hyperlink = link end
+    local WAT, event = StartAddon(locale, { settings = { seenIntro = true }, characters = {
+        ["Player-Alt"] = OfflineCharacter(NOW - 1),
+    } })
+    event(nil, "PLAYER_LOGIN")
+    WAT:SetActiveTab("equipment")
+    local panel = WAT.panels.equipment
+    assert(panel, "equipment panel missing")
+    assert(panel.characterTiles and #panel.characterTiles == 6, "six pooled equipment character tiles missing")
+    checkEqual(panel.characterTiles[1].characterKey, panel.characterKeys[1], "first tile binds ordered stable key")
+    checkEqual(panel.characterTiles[2].characterKey, panel.characterKeys[2], "second tile binds ordered stable key")
+    local function SelectGear(key)
+        for _, tile in ipairs(panel.characterTiles) do
+            if tile.characterKey == key then tile.scripts.OnClick(tile); return end
+        end
+        error("gear tile not visible: " .. key)
+    end
+    checkEqual(panel.characterKey, "Player-Main", "gear defaults to current GUID")
+    check(string.find(panel.identity.text, "|r - Arms - ", 1, true) ~= nil,
+        "class color ends before active specialization")
+    check(string.find(panel.identity.text, "Dungeon", 1, true) ~= nil, "equipped set in header")
+    check(panel.identity.textColor and panel.identity.textColor[1] == panel.identity.textColor[2],
+        "header suffix neutral rather than gold")
+    check(type(panel.identity.parent.scripts.OnEnter) == "function", "full header tooltip on clipped identity")
+    panel.identityOwner.scripts.OnEnter(panel.identityOwner)
+    checkEqual(GameTooltip.lines[1], panel.identity.text, "full identity in header tooltip")
+    SelectGear("Player-Alt")
+    check(GameTooltip.shown ~= true, "header tooltip closes on character switch")
+    SelectGear("Player-Main")
+    local specGetter, setGetter = C_SpecializationInfo.GetSpecializationInfo, C_EquipmentSet.GetEquipmentSetInfo
+    C_SpecializationInfo.GetSpecializationInfo = function() calls = calls + 1; return 72, "Fury" end
+    event(nil, "PLAYER_SPECIALIZATION_CHANGED", "player")
+    check(string.find(panel.identity.text, "|r - Fury - ", 1, true) ~= nil, "spec event reaches rendered header")
+    C_EquipmentSet.GetEquipmentSetInfo = function() calls = calls + 1; return "Renamed", 123, 0, true end
+    event(nil, "EQUIPMENT_SETS_CHANGED")
+    check(string.find(panel.identity.text, "Renamed", 1, true) ~= nil, "rename event reaches rendered header")
+    C_EquipmentSet.GetEquipmentSetInfo = function() calls = calls + 1; return "Renamed", 123, 0, false end
+    event(nil, "EQUIPMENT_SWAP_FINISHED", true, 0)
+    check(string.find(panel.identity.text, "Set:", 1, true) == nil, "confirmed no set has no placeholder label")
+    C_SpecializationInfo.GetSpecializationInfo, C_EquipmentSet.GetEquipmentSetInfo = specGetter, setGetter
+    event(nil, "EQUIPMENT_SETS_CHANGED")
+    local overrideLocale = locale == "deDE" and "deDE" or "enUS"
+    WAT.Localization.set_override(overrideLocale, "GEAR_SET", "Custom: %s")
+    WAT:RefreshUI()
+    check(string.find(panel.identity.text, "Custom: Dungeon", 1, true) ~= nil, "header honors community override")
+    WAT.Localization.set_override(overrideLocale, "GEAR_SET", nil)
+    WAT:RefreshUI()
+    checkEqual(panel.slots[1].item.itemLevel, 277, "event-to-slot actual item level")
+    checkEqual(panel.slots[1].level.text, "277", "visible item level")
+    checkEqual(panel.slots[1].icon.texture[1], 123, "visible item icon")
+    checkEqual(panel.slots[1].name.parent.width, 182, "item name owns a separate hard clipping cell")
+    check(panel.slots[1].name.parent.clipsChildren == true, "item name cannot overlap itemlevel")
+    panel.slots[1].scripts.OnEnter(panel.slots[1])
+    checkEqual(GameTooltip.hyperlink, equipped.link, "stored hyperlink tooltip")
+    local beforeCalls, beforeWidgets = calls, widgetCount
+    local before = DeepCopy(WAT.db.characters)
+    SelectGear("Player-Alt")
+    checkEqual(panel.characterKey, "Player-Alt", "tile selects stable offline GUID")
+    checkEqual(panel.slots[1].item, nil, "never captured clears old item")
+    checkEqual(panel.slots[1].icon.texture[1], nil, "never captured clears icon")
+    check(GameTooltip.shown ~= true, "selection closes old tooltip")
+    checkEqual(calls, beforeCalls, "renderer makes no gear API calls")
+    check(DeepEqual(before, WAT.db.characters), "renderer leaves offline snapshots untouched")
+    local alt = WAT.db.characters["Player-Alt"]
+    alt.equipment = { schemaVersion = 1, guid = alt.guid, updated = NOW - 500,
+        specialization = { id = 259, name = "Assassination", updated = NOW - 600 },
+        equipmentSet = { state = "equipped", id = 7, name = string.rep("Long", 40) .. "|cffff0000|T123:99|t|r", updated = NOW - 500 },
+        slots = {
+        [1] = { state = "item", itemID = 33333, link = "item:33333:9:0", icon = 456,
+                quality = 3, itemLevel = 250, updated = NOW - 500 },
+        [17] = { state = "empty", updated = NOW - 500 },
+    } }
+    local altBefore = DeepCopy(alt)
+    WAT:RefreshUI()
+    checkEqual(panel.slots[1].level.text, "250", "different offline gear rendered despite expired week")
+    local offlineHeader = panel.identity.text
+    check(string.find(offlineHeader, "|r - Assassination - ", 1, true) ~= nil, "offline spec and class color retained")
+    check(string.find(offlineHeader, "||cffff0000||T123:99||t||r", 1, true) ~= nil, "set markup escaped as literal text")
+    checkEqual(panel.identity.parent.width, 830, "header hard clipping cell width")
+    check(panel.identity.parent.clipsChildren == true, "header clipped inside arrow budget")
+    panel.identityOwner.scripts.OnEnter(panel.identityOwner)
+    checkEqual(GameTooltip.lines[1], offlineHeader, "long custom set remains complete in tooltip")
+    panel.identityOwner.scripts.OnLeave(panel.identityOwner)
+    checkEqual(panel.slots[1].icon.texture[1], 456, "different offline icon")
+    checkEqual(panel.slots[1].backdropBorderColor[3], 0.87, "blue quality border")
+    local oldAddLine = GameTooltip.AddLine
+    function GameTooltip:AddLine(text, r, g, b, wrap)
+        if text == offlineHeader then self.headerWrap = wrap end
+        return oldAddLine(self, text, r, g, b, wrap)
+    end
+    panel.slots[1].scripts.OnEnter(panel.slots[1])
+    check(GameTooltip.headerWrap == true, "long header wraps in item tooltip too")
+    GameTooltip.AddLine = oldAddLine
+    checkEqual(GameTooltip.hyperlink, "item:33333:9:0", "offline tooltip never uses live slot")
+    checkEqual(calls, beforeCalls, "offline tooltip makes no gear scans")
+    check(DeepEqual(alt, altBefore), "offline gear unchanged by rendering")
+    SelectGear("Player-Main")
+    equipped = nil
+    event(nil, "PLAYER_EQUIPMENT_CHANGED", 1, false)
+    checkEqual(panel.slots[1].item.state, "empty", "unequip event reaches visible slot")
+    checkEqual(panel.slots[1].level.text, WAT.L("GEAR_EMPTY"), "empty is labelled, not zero")
+    equipped = { id = 22222, link = "item:22222:0:0", level = nil }
+    event(nil, "PLAYER_EQUIPMENT_CHANGED", 1, true)
+    checkEqual(panel.slots[1].level.text, WAT.L("GEAR_PENDING"), "partial item labelled")
+    equipped.level = 288
+    event(nil, "ITEM_DATA_LOAD_RESULT", 12345, true)
+    checkEqual(panel.slots[1].item.itemLevel, nil, "obsolete response ignored")
+    event(nil, "ITEM_DATA_LOAD_RESULT", 22222, true)
+    checkEqual(panel.slots[1].level.text, "288", "async response reaches actual UI")
+    local previousLink = equipped.link
+    equipped.link, equipped.level = "item:22222:9:0", 299
+    event(nil, "ITEM_CHANGED", previousLink, equipped.link)
+    checkEqual(WAT.db.characters["Player-Main"].equipment.slots[1].link, equipped.link,
+        "ITEM_CHANGED callback persists the new variant")
+    checkEqual(panel.slots[1].level.text, "299", "ITEM_CHANGED callback reaches visible itemlevel")
+    panel.slots[1].scripts.OnEnter(panel.slots[1])
+    checkEqual(GameTooltip.hyperlink, equipped.link, "ITEM_CHANGED tooltip uses the new stored variant")
+    local averageGetter = GetAverageItemLevel
+    GetAverageItemLevel = function() error("average temporarily unavailable") end
+    local ok = pcall(event, nil, "PLAYER_EQUIPMENT_CHANGED", 1, true)
+    check(ok, "gear event survives throwing average getter in preparation")
+    GetAverageItemLevel = averageGetter
+    local own = WAT.db.characters["Player-Main"]
+    own.weekEnd = NOW - 1
+    local oldEquipment = DeepCopy(own.equipment)
+    WAT:PrepareCurrentCharacter()
+    check(DeepEqual(own.equipment, oldEquipment), "weekly reset preserves nonweekly gear")
+    local snapshotBeforeReload = DeepCopy(own.equipment)
+    local offlineBeforeReload = DeepCopy(alt.equipment)
+    local restarted, restartEvent = StartAddon(locale, DeepCopy(WeeklyAltTrackerDB))
+    check(DeepEqual(restarted.db.characters["Player-Main"].equipment, snapshotBeforeReload), "reload preserves equipment")
+    check(DeepEqual(restarted.db.characters["Player-Alt"].equipment, offlineBeforeReload),
+        "database reload preserves offline equipment")
+    restartEvent(nil, "PLAYER_LOGIN")
+    restarted:SetActiveTab("equipment")
+    local restartedPanel = restarted.panels.equipment
+    restartedPanel.characterKey = "Player-Alt"
+    local callsBeforeOfflineRender = calls
+    restarted:RefreshUI()
+    checkEqual(restartedPanel.slots[1].level.text, "250", "reloaded offline level reaches UI")
+    checkEqual(restartedPanel.identity.text, offlineHeader, "offline header survives full reload without live queries")
+    checkEqual(restartedPanel.slots[17].item.state, "empty", "reloaded offline empty slot retained")
+    restartedPanel.slots[1].scripts.OnEnter(restartedPanel.slots[1])
+    checkEqual(GameTooltip.hyperlink, "item:33333:9:0", "reloaded offline tooltip retains variant")
+    checkEqual(calls, callsBeforeOfflineRender, "reloaded offline rendering never scans live gear")
+    check(DeepEqual(restarted.db.characters["Player-Alt"].equipment, offlineBeforeReload),
+        "login refresh and rendering preserve offline gear after reload")
+    WAT, event, panel = restarted, restartEvent, restartedPanel
+    for i = 1, 30 do
+        local key = "Player-Many" .. i
+        WAT.db.characters[key] = { guid = key, key = key, name = string.rep("Lang", 20), realm = "Realm", weekly = {} }
+    end
+    WAT:RefreshUI()
+    local poolBefore = widgetCount
+    local browsedKey, browsedLevel = panel.characterKey, panel.slots[1].level.text
+    panel.characterTiles[1].scripts.OnEnter(panel.characterTiles[1])
+    for _ = 1, 33 do panel.next.scripts.OnClick(panel.next) end
+    checkEqual(panel.characterKey, browsedKey, "paging live list preserves selected offline snapshot")
+    checkEqual(panel.slots[1].level.text, browsedLevel, "paging live list preserves item detail")
+    check(GameTooltip.shown ~= true, "paging closes hovered tile tooltip")
+    checkEqual(widgetCount, poolBefore, "many alts reuse all equipment frames")
+    local selected = panel.characterKey
+    WAT.db.settings.characterOrder = { selected, "Player-Main", "Player-Alt" }
+    WAT:RefreshUI()
+    checkEqual(panel.characterKey, selected, "reorder preserves stable selected key")
+    if selected ~= "Player-Main" then
+        WAT.db.characters[selected] = nil
+        WAT:RefreshUI()
+        checkEqual(panel.characterKey, "Player-Main", "removed key falls back to current character")
+    end
+    -- Sichtfenster und Detailauswahl sind voneinander unabhaengig.
+    do
+        local refreshUI = WAT.RefreshUI
+        local entries, keys = {}, {}
+        WAT.RefreshUI = function(self) self:RefreshEquipmentPanel(panel, entries, keys) end
+        for _, count in ipairs({ 0, 1, 6, 7, 12, 13, 32 }) do
+            entries, keys = {}, {}
+            for i = 1, count do
+                keys[i] = "Tile-" .. i
+                entries[i] = { key = keys[i], guid = keys[i], name = "Duplicate", realm = "Realm" .. i, classFile = "MAGE" }
+            end
+            panel.characterKey, panel.tabOffset, panel.firstVisibleKey = keys[1], 0, nil
+            panel.pendingReveal = nil
+            WAT:RefreshUI()
+            local pool = widgetCount
+            checkEqual(panel.prev.disabled, true, "left end disabled at " .. count)
+            checkEqual(panel.next.disabled, count <= 6, "right end at " .. count)
+            local first = count > 0 and 1 or 0
+            checkEqual(panel.position.text, locale == "deDE" and ("Charaktere " .. first .. "-" .. math.min(6, count) .. " von " .. count)
+                or ("Characters " .. first .. "-" .. math.min(6, count) .. " of " .. count), "label describes visible range and total")
+            local header = panel.identity.text
+            panel.next.scripts.OnClick(panel.next)
+            checkEqual(panel.characterKey, keys[1], "browsing preserves detail selection at " .. count)
+            checkEqual(panel.identity.text, header, "browsing preserves detail header")
+            local offset = math.min(6, math.max(0, count - 6))
+            checkEqual(panel.tabOffset, offset, "six-step window clamped at " .. count)
+            WAT:RefreshUI()
+            checkEqual(panel.tabOffset, offset, "normal refresh never pulls window back")
+            for i, tile in ipairs(panel.characterTiles) do
+                checkEqual(tile.characterKey, keys[offset + i], "rebound tile key")
+                checkEqual(tile.shown, keys[offset + i] ~= nil, "unused tile hidden")
+                if tile.characterKey then
+                    tile.scripts.OnEnter(tile)
+                    check(string.find(GameTooltip.lines[1], entries[offset+i].realm, 1, true) ~= nil, "duplicate-name tooltip has realm")
+                    tile.scripts.OnClick(tile)
+                    checkEqual(panel.characterKey, keys[offset+i], "click uses rebound key, not captured loop index")
+                    check(tile.active and tile.backdropBorderColor[2] == 0.82, "selected tile has visible border")
+                    check(GameTooltip.shown ~= true, "rebind closes tile tooltip")
+                end
+            end
+            for _ = 1, 10 do panel.next.scripts.OnClick(panel.next) end
+            checkEqual(panel.tabOffset, math.max(0, count - 6), "right end clamps, no circular jump")
+            checkEqual(panel.next.disabled, true, "right end disabled")
+            for _ = 1, 10 do panel.prev.scripts.OnClick(panel.prev) end
+            checkEqual(panel.tabOffset, 0, "left end clamps")
+            checkEqual(widgetCount, pool, "tile paging allocates no widgets")
+        end
+        panel.characterKey = keys[30]
+        panel.pendingReveal = true
+        WAT:RefreshUI()
+        checkEqual(panel.characterTiles[6].characterKey, keys[30], "opening reveals selected character")
+        panel.tabOffset, panel.firstVisibleKey = 0, nil
+        WAT:RefreshUI()
+        panel.next.scripts.OnClick(panel.next)
+        local anchor, chosen = panel.characterTiles[1].characterKey, panel.characterKey
+        table.insert(keys, 1, "Inserted")
+        table.insert(entries, 1, { guid = "Inserted", name = "New", realm = "Realm" })
+        WAT:RefreshUI()
+        checkEqual(panel.characterTiles[1].characterKey, anchor, "reorder keeps first visible stable key")
+        checkEqual(panel.characterKey, chosen, "reorder retains detail selection")
+        for i = #keys, 4, -1 do keys[i], entries[i] = nil, nil end
+        WAT:RefreshUI()
+        checkEqual(panel.tabOffset, 0, "deletion clamps visible window")
+        checkEqual(panel.characterKey, keys[1], "deleted selection falls back deterministically without current key")
+        panel.characterTiles[1].scripts.OnEnter(panel.characterTiles[1])
+        panel.scripts.OnHide(panel)
+        check(GameTooltip.shown ~= true, "panel hide closes tile tooltip")
+        for _, scale in ipairs({ 0.70, 0.85, 1, 1.15, 1.30, 1.50 }) do
+            WAT.frame:SetScale(scale)
+            for i, tile in ipairs(panel.characterTiles) do
+                local x, y = tile.points[1][2], -tile.points[1][3]
+                check(x >= 30 and (x + tile.width) * scale <= 890 * scale and y == 0 and tile.height == 34,
+                    "tile fits between arrows at scale " .. scale)
+                check(tile.label.parent.clipsChildren and tile.realm.parent.clipsChildren, "tile lines hard-clipped separately")
+                check(tile.label.maxLines == 1 and tile.realm.maxLines == 1, "tile line limits")
+            end
+            for _, slot in pairs(panel.slots) do
+                check((-slot.points[1][3] + slot.height) * scale <= 402 * scale, "weapons fit actual scaled panel")
+            end
+        end
+        WAT.frame:SetScale(1)
+        WAT.Localization.set_override(overrideLocale, "GEAR_RANGE", "Window %d-%d / %d")
+        WAT:RefreshUI()
+        checkEqual(panel.position.text, "Window 1-3 / 3", "range honors community override")
+        WAT.Localization.set_override(overrideLocale, "GEAR_RANGE", nil)
+        WAT.RefreshUI = refreshUI
+    end
+    local identityTop = -panel.identity.parent.points[1][3]
+    check(identityTop >= 34 and identityTop + panel.identity.parent.height <= 72, "header below tiles and above slots")
+    for _, slot in pairs(panel.slots) do
+        check(-slot.points[1][3] >= 72, "slots below identity")
+    end
+    check(panel.identity.wordWrap == false and panel.identity.maxLines == 1, "long identity single-line")
+    check(panel.clipsChildren == true, "equipment panel clips children")
+    for _, slot in pairs(panel.slots) do
+        local x, y = slot.points[1][2], -slot.points[1][3]
+        check(x >= 0 and x + slot.width <= 920 and y >= 0 and y + slot.height <= 402, "slot within usable panel budget")
+    end
+    check(beforeWidgets <= widgetCount, "widget accounting available")
+    C_Item, ItemLocation, GetServerTime = savedItem, savedLocation, savedServer
+    C_SpecializationInfo, C_EquipmentSet = savedSpec, savedSets
+    player = {}
+    if failures == failuresBefore then
+        print("EQUIPMENT VERTICAL OK: " .. locale .. ", events, snapshots, tooltips, offline, 32 alts, reset, reload")
+    end
+end
+RunEquipmentSuite("deDE")
+RunEquipmentSuite("enUS")
+RunEquipmentSuite("frFR")
 
 if failures > 0 then
     error(failures .. " Katalog-Runtime-Prüfungen fehlgeschlagen")
@@ -2675,7 +2981,7 @@ print("LUA WEEKLY CATALOG RUNTIME OK: " .. EXPECTED_ENTRY_COUNT .. " freigegeben
     .. " Mehrziel/IsComplete/Abbruch/Variantenwechsel, Secret-Container und -Callables, API-Cache pro Scan,"
     .. " S2/S3-Grenzen, Definitionsversion, fehlender Katalog, Offline unverändert, Wochenreset,"
     .. " Berufszugehörigkeit, fail-closed SavedVariables und voller Refresh bis in die Katalogzelle"
-    .. " mit Filtern, Scrollklemme, Pooling und acht Navigationszielen in deDE, enUS und frFR,"
+    .. " mit Filtern, Scrollklemme, Pooling und neun Navigationszielen in deDE, enUS und frFR,"
     .. " globale Fortschrittsleisten-API mit Same-Week-Erhalt, Tooltip-Refresh bei offenem Hover,"
     .. " UTF-8-Titelsuche und Sortierung per Klick (sechs Spalten auf/ab, Gleichstände in"
     .. " Katalogreihenfolge, unbekannt/alte Woche am Ende, Filter/Scroll/Tooltip-Pooling, nur Sitzung)"

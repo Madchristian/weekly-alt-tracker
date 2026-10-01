@@ -863,6 +863,8 @@ do
         zhTW = {
             PANEL_OVERVIEW = "總覽", PANEL_OVERVIEW_SHORT = "總覽(短)",
             COL_CHARACTER = "角色", SETTINGS_HEADING_WINDOW = "視窗",
+            PANEL_EQUIPMENT = "裝備", PANEL_EQUIPMENT_SHORT = "裝備(短)",
+            GEAR_HEAD = "頭部", PROF_LURE_TOGGLE_SHOW = "顯示誘餌",
         },
     })
     checkEqual(WAT.Localization.locale, "enUS", "Anzeige-Wörterbuch für zhTW bleibt enUS")
@@ -872,6 +874,14 @@ do
     checkEqual(WAT.panels.overview.columns[1].label, "角色", "Spaltenkopf nutzt den Override trotz Ladereihenfolge")
     checkEqual(WAT.panels.overview.headerLabels.character.text, "角色", "gerenderter Spaltenkopf nutzt den Override")
     checkEqual(WAT.settingsControls.headingWindow.text, "視窗", "Einstellungsüberschrift nutzt den Override")
+    WAT:SetActiveTab("equipment")
+    checkEqual(WAT.pageTitle.text, "裝備", "Gear-Seitentitel nutzt gespeicherten Override")
+    checkEqual(WAT.tabButtons.equipment.label.text, "裝備(短)", "Gear-Navigation bleibt verzögert lokalisiert")
+    checkEqual(WAT.panels.equipment.slots[1].label.text, "頭部", "Gear-Slot nutzt gespeicherten Override")
+    checkEqual(WAT.panels.professions.lureToggle.label.text, "顯示誘餌", "Köder-Steuerung nutzt gespeicherten Override")
+    local navigationCount = 0
+    for _ in pairs(WAT.tabButtons) do navigationCount = navigationCount + 1 end
+    checkEqual(navigationCount, 9, "Editor und Gear behalten neun Navigationsziele")
 end
 
 -- ---------------------------------------------------------------------------

@@ -78,6 +78,10 @@ local PANELS = nil
 local function PanelDefinitions()
     if PANELS then return PANELS end
     PANELS = {
+    equipment = {
+        label = L("PANEL_EQUIPMENT"), shortLabel = L("PANEL_EQUIPMENT_SHORT"),
+        description = L("PANEL_EQUIPMENT_DESC"),
+    },
     overview = {
         label = L("PANEL_OVERVIEW"),
         shortLabel = L("PANEL_OVERVIEW_SHORT"),
@@ -309,9 +313,10 @@ local function FormatAge(timestamp)
     return date(L("DATE_FORMAT_SHORT"), timestamp)
 end
 
-local function ClassColoredName(character, stale)
+local function ClassColoredName(character, stale, nameOnly)
     local unknown = L("CHARACTER_UNKNOWN")
-    local name = (character.name or unknown) .. "-" .. (character.realm or unknown)
+    local name = character.name or unknown
+    if not nameOnly then name = name .. "-" .. (character.realm or unknown) end
     if stale then return COLORS.stale .. name .. "|r" end
     local color = character.classFile and RAID_CLASS_COLORS[character.classFile]
     if color then
@@ -2061,6 +2066,7 @@ end
 
 function WAT:SetActiveTab(key)
     if not self.panels or not self.panels[key] then key = "overview" end
+    if key == "equipment" then self.panels.equipment.pendingReveal = true end
     self.activeTab = key
     self.db.settings.activeTab = key
     local definition = PanelDefinitions()[key]
@@ -3904,6 +3910,458 @@ function WAT:close_translation_pack()
     self:refresh_translation_editor()
 end
 
+-- Berufsseite: begrenzter, gepoolter Unterbereich unter jeder Tabellenzeile.
+-- Nur explizite Klicks schreiben; Offlinezeilen sind immer schreibgeschuetzt.
+-- Eigener Scope: Editor und Detailseiten teilen das Lua-Limit von 200 Locals.
+local PlaceProfessionLureBlock, FillProfessionLureBlock, CreateProfessionsPanel
+do
+local PROFESSION_LURE_TOP = 36
+local PROFESSION_LURE_BLOCK_HEIGHT = 250
+local PROFESSION_LURE_BLOCK_GAP = 4
+local PROFESSION_LURE_PHASE_KEYS = {
+    beforeSummon = "PROF_LURE_BEFORE_SUMMON", afterSummon = "PROF_LURE_AFTER_SUMMON",
+    beforeKill = "PROF_LURE_BEFORE_KILL", afterKill = "PROF_LURE_AFTER_KILL",
+    beforeSkinning = "PROF_LURE_BEFORE_SKINNING", afterSkinning = "PROF_LURE_AFTER_SKINNING",
+    afterLoot = "PROF_LURE_AFTER_LOOT",
+}
+local function LurePhaseText(phase)
+    return L(PROFESSION_LURE_PHASE_KEYS[phase])
+end
+
+local function MapZoneName(uiMapID)
+    if (issecretvalue and issecretvalue(C_Map)) or type(C_Map) ~= "table" then return nil end
+    local ok, getter = pcall(function() return C_Map.GetMapInfo end)
+    if not ok or (issecretvalue and issecretvalue(getter)) or type(getter) ~= "function" then return nil end
+    local read, info = pcall(getter, uiMapID)
+    if not read or (issecretvalue and issecretvalue(info)) or type(info) ~= "table" then return nil end
+    local safe, name = pcall(function() return info.name end)
+    if not safe or (issecretvalue and issecretvalue(name)) or type(name) ~= "string" or name == "" then return nil end
+    return name
+end
+
+local function ProfessionLureResetText(resetAt)
+    local now = WAT:GetProfessionLureServerTime()
+    if not resetAt or not now then return L("PROF_LURE_RESET_UNKNOWN") end
+    local remaining = resetAt - now
+    if remaining <= 0 then return L("PROF_LURE_RESET_PASSED") end
+    return L("PROF_LURE_RESET_IN", FormatDuration(remaining) or "-")
+end
+
+local function ProfessionLureAge(at)
+    local now = WAT:GetProfessionLureServerTime()
+    if not at or not now or at > now then return "-" end
+    return FormatDuration(now - at) or "-"
+end
+
+local function ProfessionLureItemName(definition)
+    return ClientItemName(definition.itemID) or L("ITEM_FALLBACK", definition.itemID)
+end
+
+function WAT:ShowProfessionLureTooltip(owner, character, lureKey)
+    local definition
+    for _, candidate in ipairs(self.Data.PROFESSION_LURES) do
+        if candidate.key == lureKey then definition = candidate end
+    end
+    if not definition then return end
+    local snapshot = self:GetProfessionLureSnapshot(character)
+    local entry = snapshot and snapshot.entries[lureKey]
+    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+    GameTooltip:ClearLines()
+    GameTooltip:AddLine(ProfessionLureItemName(definition))
+    AddTooltipLine(L("PROF_LURE_TIP_LOCATION"), MapZoneName(definition.uiMapID)
+        or L("PROF_LURE_TIP_ZONE_UNKNOWN", definition.uiMapID))
+    AddTooltipLine(L("PROF_LURE_TIP_COORDS"), string.format("%.2f, %.2f", definition.x, definition.y))
+    AddTooltipLine(L("PROF_LURE_TIP_NPC"), tostring(definition.npcID))
+    AddTooltipLine(L("PROF_LURE_TIP_LAST_KILL"), entry and tostring(entry.confirmedAt) or "-")
+    AddTooltipLine(L("PROF_LURE_TIP_RESET"), entry and tostring(entry.dailyResetHint or "-") or "-")
+    GameTooltip:AddLine(L("PROF_LURE_TIP_CAVEAT"), 0.75, 0.8, 0.86, true)
+    GameTooltip:Show()
+end
+
+local function LureMeasurementSummary(snapshot)
+    local samples = snapshot and snapshot.samples or {}
+    local sample = samples[#samples]
+    if not sample then return L("PROF_LURE_DIAG_EMPTY") end
+    local flags = {}
+    for _, definition in ipairs(WAT.Data.PROFESSION_LURES) do
+        local value = sample.flags[definition.key].value
+        local text = "-"
+        if value == true then text = L("PROF_LURE_FLAG_TRUE")
+        elseif value == false then text = L("PROF_LURE_FLAG_FALSE") end
+        flags[#flags + 1] = tostring(definition.candidateQuestID) .. "=" .. text
+    end
+    return L("PROF_LURE_DIAG_SUMMARY", #samples, WAT.Data.PROFESSION_LURE_SAMPLE_LIMIT,
+        LurePhaseText(sample.phase), tostring(sample.capturedAt), tostring(sample.dailyResetHint or "-"))
+        .. "\n" .. L("PROF_LURE_DIAG_TARGET", tostring(sample.itemID))
+        .. "\n" .. table.concat(flags, ", ")
+end
+
+local function CreateProfessionLureBlock(panel, index)
+    local block = CreateFrame("Frame", nil, panel.child, "BackdropTemplate")
+    block:SetSize(CONTENT_WIDTH, PROFESSION_LURE_BLOCK_HEIGHT)
+    SetBackdrop(block, { 0.035, 0.048, 0.063, 0.94 }, { 1, 1, 1, 0.05 })
+    block:SetClipsChildren(true)
+    block.values, block.confirmButtons, block.measureButtons = {}, {}, {}
+    block.phaseIndex = 1
+    local width = math.floor(CONTENT_WIDTH / 5)
+    for slot, definition in ipairs(WAT.Data.PROFESSION_LURES) do
+        local key = definition.key
+        local cell = CreateFrame("Frame", nil, block)
+        cell:SetPoint("TOPLEFT", (slot - 1) * width + 6, -6)
+        cell:SetSize(width - 12, 98)
+        cell:SetClipsChildren(true)
+        cell:EnableMouse(true)
+        local value = cell:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        value:SetAllPoints(cell)
+        value:SetJustifyH("LEFT")
+        value:SetJustifyV("TOP")
+        value:SetWordWrap(true)
+        value:SetMaxLines(7)
+        block.values[key] = value
+        cell:SetScript("OnEnter", function() WAT:ShowProfessionLureTooltip(cell, block.character, key) end)
+        cell:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        local confirm = CreateFormButton(block, L("PROF_LURE_CONFIRM"), width - 12, (slot - 1) * width + 6, -108)
+        confirm:SetHeight(24)
+        confirm:RegisterForClicks("LeftButtonUp")
+        confirm:SetScript("OnClick", function()
+            block.message = WAT:ConfirmProfessionLure(block.character, key)
+                and L("PROF_LURE_SAVED") or L("PROF_LURE_WRITE_FAILED")
+            WAT:RefreshUI()
+        end)
+        block.confirmButtons[key] = confirm
+        local measure = CreateFormButton(block, L("PROF_LURE_MEASURE"), width - 12, (slot - 1) * width + 6, -136)
+        measure:SetHeight(24)
+        measure:RegisterForClicks("LeftButtonUp")
+        measure:SetScript("OnClick", function()
+            block.message = WAT:CaptureProfessionLureMeasurement(block.character, key,
+                WAT.Data.PROFESSION_LURE_PHASES[block.phaseIndex])
+                and L("PROF_LURE_SAVED") or L("PROF_LURE_WRITE_FAILED")
+            WAT:RefreshUI()
+        end)
+        block.measureButtons[key] = measure
+    end
+    local phase = CreateFormButton(block, LurePhaseText("beforeSummon"), 204, 6, -168)
+    phase:SetHeight(24)
+    phase:RegisterForClicks("LeftButtonUp")
+    phase:SetScript("OnClick", function()
+        block.phaseIndex = block.phaseIndex % #WAT.Data.PROFESSION_LURE_PHASES + 1
+        phase.label:SetText(LurePhaseText(WAT.Data.PROFESSION_LURE_PHASES[block.phaseIndex]))
+    end)
+    block.phaseButton = phase
+    local note = block:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    note:SetPoint("TOPLEFT", 6, -200)
+    note:SetSize(204, 44)
+    note:SetJustifyH("LEFT")
+    note:SetJustifyV("TOP")
+    note:SetWordWrap(true)
+    note:SetMaxLines(3)
+    block.note = note
+    local summary = block:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    summary:SetPoint("TOPLEFT", 220, -168)
+    summary:SetSize(CONTENT_WIDTH - 230, 76)
+    summary:SetJustifyH("LEFT")
+    summary:SetJustifyV("TOP")
+    summary:SetWordWrap(true)
+    summary:SetMaxLines(6)
+    block.summary = summary
+    panel.lureBlocks[index] = block
+    return block
+end
+
+function PlaceProfessionLureBlock(panel, index)
+    local block = panel.lureBlocks[index] or CreateProfessionLureBlock(panel, index)
+    block:ClearAllPoints()
+    block:SetPoint("TOPLEFT", 0, -((index - 1) * panel.stackHeight + ROW_HEIGHT + PROFESSION_LURE_BLOCK_GAP))
+    return block
+end
+
+function FillProfessionLureBlock(block, character)
+    if block.character ~= character then block.message = nil end
+    block.character = character
+    local snapshot = WAT:GetProfessionLureSnapshot(character)
+    local current = WAT:IsCurrentProfessionLureCharacter(character)
+    for _, definition in ipairs(WAT.Data.PROFESSION_LURES) do
+        local entry = snapshot and snapshot.entries[definition.key]
+        block.values[definition.key]:SetText(ProfessionLureItemName(definition)
+            .. "\n" .. (MapZoneName(definition.uiMapID) or L("PROF_LURE_TIP_ZONE_UNKNOWN", definition.uiMapID))
+            .. string.format("\n%.2f, %.2f", definition.x, definition.y)
+            .. "\n" .. L("PROF_LURE_LAST_KILL", ProfessionLureAge(entry and entry.confirmedAt))
+            .. "\n" .. ProfessionLureResetText(entry and entry.dailyResetHint))
+        block.confirmButtons[definition.key]:SetShown(current)
+        block.measureButtons[definition.key]:SetShown(current)
+    end
+    block.phaseButton:SetShown(current)
+    block.note:SetText(block.message or (current and L("PROF_LURE_PHASE_HINT") or L("PROF_LURE_OFFLINE")))
+    block.summary:SetText(LureMeasurementSummary(snapshot))
+end
+
+function CreateProfessionsPanel(parent, definition)
+    local panel = CreatePanel(parent, "professions", definition, PROFESSION_LURE_TOP)
+    panel.luresExpanded, panel.lureBlocks, panel.stackHeight = false, {}, ROW_HEIGHT
+    local bar = CreateFrame("Frame", nil, panel)
+    bar:SetSize(CONTENT_WIDTH, 30)
+    bar:SetPoint("TOPLEFT", 0, -1)
+    local toggle = CreateFormButton(bar, L("PROF_LURE_TOGGLE_SHOW"), 200, 0, 0)
+    toggle:RegisterForClicks("LeftButtonUp")
+    toggle:SetScript("OnClick", function()
+        panel.luresExpanded = not panel.luresExpanded
+        panel.stackHeight = panel.luresExpanded
+            and (ROW_HEIGHT + PROFESSION_LURE_BLOCK_GAP + PROFESSION_LURE_BLOCK_HEIGHT) or ROW_HEIGHT
+        toggle.label:SetText(panel.luresExpanded and L("PROF_LURE_TOGGLE_HIDE") or L("PROF_LURE_TOGGLE_SHOW"))
+        panel.scroll:SetVerticalScroll(0)
+        WAT:RefreshUI()
+    end)
+    panel.lureToggle = toggle
+    local hint = bar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    hint:SetPoint("LEFT", toggle, "RIGHT", 10, 0)
+    hint:SetSize(CONTENT_WIDTH - 210, 28)
+    hint:SetWordWrap(true)
+    hint:SetMaxLines(2)
+    hint:SetText(L("PROF_LURE_HINT"))
+    panel.lureHint = hint
+    return panel
+end
+end
+
+-- Ausruestungsseite: feste 18 Slots, keine Live-Abfrage im Renderer. Alle
+-- Charaktere teilen denselben Pool; die Auswahl bindet einen stabilen Key.
+local CreateEquipmentPanel
+do
+local GEAR_QUALITY = {
+    [0] = { 0.62, 0.62, 0.62 }, [1] = { 1, 1, 1 }, [2] = { 0.12, 1, 0 },
+    [3] = { 0, 0.44, 0.87 }, [4] = { 0.64, 0.21, 0.93 }, [5] = { 1, 0.5, 0 },
+    [6] = { 0.9, 0.8, 0.5 }, [7] = { 0, 0.8, 1 }, [8] = { 0, 0.8, 1 },
+}
+
+local function GearPlainText(value)
+    -- Eigene Setnamen sind Text, niemals WoW-Markup (Farben/Links/Textures).
+    return (string.gsub(string.gsub(value or "-", "[%c]", " "), "|", "||"))
+end
+
+local function GearIdentity(character, snapshot)
+    if not character then return "-" end
+    local text = ClassColoredName({ name = GearPlainText(character.name), classFile = character.classFile }, false, true)
+    if snapshot and snapshot.specialization then text = text .. " - " .. GearPlainText(snapshot.specialization.name) end
+    local set = snapshot and snapshot.equipmentSet
+    if set and set.state == "equipped" then text = text .. " - " .. L("GEAR_SET", GearPlainText(set.name)) end
+    return text .. " - " .. GearPlainText(character.realm)
+end
+
+local function GearText(parent, x, y, width, height, template)
+    local cell = CreateFrame("Frame", nil, parent)
+    cell:SetPoint("TOPLEFT", x, -y)
+    cell:SetSize(width, height)
+    cell:SetClipsChildren(true)
+    local text = cell:CreateFontString(nil, "OVERLAY", template or "GameFontHighlightSmall")
+    text:SetPoint("TOPLEFT", 0, 0)
+    text:SetSize(width, height)
+    text:SetJustifyH("LEFT")
+    text:SetWordWrap(false)
+    text:SetMaxLines(1)
+    return text
+end
+
+local function HideGearTooltip(owner)
+    if GameTooltip:IsOwned(owner) then GameTooltip:Hide() end
+end
+
+local function GearStamp(stamp)
+    if type(stamp) ~= "number" then return "-" end
+    return date(L("DATE_FORMAT_SHORT"), stamp)
+end
+
+local function ShowGearTooltip(button)
+    GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+    GameTooltip:ClearLines()
+    local item = button.item
+    if item and item.link then
+        local ok = pcall(GameTooltip.SetHyperlink, GameTooltip, item.link)
+        if not ok then GameTooltip:ClearLines() end
+    end
+    GameTooltip:AddLine(button.characterName or "-", 0.9, 0.9, 0.9, true)
+    local definition = button.definition
+    GameTooltip:AddLine(L(definition.labelKey))
+    GameTooltip:AddLine(button.level:GetText())
+    GameTooltip:AddLine(L("GEAR_CAPTURED", GearStamp(item and item.updated)))
+    GameTooltip:AddLine(L("GEAR_TOOLTIP_HINT"), 0.6, 0.65, 0.7, true)
+    GameTooltip:Show()
+end
+
+local function ShiftEquipmentTiles(panel, direction)
+    -- Sechs Plaetze pro Klick, letzte Seite am Listenende geklemmt.
+    panel.tabOffset = panel.tabOffset + direction * 6
+    panel.firstVisibleKey = nil
+    WAT:RefreshUI()
+end
+
+function CreateEquipmentPanel(parent)
+    local panel = CreateFrame("Frame", nil, parent)
+    panel:SetPoint("TOPLEFT", CONTENT_LEFT, -150)
+    panel:SetPoint("BOTTOMRIGHT", -20, 48)
+    panel:SetClipsChildren(true)
+    panel.isEquipment, panel.key, panel.rows, panel.slots = true, "equipment", {}, {}
+    panel.characterTiles, panel.tabOffset = {}, 0
+    for i = 1, 6 do
+        local tile = CreateFrame("Button", nil, panel, "BackdropTemplate")
+        tile:SetPoint("TOPLEFT", 36 + (i - 1) * 142, 0)
+        tile:SetSize(138, 34)
+        tile:SetClipsChildren(true)
+        tile:RegisterForClicks("LeftButtonUp")
+        SetBackdrop(tile, COLORS.surface, { 1, 1, 1, 0.18 })
+        tile.label = GearText(tile, 6, 2, 126, 15)
+        tile.realm = GearText(tile, 6, 17, 126, 15)
+        tile:SetScript("OnClick", function(self)
+            if not self.characterKey then return end
+            panel.characterKey = self.characterKey
+            WAT:RefreshUI()
+        end)
+        tile:SetScript("OnEnter", function(self)
+            if not self.characterKey then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:ClearLines()
+            GameTooltip:AddLine(self.fullName, 0.9, 0.9, 0.9, true)
+            GameTooltip:Show()
+        end)
+        tile:SetScript("OnLeave", HideGearTooltip)
+        tile:SetScript("OnHide", HideGearTooltip)
+        panel.characterTiles[i] = tile
+    end
+    panel.identity = GearText(panel, 42, 40, 830, 26, "GameFontNormal")
+    panel.identity:SetTextColor(0.9, 0.9, 0.9)
+    panel.identityOwner = panel.identity:GetParent()
+    panel.identityOwner:EnableMouse(true)
+    panel.identityOwner:SetScript("OnEnter", function(owner)
+        GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+        GameTooltip:ClearLines()
+        GameTooltip:AddLine(panel.identity:GetText(), 0.9, 0.9, 0.9, true)
+        GameTooltip:Show()
+    end)
+    panel.identityOwner:SetScript("OnLeave", HideGearTooltip)
+    panel.identityOwner:SetScript("OnHide", HideGearTooltip)
+    local function Arrow(x, label, direction, tooltipText)
+        local button = CreateFormButton(panel, label, 30, x, 0)
+        button:RegisterForClicks("LeftButtonUp")
+        button:SetScript("OnClick", function(self)
+            if not self.disabled then ShiftEquipmentTiles(panel, direction) end
+        end)
+        button:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:ClearLines()
+            GameTooltip:AddLine(tooltipText); GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", HideGearTooltip)
+        button:SetScript("OnHide", HideGearTooltip)
+        return button
+    end
+    panel.prev = Arrow(0, "<", -1, L("GEAR_PREV"))
+    panel.next = Arrow(890, ">", 1, L("GEAR_NEXT"))
+    panel.position = GearText(panel, 330, 76, 260, 20)
+    panel.averageLabel = GearText(panel, 330, 110, 260, 24)
+    panel.averageLabel:SetText(L("GEAR_AVERAGE"))
+    panel.average = GearText(panel, 330, 137, 260, 38, "GameFontNormalLarge")
+    panel.updated = GearText(panel, 330, 175, 260, 22)
+    panel.averageUpdated = GearText(panel, 330, 199, 260, 22)
+    panel.hint = GearText(panel, 330, 240, 260, 94)
+    panel.hint:SetWordWrap(true); panel.hint:SetMaxLines(6)
+    for _, definition in ipairs(WAT.Data.EQUIPMENT_SLOTS) do
+        local slot = CreateFrame("Button", nil, panel, "BackdropTemplate")
+        slot.definition = definition
+        slot:SetSize(300, 34)
+        local x, y = 0, 72 + (definition.row - 1) * 36
+        if definition.side == 2 then x = 620 end
+        if definition.side == 3 then x, y = (definition.row - 1) * 320 + 150, 366 end
+        slot:SetPoint("TOPLEFT", x, -y)
+        slot:SetClipsChildren(true)
+        SetBackdrop(slot, COLORS.surface, { 0.3, 0.3, 0.3, 0.7 })
+        slot.icon = slot:CreateTexture(nil, "ARTWORK")
+        slot.icon:SetSize(28, 28); slot.icon:SetPoint("TOPLEFT", 3, -3)
+        slot.label = GearText(slot, 38, 1, 182, 15)
+        slot.label:SetText(L(definition.labelKey))
+        slot.name = GearText(slot, 38, 17, 182, 15)
+        slot.level = GearText(slot, 222, 3, 74, 28)
+        slot.level:SetJustifyH("RIGHT")
+        slot:SetScript("OnEnter", ShowGearTooltip)
+        slot:SetScript("OnLeave", HideGearTooltip)
+        slot:SetScript("OnHide", HideGearTooltip)
+        panel.slots[definition.id] = slot
+    end
+    panel:SetScript("OnHide", function()
+        HideGearTooltip(panel.identityOwner)
+        HideGearTooltip(panel.prev); HideGearTooltip(panel.next)
+        for _, tile in ipairs(panel.characterTiles) do HideGearTooltip(tile) end
+        for _, slot in pairs(panel.slots) do HideGearTooltip(slot) end
+    end)
+    return panel
+end
+
+function WAT:RefreshEquipmentPanel(panel, characters, characterKeys)
+    HideGearTooltip(panel.identityOwner)
+    panel.characterKeys = characterKeys
+    local selected
+    for i, key in ipairs(characterKeys) do if key == panel.characterKey then selected = i end end
+    if not selected then
+        for i, key in ipairs(characterKeys) do if key == self.currentKey then selected = i end end
+        selected = selected or 1
+    end
+    panel.characterKey = characterKeys[selected]
+    local maxOffset = math.max(0, #characters - 6)
+    -- Neuordnen folgt dem ersten sichtbaren Key, nicht einem alten Index.
+    for i, key in ipairs(characterKeys) do
+        if key == panel.firstVisibleKey then panel.tabOffset = i - 1; break end
+    end
+    if panel.pendingReveal then
+        if selected <= panel.tabOffset then panel.tabOffset = selected - 1
+        elseif selected > panel.tabOffset + 6 then panel.tabOffset = selected - 6 end
+    end
+    panel.pendingReveal = nil
+    panel.tabOffset = math.max(0, math.min(panel.tabOffset, maxOffset))
+    panel.firstVisibleKey = characterKeys[panel.tabOffset + 1]
+    SetArrowDisabled(panel.prev, panel.tabOffset == 0)
+    SetArrowDisabled(panel.next, panel.tabOffset == maxOffset)
+    HideGearTooltip(panel.prev); HideGearTooltip(panel.next)
+    for i, tile in ipairs(panel.characterTiles) do
+        HideGearTooltip(tile)
+        local entry = characters[panel.tabOffset + i]
+        tile.characterKey = characterKeys[panel.tabOffset + i]
+        tile.active = tile.characterKey ~= nil and tile.characterKey == panel.characterKey
+        tile.fullName = GearIdentity(entry)
+        tile.label:SetText(entry and ClassColoredName({ name = GearPlainText(entry.name), classFile = entry.classFile }, false, true) or "")
+        tile.realm:SetText(entry and GearPlainText(entry.realm) or "")
+        local background = tile.active and { 0.04, 0.20, 0.17 } or COLORS.surface
+        local border = tile.active and { 0.05, 0.82, 0.62 } or { 0.3, 0.3, 0.3 }
+        tile:SetBackdropColor(background[1], background[2], background[3], 1)
+        tile:SetBackdropBorderColor(border[1], border[2], border[3], 1)
+        tile:SetShown(entry ~= nil)
+    end
+    local character = characters[selected]
+    local snapshot = self.GetEquipmentSnapshot and self:GetEquipmentSnapshot(character)
+    local identity = GearIdentity(character, snapshot)
+    panel.identity:SetText(identity)
+    local first = 0
+    if #characters > 0 then first = panel.tabOffset + 1 end
+    panel.position:SetText(L("GEAR_RANGE", first, math.min(panel.tabOffset + 6, #characters), #characters))
+    panel.average:SetText(snapshot and snapshot.averageEquipped and string.format("%.1f", snapshot.averageEquipped) or "-")
+    panel.updated:SetText(L("GEAR_CAPTURED", GearStamp(snapshot and snapshot.updated)))
+    panel.averageUpdated:SetText(L("GEAR_AVERAGE_CAPTURED", GearStamp(snapshot and snapshot.averageUpdated)))
+    panel.hint:SetText(snapshot and L("GEAR_HINT") or L("GEAR_NEVER"))
+    for id, button in pairs(panel.slots) do
+        HideGearTooltip(button)
+        local item = snapshot and snapshot.slots[id]
+        button.item, button.characterName = item, identity
+        button.icon:SetTexture(item and item.icon or nil)
+        local quality = item and item.quality and GEAR_QUALITY[item.quality] or { 0.3, 0.3, 0.3 }
+        button:SetBackdropBorderColor(quality[1], quality[2], quality[3], 0.8)
+        button.name:SetText(item and item.link or "-")
+        local text = L("GEAR_UNKNOWN")
+        if item then
+            if item.state == "empty" then text = L("GEAR_EMPTY")
+            elseif item.itemLevel then text = tostring(item.itemLevel)
+            else text = L("GEAR_PENDING") end
+        end
+        button.level:SetText(text)
+    end
+end
+end
+
 function WAT:CreateUI()
     if self.frame then return end
     local frame = CreateFrame("Frame", "WeeklyAltTrackerFrame", UIParent, "BackdropTemplate")
@@ -3986,10 +4444,10 @@ function WAT:CreateUI()
 
     self.tabButtons = {}
     self.panels = {}
-    -- Acht Navigationsziele: die achte Schaltflaeche endet bei y=444 und passt
+    -- Neun Navigationsziele: die letzte Schaltflaeche endet bei y=486 und passt
     -- damit ohne hoeheren Rahmen in die 600er Seitenleiste.
     local tabOrder = { "overview", "midnight", "weeklies", "professions", "sources", "keystones",
-                       "statistics", "settings" }
+                       "equipment", "statistics", "settings" }
     local definitions = PanelDefinitions()
     for index, key in ipairs(tabOrder) do
         local targetKey = key
@@ -3999,10 +4457,14 @@ function WAT:CreateUI()
         self.tabButtons[targetKey] = button
         if targetKey == "settings" then
             self.panels[targetKey] = CreateSettingsPanel(frame, definition)
+        elseif targetKey == "equipment" then
+            self.panels[targetKey] = CreateEquipmentPanel(frame)
         elseif targetKey == "statistics" then
             self.panels[targetKey] = CreateStatisticsPanel(frame, definition)
         elseif targetKey == "weeklies" then
             self.panels[targetKey] = CreateWeeklyCatalogPanel(frame, definition)
+        elseif targetKey == "professions" then
+            self.panels[targetKey] = CreateProfessionsPanel(frame, definition)
         else
             self.panels[targetKey] = CreatePanel(frame, targetKey, definition)
         end
@@ -4231,10 +4693,14 @@ local function FillKeystones(row, character, weekly, stale)
         .. FormatAge(keystone.updated) .. "|r")
 end
 
+-- panel.stackHeight ist der ZeilenABSTAND (nur von der Berufsseite gesetzt,
+-- wenn der Köder-Detailbereich aufgeklappt ist); panel.rowHeight bleibt die
+-- tatsächliche Zeilenhöhe von BuildTableRow. Ohne stackHeight sind beide
+-- identisch, genau wie vor dieser Erweiterung.
 local function PlaceRow(panel, index)
     local row = panel.rows[index] or CreateRow(panel, index)
     row:ClearAllPoints()
-    row:SetPoint("TOPLEFT", 0, -((index - 1) * (panel.rowHeight or ROW_HEIGHT)))
+    row:SetPoint("TOPLEFT", 0, -((index - 1) * (panel.stackHeight or panel.rowHeight or ROW_HEIGHT)))
     return row
 end
 
@@ -4256,7 +4722,9 @@ function WAT:RefreshUI()
     for panelKey, panel in pairs(self.panels) do
         -- Das Einstellungspanel ist ein Formular, die Statistikseite ein
         -- Dashboard. Beide erzeugen bewusst keine Charakterzeilen.
-        if panel.isDashboard then
+        if panel.isEquipment then
+            if self.activeTab == panelKey then self:RefreshEquipmentPanel(panel, characters, characterKeys) end
+        elseif panel.isDashboard then
             self:RefreshStatisticsDashboard(panel, characters, characterKeys)
         elseif panel.isCatalog then
             -- Nur die sichtbare Katalogseite rechnet; SetActiveTab ruft
@@ -4269,6 +4737,9 @@ function WAT:RefreshUI()
                 row.character = nil
                 row.dragCharacterKey = nil
                 row:Hide()
+            end
+            if panel.lureBlocks then
+                for _, block in ipairs(panel.lureBlocks) do block:Hide() end
             end
             local index = 0
             for _, character in ipairs(characters) do
@@ -4283,6 +4754,11 @@ function WAT:RefreshUI()
                     FillMidnight(row, character, weekly, stale)
                 elseif panelKey == "professions" then
                     FillProfessions(row, character, weekly, stale)
+                    if panel.luresExpanded then
+                        local block = PlaceProfessionLureBlock(panel, index)
+                        FillProfessionLureBlock(block, character)
+                        block:Show()
+                    end
                 elseif panelKey == "sources" then
                     FillSources(row, character, weekly, stale)
                 elseif panelKey == "keystones" then
@@ -4292,7 +4768,7 @@ function WAT:RefreshUI()
                 end
                 row:Show()
             end
-            panel.child:SetHeight(math.max(1, index * (panel.rowHeight or ROW_HEIGHT)))
+            panel.child:SetHeight(math.max(1, index * (panel.stackHeight or panel.rowHeight or ROW_HEIGHT)))
         end
     end
 

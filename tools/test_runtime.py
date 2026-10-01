@@ -19,6 +19,8 @@ CLI = TEMP_ROOT / "node_modules" / "fengari-node-cli" / "src" / "lua-cli.js"
 # lassen das Gate fehlschlagen. Sonst koennte ein Harness geloescht oder
 # unregistriert hinzugefuegt werden, ohne dass es jemand merkt.
 HARNESSES = {
+    "test_equipment_runtime.lua": "LUA EQUIPMENT RUNTIME OK:",
+    "test_profession_lure_runtime.lua": "LUA PROFESSION LURE RUNTIME OK:",
     "test_localization_runtime.lua": "LUA LOCALIZATION RUNTIME OK:",
     "test_core_runtime.lua": "LUA CORE RUNTIME OK:",
     "test_vault_runtime.lua": "LUA RUNTIME OK:",

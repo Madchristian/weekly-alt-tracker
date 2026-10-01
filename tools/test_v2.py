@@ -450,6 +450,7 @@ def main() -> int:
         # dynamische Stelle. Jedes WQ_-Literal in Data.lua/UI.lua wird unten
         # gegen beide Wörterbücher geprüft, Variantenlabels im Katalog-Harness.
         ("UI.lua", "catalogKey"),
+        ("UI.lua", "PROFESSION_LURE_PHASE_KEYS[phase]"),
         # Übersetzungseditor: Fehlercode des Parsers -> Schlüssel aus der
         # Literaltabelle TranslationEditor.ERROR_KEYS in UI.lua. Ihre Werte
         # werden unmittelbar darunter gegen beide Wörterbücher geprüft.
@@ -492,6 +493,27 @@ def main() -> int:
             "Übersetzungseditor fehlt in UI.lua oder hat keinen globalen Namen für UISpecialFrames")
     require("PanelDefinitions()" in ui and re.search(r"(?m)^local PANELS = nil", ui) is not None,
             "Paneldefinitionen dürfen nicht beim Laden der Datei eingefroren werden (Overrides kämen zu spät)")
+    # Koeder: Kandidaten ausschliesslich in ausdruecklicher Diagnose, nie Status.
+    lure_body = nested_table_body(data, "Data.PROFESSION_LURES")
+    require(set(map(int, re.findall(r"candidateQuestID = (\d+)", lure_body))) ==
+            {88545, 88526, 88531, 88532, 88524}, "exakt fuenf UNVERIFIZIERTE Koederkandidaten")
+    for forbidden in ("COMBAT_LOG_EVENT", "CombatLogGetCurrentEventInfo", "HandleCombatLogKill", "observedKillAt"):
+        require(forbidden not in core + activities + ui + data, "kein automatischer Koederpfad: " + forbidden)
+    require('"manual"' in activities and '"diagnostic-unverified"' in activities,
+            "getrennte explizite Quellen erforderlich")
+    require("Data.PROFESSION_LURE_SAMPLE_LIMIT = 24" in data, "Diagnose muss begrenzt sein")
+    require("IsCurrentProfessionLureCharacter(character)" in activities,
+            "Schreibpfad braucht aktuelle Charakterbindung")
+    phase_body = nested_table_body(ui, "local PROFESSION_LURE_PHASE_KEYS")
+    phase_keys = set(re.findall(r'"(PROF_LURE_[A-Z_]+)"', phase_body))
+    require(len(phase_keys) == 7, "sieben explizite Messphasen")
+    for key in phase_keys:
+        require(key in en_keys and key in de_keys, "Messphase muss zweisprachig sein: " + key)
+    for key in re.findall(r'"(PROF_LURE_[A-Z_]+)"', ui):
+        require(key in en_keys and key in de_keys, "Koedertext muss zweisprachig sein: " + key)
+    import test_runtime
+    require(test_runtime.HARNESSES.get("test_profession_lure_runtime.lua") == "LUA PROFESSION LURE RUNTIME OK:",
+            "Koeder-Harness muss registriert sein")
 
     wq_literals = set(re.findall(r'"(WQ_[A-Z0-9_]*[A-Z0-9])"', strip_comments(data) + strip_comments(ui)))
     require(len(wq_literals) > 100,
@@ -800,21 +822,21 @@ def main() -> int:
         "Anleitung.html": text("Anleitung.html"),
         "Guide.en.html": text("Guide.en.html"),
     }
-    require("Acht Ansichten. Ein Wochenbild." in html_guides["Anleitung.html"],
-            "Deutsche HTML-Anleitung nennt nicht acht Ansichten")
-    require("Eight views. One weekly picture." in html_guides["Guide.en.html"],
-            "Englische HTML-Anleitung nennt nicht acht Ansichten")
+    require("Neun Ansichten. Ein Wochenbild." in html_guides["Anleitung.html"],
+            "Deutsche HTML-Anleitung nennt nicht neun Ansichten")
+    require("Nine views. One weekly picture." in html_guides["Guide.en.html"],
+            "Englische HTML-Anleitung nennt nicht neun Ansichten")
     for name, body in html_guides.items():
         for stale in ("Fünf Ansichten", "Five views", "Sieben Ansichten", "Seven views"):
             require(stale not in body, f"HTML-Anleitung {name} nennt noch veraltet: {stale}")
     require("Wochenquests" in html_guides["Anleitung.html"] and "Weekly Quests" in html_guides["Guide.en.html"],
             "HTML-Anleitungen beschreiben die Wochenquest-Seite nicht")
-    require("Acht Ansichten" in platform_docs["curseforge/PROJECT-de.md"],
-            "Deutsche CurseForge-Beschreibung nennt nicht acht Ansichten")
-    require("Eight views" in platform_docs["curseforge/PROJECT-en.md"],
-            "Englische CurseForge-Beschreibung nennt nicht acht Ansichten")
-    require("acht kompakte Ansichten" in platform_docs["wago/BESCHREIBUNG.md"],
-            "Wago-Beschreibung nennt nicht acht Ansichten")
+    require("Neun Ansichten" in platform_docs["curseforge/PROJECT-de.md"],
+            "Deutsche CurseForge-Beschreibung nennt nicht neun Ansichten")
+    require("Nine views" in platform_docs["curseforge/PROJECT-en.md"],
+            "Englische CurseForge-Beschreibung nennt nicht neun Ansichten")
+    require("neun kompakte Ansichten" in platform_docs["wago/BESCHREIBUNG.md"],
+            "Wago-Beschreibung nennt nicht neun Ansichten")
     for name, body in platform_docs.items():
         require("Sieben Ansichten" not in body and "Seven views" not in body
                 and "sieben kompakte Ansichten" not in body,

@@ -11,6 +11,10 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.1
+
+The new Equipment page shows saved gear across 18 slots, item levels and the equipped average. Browse six character tiles at a time without changing the selected details. The header shows class color, the last active specialization and an unambiguously equipped equipment set. This update also revises German and English UI text and adds manual lure notes with location references and explicitly unverified diagnostics. Christian accepted the installed preview in game with “sieht gut aus” (“looks good”); this does not establish a complete client test matrix. See the [2026.10.1 changelog](changelog/CHANGELOG-2026.10.1-en.md).
+
 ### Version 2026.9.29-2
 
 The **translation editor** now uses `FULLSCREEN_DIALOG` above the main window’s `DIALOG` layer. The complete **bilingual changelog** is generated deterministically from canonical English/German release-note pairs, with completeness and freshness gates before packaging. This release is explicitly authorized without an additional in-game test; the corrected layering has not been retested in the WoW client. Rendering, IME input, copy/paste and disk persistence remain unverified by the automated mocks. Details in the [2026.9.29-2 changelog](changelog/CHANGELOG-2026.9.29-2-en.md).
@@ -119,6 +123,14 @@ For both of the character's primary professions:
 
 Supported are Alchemy, Blacksmithing, Engineering, Inscription, Jewelcrafting, Leatherworking, Tailoring, Enchanting, Herbalism, Mining and Skinning.
 
+#### Skinning lures: manual notes and measurements
+
+Under **Professions → Show Lures**, the profession columns stay intact; the subview shows five lures with locations/coordinates and NPC IDs in tooltips. **Defeated now** saves a manual note for the logged-in character only, labelled **Last confirmed**. No automatic kill detection, availability or 24-hour lockout. The general daily reset is only a hint; notes survive weekly resets. Offline characters are read-only, missing notes stay `-`.
+
+For a probe, click **Phase** to select a label, then **Capture measurement** at the tested lure: before/after summon, before/after kill, before/after skinning, optionally after loot. Each sample reads all five **UNVERIFIED** candidate quest flags; it never changes the manual confirmation or progress. Up to 24 samples per character are retained; the latest visibly shows phase, server time, reset hint and all five flags. Unreadable means `-`, not `false`.
+
+Then log out normally or `/reload`: WoW writes `WTF/Account/<Account>/SavedVariables/WeeklyAltTracker.lua`. This file can then be inspected **read-only** for before/after comparison; no external writer. Flag mapping and reset semantics have not yet been confirmed in game. Details: `tools/PROFESSION_LURES.md`.
+
 ### Crest Sources
 
 - Shards of Dundun per character as an offline resource snapshot, with a dynamic maximum such as `5/8`
@@ -139,6 +151,16 @@ The Dundun balance deliberately lives outside the weekly reset. An unreadable or
 - A safely detected missing keystone appears as `no keystone`
 
 The dungeon name is resolved at display time from the map ID via the WoW API. If the client cannot supply a name, the addon shows the language-neutral `Dungeon ID <id>` rather than a possibly foreign-language name stored during an earlier scan.
+
+### Equipment
+
+The dedicated character-window view has eight slots on the left, eight on the right and main/off hand at the bottom, including shirt and tabard. Each item has an icon, quality border and captured actual item level. The centre shows WoW's **equipped average**, not the bag maximum or a locally calculated slot average. Choose a character from six tiles showing class-colored names and realms. The side arrows move the bar by six places, stopping at the last full window. Browsing leaves the displayed equipment unchanged until you click a tile. The header shows the name, last active specialization, an unambiguously equipped set and realm where recorded. Selection and the bar use stable character keys; the counter labels the visible range and total. Long names remain single-line, with full identity in slot tooltips.
+
+**Log in on each alt with the addon enabled first.** This is last equipped gear, never a live query of logged-out characters. `Unknown` means never or not safely captured, `Empty` a confirmed empty slot, and `Pending` missing item details. The centre shows capture time and a separate average timestamp; tooltips show slot capture time. A later partial scan may retain older safe slots. Offline is not automatically outdated; weekly resets do not clear equipment.
+
+Item tooltips open the selected alt's stored link, not the current player's inventory slot. Blizzard may render tooltip details in the current client context; the slot value is the captured actual item level. Sockets, enchants and upgrade ranks are not evaluated as separate completeness checks. No bags, bank, set management, advice, simulation or attributes. **No 3D model:** exact offline appearance, body customizations and transmog are not available through a small verified implementation.
+
+After separate installation approval, two real characters, gear changes/removal/loading, reload and in-game screenshots at 70/100/150% still need acceptance. Local runtime tests do not replace this check.
 
 ### Statistics
 
@@ -187,7 +209,7 @@ There is deliberately no slider: the fixed steps stay exactly inside the range t
 
 Version 0.3.0 uses a standalone Midnight-dark layout inspired by EllesmereUI principles: a fixed left navigation, a large page header with description, flat buttons and compact comparison tables. The addon copies no EllesmereUI assets and does not require EllesmereUI as a dependency.
 
-The left navigation has eight sections:
+The left navigation has nine sections:
 
 1. `Overview`
 2. `Midnight Week`
@@ -195,8 +217,9 @@ The left navigation has eight sections:
 4. `Professions`
 5. `Crest Sources`
 6. `Keystones`
-7. `Statistics`
-8. `Settings`
+7. `Equipment`
+8. `Statistics`
+9. `Settings`
 
 Status colours:
 
@@ -241,7 +264,7 @@ The overview shows `M+10` in green as `Yes` as soon as the Blizzard vault report
 ## In-game test procedure
 
 1. Enable the addon and run `/reload`.
-2. Open `/wat` and click all eight entries of the left navigation.
+2. Open `/wat` and click all nine entries of the left navigation.
 3. In the `Settings` section pick a scale step, hide and show the minimap button again and reset the position.
 4. Open the Great Vault and click `Refresh now` in the `Settings` section.
 5. Hover the vault row and check the item level per slot.
@@ -324,7 +347,7 @@ The addon is published on Wago Addons: [addons.wago.io/addons/weekly-alt-tracker
 
 The [Wago project page](https://addons.wago.io/addons/weekly-alt-tracker) provides the current stable, beta, and alpha versions. Release-specific changes are recorded in each version's changelog and in the full [`CHANGELOG.md`](CHANGELOG.md); the general project description deliberately stays version-independent.
 
-The secret `WAGO_API_TOKEN` is stored in the repository under *Settings → Secrets and variables → Actions*. The token value belongs exclusively in that secret and never in the repository.
+Wago imports the ZIP from the GitHub release through the connected repository automation. The tag workflow publishes to GitHub without passing a Wago API token to the packager, keeping a single publishing route to Wago. In the Wago settings, Retail and the description and summary imports remain enabled; game compatibility should be read from the TOC. An import is considered successful only after its public download has been verified.
 
 ### CurseForge publication
 
