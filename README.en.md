@@ -11,6 +11,10 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.2
+
+The overview now shows the Great Vault for raids in a `RAID-VAULT` column. Three new pages, `Delves`, `Dungeons` and `Raids`, show each character's progress for the current week; there are no raid lockouts, kill counts or run history. Column widths can be dragged, reset and saved account-wide in all nine tables, and wide tables scroll sideways. `Weekly Quests` shows character names in class color. The features were accepted in game before release; individual API limits around the weekly reset and counter behavior have not been checked separately in the client. See the [2026.10.2 changelog](changelog/CHANGELOG-2026.10.2-en.md).
+
 ### Version 2026.10.1
 
 The new Equipment page shows saved gear across 18 slots, item levels and the equipped average. Browse six character tiles at a time without changing the selected details. The header shows class color, the last active specialization and an unambiguously equipped equipment set. This update also revises German and English UI text and adds manual lure notes with location references and explicitly unverified diagnostics. Christian accepted the installed preview in game with “sieht gut aus” (“looks good”); this does not establish a complete client test matrix. See the [2026.10.1 changelog](changelog/CHANGELOG-2026.10.1-en.md).

@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.2
+
+Die Übersicht zeigt jetzt die Große Schatzkammer für Schlachtzüge als Spalte `RAID-VAULT`. Drei neue Bereiche `Tiefen`, `Dungeons` und `Schlachtzüge` zeigen je Charakter den Stand der aktuellen Woche; Raid-Sperren, Kill-Zählung und eine Laufhistorie gibt es nicht. Spaltenbreiten lassen sich in allen neun Tabellen ziehen, zurücksetzen und accountweit speichern, breite Tabellen blättern seitlich. `Wochenquests` zeigt Charakternamen in Klassenfarbe. Die Funktionen wurden vor dem Release im Spiel abgenommen; einzelne API-Grenzen rund um Wochenreset und Zählerverhalten sind im Client nicht separat geprüft. Details im [Changelog zu 2026.10.2](changelog/CHANGELOG-2026.10.2-de.md).
+
 ### Version 2026.10.1
 
 Die neue Ausrüstungsseite zeigt gespeicherte Ausrüstung mit 18 Slots, Itemleveln und angelegtem Durchschnitt. Sechs Charakterkacheln lassen sich unabhängig von der Detailauswahl durchblättern. Die Kopfzeile zeigt Klassenfarbe, zuletzt aktive Spezialisierung und ein eindeutig angelegtes Ausrüstungsset. Dazu kommen überarbeitete deutsche und englische UI-Texte sowie manuelle Ködernotizen mit Ortsreferenz und ausdrücklich unverifizierter Diagnose. Christian hat die installierte Vorschau im Spiel mit „sieht gut aus“ angenommen; eine vollständige Client-Testmatrix ist damit nicht belegt. Details im [Changelog zu 2026.10.1](changelog/CHANGELOG-2026.10.1-de.md).
