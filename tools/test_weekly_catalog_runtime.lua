@@ -128,6 +128,13 @@ function Widget:EnableMouse(value) self.mouseEnabled = value end
 function Widget:RegisterForDrag(...) self.dragButtons = { ... } end
 function Widget:RegisterForClicks(...) self.clickButtons = { ... } end
 function Widget:SetScrollChild(child) self.scrollChild = child end
+-- Ziehbare Spaltenbreiten: waagerechter Versatz, Rahmenebene der Trennlinien
+-- und Mausrad am Tabellenkopf.
+function Widget:SetHorizontalScroll(value) self.horizontalScroll = value end
+function Widget:GetHorizontalScroll() return self.horizontalScroll or 0 end
+function Widget:SetFrameLevel(value) self.frameLevel = value end
+function Widget:GetFrameLevel() return self.frameLevel or 1 end
+function Widget:EnableMouseWheel(value) self.mouseWheelEnabled = value end
 function Widget:SetShown(value) self.shown = value and true or false end
 function Widget:Show() self.shown = true end
 function Widget:Hide() self.shown = false end
@@ -1251,16 +1258,18 @@ local function RunVerticalSuite(locale)
     check(DeepEqual(WeeklyAltTrackerDB.characters["Player-Alt"], offlineCopy),
         context("Refresh des Hauptcharakters darf den Offline-Snapshot nicht umschreiben"))
 
-    -- Neun Navigationsziele in fester Reihenfolge, Wochenquests nach Midnight.
-    local ORDER = { "overview", "midnight", "weeklies", "professions", "sources", "keystones", "equipment", "statistics", "settings" }
+    -- Zwoelf Navigationsziele in fester Reihenfolge, Wochenquests nach
+    -- Midnight, Tiefen/Dungeons/Schlachtzuege nach den Wappenquellen.
+    local ORDER = { "overview", "midnight", "weeklies", "professions", "sources", "delves", "dungeons",
+                    "raids", "keystones", "equipment", "statistics", "settings" }
     local count = 0
     for _ in pairs(WAT.tabButtons) do count = count + 1 end
-    checkEqual(count, 9, context("Anzahl Navigationsziele"))
+    checkEqual(count, 12, context("Anzahl Navigationsziele"))
     for index, key in ipairs(ORDER) do
         local button = WAT.tabButtons[key]
         check(button ~= nil, context("Navigationsziel fehlt: " .. key))
         if button then
-            checkEqual(button.points[1] and button.points[1][3], -108 - (index - 1) * 42,
+            checkEqual(button.points[1] and button.points[1][3], -108 - (index - 1) * 37,
                 context("Navigationsposition " .. key))
             button.scripts.OnClick()
             checkEqual(WAT.activeTab, key, context("Klick öffnet " .. key))
@@ -1268,7 +1277,7 @@ local function RunVerticalSuite(locale)
         end
     end
     local lastButton = WAT.tabButtons.settings
-    checkEqual(108 + 8 * 42 + (lastButton and lastButton.height or 0), 486, context("Sidebar-Unterkante"))
+    checkEqual(108 + 11 * 37 + (lastButton and lastButton.height or 0), 552, context("Sidebar-Unterkante"))
 
     WAT:SetActiveTab("weeklies")
     local panel = WAT.panels.weeklies

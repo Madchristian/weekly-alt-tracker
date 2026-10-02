@@ -92,6 +92,14 @@ def check_catalog_harness_registered() -> None:
             "der Wochenquest-Katalog-Harness muss im Runtime-Orchestrator registriert sein")
 
 
+def check_content_harness_registered() -> None:
+    import test_runtime
+
+    harnesses = getattr(test_runtime, "HARNESSES", {})
+    require(harnesses.get("test_weekly_content_runtime.lua") == "LUA WEEKLY CONTENT RUNTIME OK:",
+            "der Wocheninhalt-Harness (Tiefen/Dungeons/Schlachtzüge) muss im Runtime-Orchestrator registriert sein")
+
+
 def check_translations_harness_registered() -> None:
     import test_runtime
 
@@ -103,6 +111,7 @@ def check_translations_harness_registered() -> None:
 def main() -> int:
     check_runtime_npm_resolution()
     check_catalog_harness_registered()
+    check_content_harness_registered()
     check_translations_harness_registered()
     toc = text("WeeklyAltTracker.toc")
     data = text("Data.lua")
@@ -455,7 +464,22 @@ def main() -> int:
         # Literaltabelle TranslationEditor.ERROR_KEYS in UI.lua. Ihre Werte
         # werden unmittelbar darunter gegen beide Wörterbücher geprüft.
         ("UI.lua", "errorKey"),
+        # Wocheninhalte: Schwierigkeitsname aus der Literaltabelle
+        # CONTENT_VIEW.DIFFICULTY_KEYS (Blizzards PrimaryRaids 17/14/15/16).
+        # Ihre Werte werden unmittelbar darunter gegen beide Wörterbücher
+        # geprüft; jede andere ID nutzt das generische DIFFICULTY_ID.
+        ("UI.lua", "difficultyKey"),
     }
+
+    # Statische Absicherung von L(difficultyKey).
+    difficulty_table = re.search(r"DIFFICULTY_KEYS = \{(.*?)\n    \}", ui, re.S)
+    difficulty_entries = re.findall(r'\[(\d+)\] = "([A-Z_]+)"', difficulty_table.group(1) if difficulty_table else "")
+    require(difficulty_entries == [("17", "DIFFICULTY_LFR"), ("14", "DIFFICULTY_NORMAL"),
+                                   ("15", "DIFFICULTY_HEROIC"), ("16", "DIFFICULTY_MYTHIC")],
+            f"CONTENT_VIEW.DIFFICULTY_KEYS muss genau LFR/Normal/Heroisch/Mythisch (17/14/15/16) führen, gefunden {difficulty_entries}")
+    for _, key in difficulty_entries:
+        require(f"    {key} = " in en_dict and f"    {key} = " in de_dict,
+                f"Schwierigkeitsschlüssel {key} fehlt in einem der beiden Wörterbücher")
 
     # Statische Absicherung von L(errorKey): jeder Fehlercode des Parsers und
     # der Wertprüfung in Localization.lua braucht einen Eintrag, und jeder
@@ -649,7 +673,18 @@ def main() -> int:
             require(german not in literals(source),
                     f"{name}: nicht lokalisiertes deutsches String-Literal {german!r}")
 
-    require("Raid-Vault" not in ui and "Raid" not in toc_order, "Raid-Tracking darf nicht Teil der V2-UI sein")
+    # Raid-Schatzkammer (#10): die fruehere No-Raid-Regel ist fuer den Vault
+    # ausdruecklich aufgehoben. Erlaubt ist genau der Wochen-Snapshot
+    # weekly.raidVault ueber denselben sicheren ReadVault-/MergeVault-Pfad wie
+    # Tiefen und M+; keine eigene Raid-Datei und keine Run-Historie.
+    require("local raid = ReadVault(CopyNumber(types.Raid))" in scanner
+            and "weekly.raidVault = MergeVault(weekly.raidVault, raid)" in scanner,
+            "Raid-Vault muss den sicheren ReadVault-/MergeVault-Pfad nutzen")
+    require('{ key = "raid", label = L("COL_RAID_VAULT")' in ui
+            and "VaultText(weekly.raidVault, stale)" in ui
+            and "WAT:GetRaidVaultTooltip(weekly.raidVault)" in ui,
+            "Übersicht braucht Raid-Vault-Spalte und Raid-Tooltip im bestehenden Vault-Format")
+    require("Raid" not in " ".join(toc_order), "Raid-Vault braucht keine eigene Lua-Datei")
 
     require("or 0" not in re.sub(r"(?:pos\.[xy]|offset[XY])\s+or 0", "", ui),
             "UI darf unbekannte Aktivitätswerte nicht pauschal als 0 anzeigen")
@@ -671,14 +706,52 @@ def main() -> int:
     require(scanner.count('return "-"') >= 3,
             "GetVaultSummary muss unbekannt weiterhin als sprachneutrales '-' liefern")
 
-    panel_order = ("overview", "midnight", "weeklies", "professions", "sources", "keystones",
-                   "statistics", "settings")
+    panel_order = ("overview", "midnight", "weeklies", "professions", "sources", "delves", "dungeons",
+                   "raids", "keystones", "statistics", "settings")
     require('label = L("PANEL_WEEKLIES")' in ui and "CreateWeeklyCatalogPanel" in ui,
             "Wochenquest-Seite fehlt oder ist nicht lokalisiert")
     require('PANEL_WEEKLIES = "Wochenquests"' in de_dict and 'PANEL_WEEKLIES = "Weekly Quests"' in en_dict,
             "Titel der Wochenquest-Seite fehlt in einem der beiden Wörterbücher")
     require('"overview", "midnight", "weeklies", "professions"' in ui,
             "die Wochenquest-Seite muss in der Navigation zwischen Midnight und Berufe stehen")
+    # Wocheninhalte (Issues #12/#13/#14): drei Reiter direkt nach den
+    # Wappenquellen, zwölf Navigationsziele, Höhe gegen die Seitenleiste
+    # gerechnet statt fest 42px.
+    require('"overview", "midnight", "weeklies", "professions", "sources",\n'
+            '                       "delves", "dungeons", "raids", "keystones",' in ui,
+            "Tiefen, Dungeons und Schlachtzüge müssen in der Navigation direkt nach den Wappenquellen stehen")
+    require("math.floor((FRAME_HEIGHT - navTop - 44) / #tabOrder)" in ui,
+            "die Höhe der Navigationsschaltflächen muss gegen die Seitenleiste gerechnet werden")
+    for key, de_label, en_label in (("PANEL_DELVES", "Tiefen", "Delves"),
+                                    ("PANEL_DUNGEONS", "Dungeons", "Dungeons"),
+                                    ("PANEL_RAIDS", "Schlachtzüge", "Raids")):
+        require(f'label = L("{key}")' in ui, f"Paneldefinition {key} fehlt")
+        require(f'{key} = "{de_label}"' in de_dict and f'{key} = "{en_label}"' in en_dict,
+                f"Titel {key} fehlt in einem der beiden Wörterbücher")
+    for activity_name, contract, message in (
+            ("Activities.lua", "pcall(getter, worldType, true)",
+             "Tiefen müssen GetSortedProgressForActivity(World, true) wie Blizzards Vault-Tooltip lesen"),
+            ("Activities.lua", "if tier.difficulty > 1 then",
+             "nur Stufe > 1 ist eindeutig Tiefe; Stufe 1 darf nie in die Tiefensumme"),
+            ("Activities.lua", "pcall(getter, false, true, true)",
+             "M+-Details nur aus GetRunHistory der aktuellen Woche inklusive unvollständiger Läufe"),
+            ("Activities.lua", "SafeBoolean(raw.thisWeek)",
+             "jeder M+-Lauf braucht ein sicher gelesenes thisWeek"),
+            ("Activities.lua", 'Content.Function(C_WeeklyRewards, "GetNumCompletedDungeonRuns")',
+             "Heroisch/M0/M+-Wochenzahlen kommen aus GetNumCompletedDungeonRuns"),
+            ("Activities.lua", 'Content.Function(C_WeeklyRewards, "GetActivityEncounterInfo")',
+             "Schlachtzugsbosse kommen aus GetActivityEncounterInfo je Vault-Slot"),
+            ("Activities.lua", "if Content.mapInfoRequested then return end",
+             "RequestMapInfo darf nur einmal je Sitzung laufen, sonst Schleife über CHALLENGE_MODE_MAPS_UPDATE"),
+            ("Activities.lua", "RAID_RANK = { [17] = 1, [14] = 2, [15] = 3, [16] = 4 }",
+             "Schwierigkeiten werden nach Blizzards PrimaryRaids-Rang verglichen, nie numerisch")):
+        require(contract in activities, f"{activity_name}: {message}")
+    require('RegisterEventSafely("CHALLENGE_MODE_MAPS_UPDATE")' in core,
+            "CHALLENGE_MODE_MAPS_UPDATE muss registriert bleiben (Antwort auf RequestMapInfo)")
+    require('values.normal:SetText(COLORS.unknown .. L("CONTENT_NOT_AVAILABLE") .. "|r")' in ui,
+            "normale Dungeons liefert die API nicht: die Spalte muss ausdrücklich 'nicht verfügbar' zeigen")
+    require("NormalizeWeeklyContent(record.weekly)" in core,
+            "weekly.content muss beim Laden fail-closed geprüft werden")
     catalog_row = re.search(r"local function CreateCatalogRow\(.*?\nend\n", ui, re.S)
     require(catalog_row is not None and "AttachCharacterDragHandlers" not in catalog_row.group(0)
             and "RegisterForDrag" not in catalog_row.group(0),
@@ -822,25 +895,26 @@ def main() -> int:
         "Anleitung.html": text("Anleitung.html"),
         "Guide.en.html": text("Guide.en.html"),
     }
-    require("Neun Ansichten. Ein Wochenbild." in html_guides["Anleitung.html"],
-            "Deutsche HTML-Anleitung nennt nicht neun Ansichten")
-    require("Nine views. One weekly picture." in html_guides["Guide.en.html"],
-            "Englische HTML-Anleitung nennt nicht neun Ansichten")
+    require("Zwölf Ansichten. Ein Wochenbild." in html_guides["Anleitung.html"],
+            "Deutsche HTML-Anleitung nennt nicht zwölf Ansichten")
+    require("Twelve views. One weekly picture." in html_guides["Guide.en.html"],
+            "Englische HTML-Anleitung nennt nicht zwölf Ansichten")
     for name, body in html_guides.items():
-        for stale in ("Fünf Ansichten", "Five views", "Sieben Ansichten", "Seven views"):
+        for stale in ("Fünf Ansichten", "Five views", "Sieben Ansichten", "Seven views",
+                      "Neun Ansichten", "Nine views"):
             require(stale not in body, f"HTML-Anleitung {name} nennt noch veraltet: {stale}")
     require("Wochenquests" in html_guides["Anleitung.html"] and "Weekly Quests" in html_guides["Guide.en.html"],
             "HTML-Anleitungen beschreiben die Wochenquest-Seite nicht")
-    require("Neun Ansichten" in platform_docs["curseforge/PROJECT-de.md"],
-            "Deutsche CurseForge-Beschreibung nennt nicht neun Ansichten")
-    require("Nine views" in platform_docs["curseforge/PROJECT-en.md"],
-            "Englische CurseForge-Beschreibung nennt nicht neun Ansichten")
-    require("neun kompakte Ansichten" in platform_docs["wago/BESCHREIBUNG.md"],
-            "Wago-Beschreibung nennt nicht neun Ansichten")
+    require("Zwölf Ansichten" in platform_docs["curseforge/PROJECT-de.md"],
+            "Deutsche CurseForge-Beschreibung nennt nicht zwölf Ansichten")
+    require("Twelve views" in platform_docs["curseforge/PROJECT-en.md"],
+            "Englische CurseForge-Beschreibung nennt nicht zwölf Ansichten")
+    require("zwölf kompakte Ansichten" in platform_docs["wago/BESCHREIBUNG.md"],
+            "Wago-Beschreibung nennt nicht zwölf Ansichten")
     for name, body in platform_docs.items():
-        require("Sieben Ansichten" not in body and "Seven views" not in body
-                and "sieben kompakte Ansichten" not in body,
-                f"Plattformtext {name} nennt noch sieben Ansichten")
+        for stale in ("Sieben Ansichten", "Seven views", "sieben kompakte Ansichten",
+                      "Neun Ansichten", "Nine views", "neun kompakte Ansichten"):
+            require(stale not in body, f"Plattformtext {name} nennt noch veraltet: {stale}")
         require("Wochenquests" in body or "Weekly Quests" in body,
                 f"Plattformtext {name} beschreibt die Wochenquest-Seite nicht")
     for name, body in platform_docs.items():
@@ -1003,12 +1077,50 @@ def main() -> int:
                 require(keys == ["quest", "area", "character", "status", "progress", "updated"] and total == 920,
                         f"die Katalogseite braucht genau sechs feste Spalten mit 920px, gefunden {keys}/{total}")
 
+    # -----------------------------------------------------------------------
+    # Ziehbare Spaltenbreiten (#11) und Klassenfarben der Wochenquests (#15)
+    #
+    # Breiten liegen accountweit je Bereich und stabiler Spalten-ID; Core
+    # prüft die Form, die UI klemmt je Spalte. Jede Seite aus CreatePanel mit
+    # Spalten ist ziehbar, waagerechtes Blättern verschiebt Kopf und Zeilen
+    # gemeinsam. Die Wochenquest-Tabelle behält die Klassenfarbe des Namens
+    # auch in einer alten Woche; Status und Alter markieren die Woche.
+    # -----------------------------------------------------------------------
+    require("settings.columnWidths = NormalizeColumnWidths(settings.columnWidths)" in core,
+            "Core.lua muss gespeicherte Spaltenbreiten beim Laden normalisieren")
+    require("panel.resizableColumns = #columns > 0 and definition.resizableColumns ~= false" in ui,
+            "jede Tabellenseite mit Spalten muss ziehbare Breiten bekommen")
+    for token in ("ColumnWidths.Load(panel)", "ColumnWidths.Relayout(panel)", "SetHorizontalScroll(offset)",
+                  "header:SetClipsChildren(true)", 'panel.headerContent:SetPoint("TOPLEFT", -offset, 0)',
+                  "function WAT:SetColumnWidth", "function WAT:ResetColumnWidths"):
+        require(token in ui, f"Spaltenbreiten unvollständig: {token}")
+    require("ClassColoredName(data.character, false)" in ui,
+            "die Wochenquest-Tabelle muss die Klassenfarbe auch in alter Woche behalten")
+    require("neutralName" in ui and "COLORS.neutralName .. name" in ui,
+            "unbekannte Klasse braucht eine neutrale Ersatzfarbe")
+    set_scale = ui[ui.find("function WAT:SetScalePreset"):]
+    set_scale = set_scale[:set_scale.find("\nend")]
+    require("columnWidths" not in set_scale and "ColumnWidths" not in set_scale,
+            "Fensterskalierung darf keine Spaltenbreiten ersetzen oder ändern")
+
+    # -----------------------------------------------------------------------
+    # Integration Raid-Vault (#10) und Schlachtzugsreiter (#14): ein Name je
+    # Schwierigkeit. Der Reiter fragt zuerst denselben secret-sicheren
+    # DifficultyUtil-Helfer wie der Raid-Vault-Tooltip, erst dann die eigenen
+    # Sprachschlüssel; der Helfer bleibt optional (Harnesses ohne Scanner).
+    # -----------------------------------------------------------------------
+    difficulty_name = ui[ui.find("function CONTENT_VIEW.DifficultyName"):]
+    difficulty_name = difficulty_name[:difficulty_name.find("\nend")]
+    helper = difficulty_name.find("WAT.GetRaidDifficultyName and WAT:GetRaidDifficultyName(difficultyID)")
+    require(helper != -1 and helper < difficulty_name.find("DIFFICULTY_KEYS"),
+            "CONTENT_VIEW.DifficultyName muss zuerst WAT:GetRaidDifficultyName nutzen, dann die Sprachschlüssel")
+
     if FAILURES:
         print("V2 TESTS FAILED")
         for failure in FAILURES:
             print(f"- {failure}")
         return 1
-    print("V2 TESTS OK: Datenpools, Scanner, deutsche UX und Raid-Ausschluss geprüft")
+    print("V2 TESTS OK: Datenpools, Scanner, deutsche UX, Raid-Vault-, Wocheninhalts- und Spaltenbreiten-Vertrag geprüft")
     return 0
 
 

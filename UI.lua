@@ -50,11 +50,16 @@ local COLORS = {
     line = { 1, 1, 1, 0.07 },
     turquoise = { 0.050, 0.820, 0.620, 1 },
     violet = { 0.655, 0.482, 1, 1 },
+    -- Raid-Schatzkammer im Tooltip: dasselbe Bernstein wie COLORS.amber.
+    raidVault = { 0.949, 0.765, 0.357, 1 },
     green = "|cff64e68a",
     amber = "|cfff2c35b",
     red = "|cfff06f78",
     unknown = "|cff98a3b1",
     stale = "|cff6d7580",
+    -- Charaktername ohne bekannte Klasse: helles Neutralgrau, weder Klassen-
+    -- noch Statusfarbe.
+    neutralName = "|cffd8e0e7",
     -- Held-Hinweise: das native WoW-Gold (NORMAL_FONT_COLOR), bewusst weder
     -- das Bernstein der Statusspalte noch das Violett der Held-Wappen.
     heroGold = { 1, 0.82, 0, 1 },
@@ -88,14 +93,17 @@ local function PanelDefinitions()
         description = L("PANEL_OVERVIEW_DESC"),
         columns = {
             -- Entlastet: Nebelwappen und Goldene Truhe stehen nur noch unter
-            -- Wappenquellen. Die Breiten ergeben exakt CONTENT_WIDTH (920).
-            { key = "character", label = L("COL_CHARACTER"), width = 220, left = true },
-            { key = "level", label = L("COL_LEVEL"), width = 50 },
-            { key = "itemLevel", label = L("COL_ITEM_LEVEL"), width = 70 },
-            { key = "world", label = L("COL_WORLD_VAULT"), width = 170 },
-            { key = "mythic", label = L("COL_MYTHIC_VAULT"), width = 160 },
-            { key = "mythic10", label = L("COL_MYTHIC10"), width = 120 },
-            { key = "updated", label = L("COL_UPDATED"), width = 130 },
+            -- Wappenquellen. Die Breiten ergeben exakt CONTENT_WIDTH (920);
+            -- die Raid-Schatzkammer (#10) teilt sich den Platz der uebrigen
+            -- Spalten, bis variable Spaltenbreiten (#11) integriert sind.
+            { key = "character", label = L("COL_CHARACTER"), width = 200, left = true },
+            { key = "level", label = L("COL_LEVEL"), width = 45 },
+            { key = "itemLevel", label = L("COL_ITEM_LEVEL"), width = 65 },
+            { key = "world", label = L("COL_WORLD_VAULT"), width = 140 },
+            { key = "mythic", label = L("COL_MYTHIC_VAULT"), width = 130 },
+            { key = "mythic10", label = L("COL_MYTHIC10"), width = 100 },
+            { key = "raid", label = L("COL_RAID_VAULT"), width = 130 },
+            { key = "updated", label = L("COL_UPDATED"), width = 110 },
         },
     },
     midnight = {
@@ -150,18 +158,63 @@ local function PanelDefinitions()
         columns = {
             { key = "character", label = L("COL_CHARACTER"), width = 150, left = true },
             -- Dundun ist ein Ressourcen-Snapshot; der M+-Schlüssel und die fünf
-            -- Wappenbestände sind echte Wochenwerte. Alle Breiten ergeben
-            -- zusammen exakt CONTENT_WIDTH (920px), damit kein Kopf in
-            -- Nachbarspalten hineinragt und kein horizontaler Scrollbereich
-            -- entsteht.
+            -- Wappenbestände sind echte Wochenwerte. Die Standardbreiten
+            -- ergeben zusammen exakt CONTENT_WIDTH (920px): ohne eigene
+            -- Breiten ragt kein Kopf in Nachbarspalten und es entsteht kein
+            -- horizontaler Balken.
+            -- Die Truhenspalte zeigt bis zu "4/4 / 28/28 M" und braucht dafuer
+            -- auch in breiten Clientschriften (zhTW/koKR) Platz: der gemeldete
+            -- zhTW-Screenshot schnitt bei 85px nach acht Zeichen ab. Die
+            -- Wappenspalten tragen nur Symbol und Menge und geben je 11px ab.
             { key = "dundun", label = L("COL_DUNDUN"), width = 70 },
-            { key = "gilded", label = L("COL_GILDED_WEEKLY"), width = 85 },
+            { key = "gilded", label = L("COL_GILDED_WEEKLY"), width = 140 },
             { key = "mythicPlusKey", label = L("COL_MYTHIC_KEY"), width = 95 },
-            { key = "crestAdventurer", label = L("COL_CREST_ADVENTURER"), width = 104 },
-            { key = "crestVeteran", label = L("COL_CREST_VETERAN"), width = 104 },
-            { key = "crestChampion", label = L("COL_CREST_CHAMPION"), width = 104 },
-            { key = "crestHero", label = L("COL_CREST_HERO"), width = 104 },
-            { key = "crestMyth", label = L("COL_CREST_MYTH"), width = 104 },
+            { key = "crestAdventurer", label = L("COL_CREST_ADVENTURER"), width = 93 },
+            { key = "crestVeteran", label = L("COL_CREST_VETERAN"), width = 93 },
+            { key = "crestChampion", label = L("COL_CREST_CHAMPION"), width = 93 },
+            { key = "crestHero", label = L("COL_CREST_HERO"), width = 93 },
+            { key = "crestMyth", label = L("COL_CREST_MYTH"), width = 93 },
+        },
+    },
+    -- Wocheninhalte der aktuellen Woche. Jede Tabelle ergibt exakt
+    -- CONTENT_WIDTH (920); Details stehen im Zeilen-Tooltip.
+    delves = {
+        label = L("PANEL_DELVES"),
+        shortLabel = L("PANEL_DELVES_SHORT"),
+        description = L("PANEL_DELVES_DESC"),
+        columns = {
+            { key = "character", label = L("COL_CHARACTER"), width = 200, left = true },
+            { key = "delveRuns", label = L("COL_DELVE_RUNS"), width = 140 },
+            { key = "highestTier", label = L("COL_DELVE_HIGHEST"), width = 110 },
+            { key = "worldOrDelve", label = L("COL_DELVE_WORLD"), width = 140 },
+            { key = "tiers", label = L("COL_DELVE_TIERS"), width = 230, left = true },
+            { key = "updated", label = L("COL_DATA_AGE"), width = 100 },
+        },
+    },
+    dungeons = {
+        label = L("PANEL_DUNGEONS"),
+        shortLabel = L("PANEL_DUNGEONS_SHORT"),
+        description = L("PANEL_DUNGEONS_DESC"),
+        columns = {
+            { key = "character", label = L("COL_CHARACTER"), width = 190, left = true },
+            { key = "normal", label = L("COL_DUNGEON_NORMAL"), width = 80 },
+            { key = "heroic", label = L("COL_DUNGEON_HEROIC"), width = 90 },
+            { key = "mythic", label = L("COL_DUNGEON_MYTHIC"), width = 100 },
+            { key = "mythicPlus", label = L("COL_DUNGEON_MYTHIC_PLUS"), width = 100 },
+            { key = "runs", label = L("COL_DUNGEON_RUNS"), width = 260, left = true },
+            { key = "updated", label = L("COL_DATA_AGE"), width = 100 },
+        },
+    },
+    raids = {
+        label = L("PANEL_RAIDS"),
+        shortLabel = L("PANEL_RAIDS_SHORT"),
+        description = L("PANEL_RAIDS_DESC"),
+        columns = {
+            { key = "character", label = L("COL_CHARACTER"), width = 190, left = true },
+            { key = "bosses", label = L("COL_RAID_BOSSES"), width = 110 },
+            { key = "highest", label = L("COL_RAID_HIGHEST"), width = 150 },
+            { key = "instances", label = L("COL_RAID_INSTANCES"), width = 370, left = true },
+            { key = "updated", label = L("COL_DATA_AGE"), width = 100 },
         },
     },
     keystones = {
@@ -313,17 +366,33 @@ local function FormatAge(timestamp)
     return date(L("DATE_FORMAT_SHORT"), timestamp)
 end
 
+-- Nur Darstellung: gespeicherte Namen, Such- und Sortierschluessel bleiben
+-- unkoloriert. Eine unbekannte oder unlesbare Klasse bekommt eine neutrale,
+-- gut lesbare Ersatzfarbe statt einer geratenen Klassenfarbe.
 local function ClassColoredName(character, stale, nameOnly)
     local unknown = L("CHARACTER_UNKNOWN")
-    local name = character.name or unknown
-    if not nameOnly then name = name .. "-" .. (character.realm or unknown) end
-    if stale then return COLORS.stale .. name .. "|r" end
-    local color = character.classFile and RAID_CLASS_COLORS[character.classFile]
-    if color then
-        return string.format("|cff%02x%02x%02x%s|r",
-            math.floor(color.r * 255), math.floor(color.g * 255), math.floor(color.b * 255), name)
+    local function Text(value)
+        if (issecretvalue and issecretvalue(value)) or type(value) ~= "string" or value == "" then return unknown end
+        return value
     end
-    return name
+    local name = Text(character.name)
+    if not nameOnly then name = name .. "-" .. Text(character.realm) end
+    if stale then return COLORS.stale .. name .. "|r" end
+    local classFile = character.classFile
+    local color
+    if not (issecretvalue and issecretvalue(classFile)) and type(classFile) == "string"
+            and type(RAID_CLASS_COLORS) == "table" then
+        color = RAID_CLASS_COLORS[classFile]
+    end
+    if type(color) == "table" and type(color.r) == "number" and type(color.g) == "number"
+            and type(color.b) == "number" then
+        local function Channel(value)
+            if value ~= value then return 0 end
+            return math.floor(math.max(0, math.min(1, value)) * 255)
+        end
+        return string.format("|cff%02x%02x%02x%s|r", Channel(color.r), Channel(color.g), Channel(color.b), name)
+    end
+    return COLORS.neutralName .. name .. "|r"
 end
 
 local function StatusFraction(current, maximum, stale)
@@ -656,6 +725,11 @@ local function ShowOverviewTooltip(character, weekly, stale)
     local mythicPlusTenText = mythicPlusTen == true and L("MYTHIC10_YES")
         or (mythicPlusTen == false and L("MYTHIC10_NO") or L("STATUS_UNKNOWN"))
     AddTooltipLine(L("TOOLTIP_MYTHIC10"), mythicPlusTenText)
+    -- Raid: Bossfortschritt je Slot und Schwierigkeit statt M+-Stufe.
+    GameTooltip:AddLine(L("TOOLTIP_RAID_VAULT"), COLORS.raidVault[1], COLORS.raidVault[2], COLORS.raidVault[3])
+    for line in string.gmatch(WAT:GetRaidVaultTooltip(weekly.raidVault), "[^\n]+") do
+        GameTooltip:AddLine(line, 0.92, 0.95, 0.97, true)
+    end
 end
 
 -- Liadrin kann die Ritualstätten selbst als Wochenquest anbieten (95843 steht
@@ -1153,6 +1227,281 @@ local function ShowStatisticCardTooltip(card, scope)
     GameTooltip:Show()
 end
 
+-- ---------------------------------------------------------------------------
+-- Wocheninhalte: Tiefen, Dungeons, Schlachtzuege
+--
+-- Reine Anzeige der gespeicherten weekly.content-Snapshots ueber die
+-- read-only Helfer aus Activities.lua; kein Scan im Renderer. Namen entstehen
+-- erst hier clientlokalisiert aus stabilen IDs: Dungeon ueber
+-- C_ChallengeMode.GetMapUIInfo, Boss und Schlachtzug wie in Blizzards
+-- Vault-Tooltip ueber EJ_GetEncounterInfo und dessen Journal-instanceID an
+-- EJ_GetInstanceInfo. Ohne lesbaren Namen bleibt die ID sichtbar.
+--
+-- Alles lebt in einer Tabelle: der Hauptchunk dieser Datei liegt nahe an
+-- Luas Grenze von 200 aktiven Locals.
+-- ---------------------------------------------------------------------------
+local CONTENT_VIEW = {
+    Fill = {},
+    Tooltip = {},
+    DIFFICULTY_KEYS = {
+        [17] = "DIFFICULTY_LFR", [14] = "DIFFICULTY_NORMAL",
+        [15] = "DIFFICULTY_HEROIC", [16] = "DIFFICULTY_MYTHIC",
+    },
+    VALUE_COLOR = "|cffd8e0e7",
+    AGE_COLOR = "|cffb0bac6",
+}
+
+function CONTENT_VIEW.Snapshot(character)
+    if not WAT.GetWeeklyContentSnapshot then return nil end
+    return WAT:GetWeeklyContentSnapshot(character)
+end
+
+-- Alte Woche geht vor jedem Wert; unbekannt bleibt ein Strich, nie 0.
+function CONTENT_VIEW.Value(text, stale, color)
+    if stale then return COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r" end
+    if text == nil then return COLORS.unknown .. "-|r" end
+    return (color or CONTENT_VIEW.VALUE_COLOR) .. tostring(text) .. "|r"
+end
+
+function CONTENT_VIEW.Count(value, stale)
+    if type(value) ~= "number" then return CONTENT_VIEW.Value(nil, stale) end
+    return CONTENT_VIEW.Value(value, stale, value > 0 and COLORS.green or CONTENT_VIEW.VALUE_COLOR)
+end
+
+function CONTENT_VIEW.Age(timestamp, stale)
+    return (stale and COLORS.stale or CONTENT_VIEW.AGE_COLOR) .. FormatAge(timestamp) .. "|r"
+end
+
+-- Ruft eine Client-Funktion geschuetzt auf und liefert alle Rueckgaben.
+function CONTENT_VIEW.Call(fn, ...)
+    if (issecretvalue and issecretvalue(fn)) or type(fn) ~= "function" then return nil end
+    local result = { pcall(fn, ...) }
+    if not result[1] then return nil end
+    return result
+end
+
+function CONTENT_VIEW.String(value)
+    if (issecretvalue and issecretvalue(value)) or type(value) ~= "string" or value == "" then return nil end
+    return value
+end
+
+function CONTENT_VIEW.EncounterName(encounterID)
+    local result = CONTENT_VIEW.Call(EJ_GetEncounterInfo, encounterID)
+    return result and CONTENT_VIEW.String(result[2]) or L("CONTENT_ENCOUNTER_ID", encounterID)
+end
+
+-- Die Instanz wird ueber den ersten Boss aufgeloest, exakt wie Blizzards
+-- WeeklyRewardsActivityMixin:GetRaidName - die instanceID der Vault-API ist
+-- nur Gruppierungsschluessel, nicht ungeprueft eine Journal-ID.
+function CONTENT_VIEW.InstanceName(instance)
+    local first = instance.encounters[1]
+    local result = first and CONTENT_VIEW.Call(EJ_GetEncounterInfo, first.encounterID)
+    local journalID = result and result[7]
+    if not (issecretvalue and issecretvalue(journalID)) and type(journalID) == "number" then
+        local info = CONTENT_VIEW.Call(EJ_GetInstanceInfo, journalID)
+        local name = info and CONTENT_VIEW.String(info[2])
+        if name then return name end
+    end
+    return L("CONTENT_INSTANCE_ID", instance.instanceID)
+end
+
+-- Zuerst der clientlokalisierte Name aus Blizzards DifficultyUtil (derselbe
+-- secret-sichere Helfer wie im Raid-Vault-Tooltip), dann die eigenen
+-- Sprachschluessel. Die ID ist nur Nachschlageschluessel, nie ein Rang.
+function CONTENT_VIEW.DifficultyName(difficultyID)
+    local clientName = WAT.GetRaidDifficultyName and WAT:GetRaidDifficultyName(difficultyID)
+    if clientName then return clientName end
+    local difficultyKey = CONTENT_VIEW.DIFFICULTY_KEYS[difficultyID]
+    if difficultyKey then return L(difficultyKey) end
+    return L("DIFFICULTY_ID", difficultyID)
+end
+
+function CONTENT_VIEW.AddNotes(note)
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine(note, 0.56, 0.6, 0.66, true)
+    GameTooltip:AddLine(L("CONTENT_TT_LIMITS"), 0.56, 0.6, 0.66, true)
+end
+
+-- Tiefen ---------------------------------------------------------------------
+
+function CONTENT_VIEW.Fill.delves(row, character, stale)
+    local snapshot = CONTENT_VIEW.Snapshot(character)
+    local delves = snapshot and snapshot.delves
+    local summary = delves and WAT:SummarizeDelves(delves)
+    local values = row.values
+    if not summary then
+        for _, key in ipairs({ "delveRuns", "highestTier", "worldOrDelve", "tiers" }) do
+            values[key]:SetText(CONTENT_VIEW.Value(nil, stale))
+        end
+        values.updated:SetText(CONTENT_VIEW.Age(nil, stale))
+        return
+    end
+    values.delveRuns:SetText(CONTENT_VIEW.Count(summary.delveRuns, stale))
+    values.highestTier:SetText(summary.highestTier
+        and CONTENT_VIEW.Value(L("CONTENT_TIER", summary.highestTier), stale, "|cff0dd19e")
+        or CONTENT_VIEW.Value(L("CONTENT_NONE"), stale, COLORS.unknown))
+    values.worldOrDelve:SetText(CONTENT_VIEW.Count(summary.worldOrDelve, stale))
+    local parts = {}
+    for _, tier in ipairs(summary.tiers) do
+        if tier.points > 0 then parts[#parts + 1] = L("CONTENT_TIER_POINTS", tier.difficulty, tier.points) end
+    end
+    values.tiers:SetText(#parts > 0 and CONTENT_VIEW.Value(table.concat(parts, ", "), stale)
+        or CONTENT_VIEW.Value(L("CONTENT_NONE"), stale, COLORS.unknown))
+    values.updated:SetText(CONTENT_VIEW.Age(delves.updated, stale))
+end
+
+function CONTENT_VIEW.Tooltip.delves(character)
+    local snapshot = CONTENT_VIEW.Snapshot(character)
+    local delves = snapshot and snapshot.delves
+    local summary = delves and WAT:SummarizeDelves(delves)
+    if not summary then
+        AddTooltipLine(L("PANEL_DELVES"), L("STATUS_NOT_TRACKED"))
+    else
+        AddTooltipLine(L("CONTENT_TT_DELVE_RUNS"), tostring(summary.delveRuns))
+        local listed = false
+        for _, tier in ipairs(summary.tiers) do
+            if tier.points > 0 then
+                listed = true
+                local label = tier.difficulty > 1 and L("CONTENT_TT_DELVE_TIER", tier.difficulty)
+                    or L("CONTENT_TT_WORLD_TIER", tier.difficulty)
+                AddTooltipLine(label, tostring(tier.points))
+            end
+        end
+        if not listed then GameTooltip:AddLine(L("CONTENT_TT_NO_TIERS"), 0.56, 0.6, 0.66, true) end
+        AddTooltipLine(L("KEY_RECORDED"), FormatAge(delves.updated))
+    end
+    CONTENT_VIEW.AddNotes(L("CONTENT_TT_DELVE_NOTE"))
+end
+
+-- Dungeons -------------------------------------------------------------------
+
+function CONTENT_VIEW.DungeonsUpdated(dungeons)
+    local countsUpdated, runsUpdated = dungeons.countsUpdated, dungeons.runsUpdated
+    if type(countsUpdated) ~= "number" then return runsUpdated end
+    if type(runsUpdated) ~= "number" then return countsUpdated end
+    return math.max(countsUpdated, runsUpdated)
+end
+
+function CONTENT_VIEW.Fill.dungeons(row, character, stale)
+    local snapshot = CONTENT_VIEW.Snapshot(character)
+    local dungeons = snapshot and snapshot.dungeons or {}
+    local values = row.values
+    -- Normal liefert die API nicht: ausdruecklich "nicht verfuegbar", kein Strich.
+    values.normal:SetText(COLORS.unknown .. L("CONTENT_NOT_AVAILABLE") .. "|r")
+    values.heroic:SetText(CONTENT_VIEW.Count(dungeons.heroic, stale))
+    values.mythic:SetText(CONTENT_VIEW.Count(dungeons.mythic, stale))
+    values.mythicPlus:SetText(CONTENT_VIEW.Count(dungeons.mythicPlus, stale))
+    local runs = dungeons.runs
+    if type(runs) ~= "table" then
+        values.runs:SetText(CONTENT_VIEW.Value(nil, stale))
+    elseif #runs == 0 then
+        values.runs:SetText(CONTENT_VIEW.Value(L("CONTENT_NONE"), stale, COLORS.unknown))
+    else
+        local parts = {}
+        for _, run in ipairs(runs) do parts[#parts + 1] = "+" .. run.level end
+        values.runs:SetText(CONTENT_VIEW.Value(table.concat(parts, ", "), stale))
+    end
+    values.updated:SetText(CONTENT_VIEW.Age(CONTENT_VIEW.DungeonsUpdated(dungeons), stale))
+end
+
+function CONTENT_VIEW.RunDetail(run)
+    local parts = {}
+    if run.completed == true then
+        parts[#parts + 1] = L("CONTENT_FLAG_COMPLETED")
+    elseif run.completed == false then
+        parts[#parts + 1] = L("CONTENT_FLAG_INCOMPLETE")
+    end
+    if type(run.durationSec) == "number" then
+        parts[#parts + 1] = string.format("%d:%02d", math.floor(run.durationSec / 60), run.durationSec % 60)
+    end
+    if #parts == 0 then return "-" end
+    return table.concat(parts, "  ")
+end
+
+function CONTENT_VIEW.Tooltip.dungeons(character)
+    local snapshot = CONTENT_VIEW.Snapshot(character)
+    local dungeons = snapshot and snapshot.dungeons
+    if not dungeons then
+        AddTooltipLine(L("PANEL_DUNGEONS"), L("STATUS_NOT_TRACKED"))
+    else
+        GameTooltip:AddLine(L("CONTENT_TT_DUNGEON_COUNTS"), 0.93, 0.95, 0.97)
+        local function CountText(value) return type(value) == "number" and tostring(value) or "-" end
+        AddTooltipLine(L("CONTENT_TT_NORMAL"), L("CONTENT_NOT_REPORTED"))
+        AddTooltipLine(L("CONTENT_TT_HEROIC"), CountText(dungeons.heroic))
+        AddTooltipLine(L("CONTENT_TT_MYTHIC"), CountText(dungeons.mythic))
+        AddTooltipLine(L("CONTENT_TT_MYTHIC_PLUS"), CountText(dungeons.mythicPlus))
+        if type(dungeons.runs) == "table" then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine(L("CONTENT_TT_RUNS"), 0.93, 0.95, 0.97)
+            if #dungeons.runs == 0 then
+                GameTooltip:AddLine(L("CONTENT_TT_RUNS_NONE"), 0.56, 0.6, 0.66)
+            end
+            for _, run in ipairs(dungeons.runs) do
+                AddTooltipLine("+" .. run.level .. " " .. DungeonDisplayName(run), CONTENT_VIEW.RunDetail(run))
+            end
+            if dungeons.runsTruncated then
+                GameTooltip:AddLine(L("CONTENT_TT_RUNS_TRUNCATED", #dungeons.runs), 0.56, 0.6, 0.66, true)
+            end
+        end
+        AddTooltipLine(L("KEY_RECORDED"), FormatAge(CONTENT_VIEW.DungeonsUpdated(dungeons)))
+    end
+    CONTENT_VIEW.AddNotes(L("CONTENT_TT_DUNGEON_NOTE"))
+end
+
+-- Schlachtzuege --------------------------------------------------------------
+
+function CONTENT_VIEW.Fill.raids(row, character, stale)
+    local snapshot = CONTENT_VIEW.Snapshot(character)
+    local raids = snapshot and snapshot.raids
+    local summary = raids and WAT:SummarizeRaids(raids)
+    local values = row.values
+    if not summary then
+        for _, key in ipairs({ "bosses", "highest", "instances" }) do
+            values[key]:SetText(CONTENT_VIEW.Value(nil, stale))
+        end
+        values.updated:SetText(CONTENT_VIEW.Age(nil, stale))
+        return
+    end
+    local bossColor = CONTENT_VIEW.VALUE_COLOR
+    if summary.total > 0 and summary.completed >= summary.total then
+        bossColor = COLORS.green
+    elseif summary.completed > 0 then
+        bossColor = COLORS.amber
+    end
+    values.bosses:SetText(CONTENT_VIEW.Value(string.format("%d/%d", summary.completed, summary.total),
+        stale, bossColor))
+    values.highest:SetText(summary.highestDifficulty
+        and CONTENT_VIEW.Value(CONTENT_VIEW.DifficultyName(summary.highestDifficulty), stale, "|cff0dd19e")
+        or CONTENT_VIEW.Value(L("CONTENT_NONE"), stale, COLORS.unknown))
+    local parts = {}
+    for _, instance in ipairs(summary.instances) do
+        parts[#parts + 1] = string.format("%s %d/%d", CONTENT_VIEW.InstanceName(instance),
+            instance.completed, instance.total)
+    end
+    values.instances:SetText(CONTENT_VIEW.Value(table.concat(parts, ", "), stale))
+    values.updated:SetText(CONTENT_VIEW.Age(raids.updated, stale))
+end
+
+function CONTENT_VIEW.Tooltip.raids(character)
+    local snapshot = CONTENT_VIEW.Snapshot(character)
+    local raids = snapshot and snapshot.raids
+    local summary = raids and WAT:SummarizeRaids(raids)
+    if not summary then
+        AddTooltipLine(L("PANEL_RAIDS"), L("STATUS_NOT_TRACKED"))
+    else
+        for _, instance in ipairs(summary.instances) do
+            GameTooltip:AddLine(string.format("%s %d/%d", CONTENT_VIEW.InstanceName(instance),
+                instance.completed, instance.total), 0.93, 0.95, 0.97)
+            for _, encounter in ipairs(instance.encounters) do
+                AddTooltipLine(CONTENT_VIEW.EncounterName(encounter.encounterID), encounter.bestDifficulty > 0
+                    and CONTENT_VIEW.DifficultyName(encounter.bestDifficulty) or L("CONTENT_TT_RAID_OPEN"))
+            end
+        end
+        AddTooltipLine(L("KEY_RECORDED"), FormatAge(raids.updated))
+    end
+    CONTENT_VIEW.AddNotes(L("CONTENT_TT_RAID_NOTE"))
+end
+
 function WAT:ShowCharacterTooltip(row)
     local character = row.character
     if not character then return end
@@ -1171,6 +1520,9 @@ function WAT:ShowCharacterTooltip(row)
         ShowSourcesTooltip(character, weekly, stale)
     elseif row.panelKey == "keystones" then
         ShowKeystoneTooltip(weekly, stale)
+    elseif CONTENT_VIEW.Tooltip[row.panelKey] then
+        if stale then AddTooltipLine(L("TOOLTIP_WEEK_STATE"), L("TOOLTIP_WEEK_STALE")) end
+        CONTENT_VIEW.Tooltip[row.panelKey](character)
     else
         ShowOverviewTooltip(character, weekly, stale)
     end
@@ -1180,9 +1532,9 @@ function WAT:ShowCharacterTooltip(row)
     GameTooltip:Show()
 end
 
-local function CreateNavButton(parent, definition, y)
+local function CreateNavButton(parent, definition, y, height)
     local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
-    button:SetSize(SIDEBAR_WIDTH, 42)
+    button:SetSize(SIDEBAR_WIDTH, height)
     button:SetPoint("TOPLEFT", 0, y)
     SetBackdrop(button, { 0, 0, 0, 0 }, { 1, 1, 1, 0 })
 
@@ -1231,6 +1583,355 @@ local function CreateNavButton(parent, definition, y)
     return button
 end
 
+-- ---------------------------------------------------------------------------
+-- Ziehbare Spaltenbreiten
+--
+-- Jede Seite, die ueber CreatePanel mit columns-Metadaten entsteht, bekommt
+-- ziehbare Trennlinien im Tabellenkopf: die Vergleichstabellen, die
+-- Wochenquest-Tabelle und jede kuenftige Tabellenseite ohne eigenen Code.
+-- Dashboards, Ausruestung und Formulare bauen ihren Inhalt selbst und sind
+-- damit ausgenommen; eine Tabellenseite kann sich zusaetzlich mit
+-- resizableColumns = false abmelden.
+--
+-- Gespeichert wird accountweit unter db.settings.columnWidths[panel.key]
+-- [column.key], und zwar nur Abweichungen vom Standard. Core.lua prueft dort
+-- nur die Form; die Grenzen je Spalte (minWidth/maxWidth, sonst MIN/MAX)
+-- gelten hier bei jedem Anwenden erneut. Eine Breite ist eine Rahmenbreite in
+-- Fenstereinheiten und damit unabhaengig von der Fensterskalierung.
+--
+-- Ist die Tabelle breiter als CONTENT_WIDTH, verschieben ein waagerechter
+-- Balken unter dem Panel und das Mausrad ueber dem Kopf beide Teile
+-- gemeinsam: den Kopfinhalt um genau den Versatz, den der ScrollFrame per
+-- SetHorizontalScroll auf die Zeilen anwendet. Kopf und ScrollFrame
+-- schneiden hart ab. Der Versatz ist reiner Sitzungszustand.
+--
+-- Die Trennlinie liegt in der 6px-Luecke hinter jeder Zelle und ragt je 2px
+-- in die Nachbarzellen; sie liegt ueber den Sortierkoepfen der Katalogseite,
+-- damit ein Zug nie zugleich sortiert. Mit gedrueckter Maustaste gehoert die
+-- Maus dem gezogenen Rahmen: Zeilen-Drag, Tooltips und vertikales Scrollen
+-- sehen den Zug nicht.
+-- ---------------------------------------------------------------------------
+local ColumnWidths = {
+    MIN = 40, MAX = 600, DIVIDER = 10, BAR_HEIGHT = 8, BAR_GAP = 4, THUMB_MIN = 32, WHEEL_STEP = 60,
+}
+
+-- Gespeicherte Breiten eines Bereichs; create legt fehlende Container an.
+function ColumnWidths.Store(panelKey, create)
+    local settings = WAT.db and WAT.db.settings
+    if type(settings) ~= "table" or type(panelKey) ~= "string" then return nil end
+    if type(settings.columnWidths) ~= "table" then
+        if not create then return nil end
+        settings.columnWidths = {}
+    end
+    local widths = settings.columnWidths[panelKey]
+    if type(widths) ~= "table" then
+        if not create then return nil end
+        widths = {}
+        settings.columnWidths[panelKey] = widths
+    end
+    return widths
+end
+
+-- Der Standard ist die Breite aus der Paneldefinition, einmal festgehalten.
+function ColumnWidths.Default(column)
+    if type(column.defaultWidth) ~= "number" then column.defaultWidth = column.width end
+    return column.defaultWidth
+end
+
+-- Ganzzahlig zwischen den Grenzen der Spalte; kein Zahlwert ergibt nil.
+function ColumnWidths.Clamp(column, value)
+    if (issecretvalue and issecretvalue(value)) or type(value) ~= "number" or value ~= value then return nil end
+    local default = ColumnWidths.Default(column)
+    local minimum = type(column.minWidth) == "number" and column.minWidth or math.min(ColumnWidths.MIN, default)
+    local maximum = type(column.maxWidth) == "number" and column.maxWidth or math.max(ColumnWidths.MAX, default)
+    return math.floor(math.max(minimum, math.min(maximum, value)) + 0.5)
+end
+
+function ColumnWidths.Find(panel, columnKey)
+    for _, column in ipairs(panel.columns) do
+        if column.key == columnKey then return column end
+    end
+end
+
+-- Uebernimmt die gespeicherten Breiten; Fremd- und Altwerte fallen auf den
+-- Standard zurueck, ohne den Speicher anzufassen.
+function ColumnWidths.Load(panel)
+    local stored = panel.resizableColumns and ColumnWidths.Store(panel.key, false) or nil
+    for _, column in ipairs(panel.columns) do
+        local width = stored and ColumnWidths.Clamp(column, stored[column.key]) or nil
+        column.width = width or ColumnWidths.Default(column)
+    end
+end
+
+-- Schreibt genau eine Spalte zurueck. Der Standard wird nicht gespeichert,
+-- ein leer gewordener Bereich entfaellt.
+function ColumnWidths.Persist(panel, column)
+    if column.width ~= ColumnWidths.Default(column) then
+        local stored = ColumnWidths.Store(panel.key, true)
+        if stored then stored[column.key] = column.width end
+        return
+    end
+    local stored = ColumnWidths.Store(panel.key, false)
+    if not stored then return end
+    stored[column.key] = nil
+    if next(stored) == nil then WAT.db.settings.columnWidths[panel.key] = nil end
+end
+
+-- Legt Kopfzellen, Trennlinien und alle gepoolten Zeilenzellen neu an die
+-- aktuellen Breiten. Dieselbe LayoutColumns-Rechnung wie beim Erzeugen; es
+-- entstehen dabei keine Rahmen.
+function ColumnWidths.Relayout(panel)
+    local rowHeight = panel.rowHeight or ROW_HEIGHT
+    -- Die Tabellenbreite muss vor dem Ankern feststehen: die letzte Spalte
+    -- endet 6px vor der Kante, ihre Luecke liegt also zur Haelfte hinter der
+    -- Tabelle und damit hinter der Clipkante des Kopfes. Die Kante ergibt sich
+    -- aus derselben LayoutColumns-Rechnung, nur ohne Platzierung. Standard-
+    -- breiten mit der Summe CONTENT_WIDTH ergeben exakt CONTENT_WIDTH, also
+    -- keinen Balken.
+    local width = math.max(CONTENT_WIDTH, LayoutColumns(panel.columns, function() end) - 4)
+    panel.tableWidth = width
+    LayoutColumns(panel.columns, function(column, left)
+        local cell = panel.headerCells[column.key]
+        cell:ClearAllPoints()
+        cell:SetPoint("LEFT", left, 0)
+        cell:SetSize(column.width - 6, HEADER_HEIGHT - 6)
+        local divider = panel.columnDividers and panel.columnDividers[column.key]
+        if divider then
+            -- Hitzone samt Linie bleiben innerhalb der Tabelle; die Linie
+            -- sitzt mittig in der Luecke hinter der Zelle bzw. im Rest der
+            -- Luecke vor der Tabellenkante.
+            local dividerLeft = math.min(left + column.width - ColumnWidths.DIVIDER + 2, width - ColumnWidths.DIVIDER)
+            local lineX = math.min(left + column.width - 3, width - 1) - dividerLeft - ColumnWidths.DIVIDER / 2
+            divider:ClearAllPoints()
+            divider:SetPoint("LEFT", dividerLeft, 0)
+            divider.line:ClearAllPoints()
+            divider.line:SetPoint("TOP", lineX, -6)
+            divider.line:SetPoint("BOTTOM", lineX, 6)
+        end
+        for _, row in ipairs(panel.rows) do
+            local rowCell = row.cells[column.key]
+            rowCell:ClearAllPoints()
+            rowCell:SetPoint("LEFT", left, 0)
+            rowCell:SetSize(column.width - 6, rowHeight - 2)
+        end
+    end)
+    panel.headerContent:SetWidth(width)
+    panel.child:SetWidth(width)
+    for _, row in ipairs(panel.rows) do row:SetWidth(width) end
+    ColumnWidths.SetOffset(panel, panel.columnOffset)
+end
+
+-- Klemmt den waagerechten Versatz und wendet ihn auf Kopf, Zeilen und Balken
+-- gleichzeitig an.
+function ColumnWidths.SetOffset(panel, offset)
+    local maximum = math.max(0, (panel.tableWidth or CONTENT_WIDTH) - CONTENT_WIDTH)
+    if type(offset) ~= "number" or offset ~= offset or offset < 0 then offset = 0 end
+    offset = math.floor(math.min(offset, maximum) + 0.5)
+    panel.columnOffset = offset
+    panel.headerContent:ClearAllPoints()
+    panel.headerContent:SetPoint("TOPLEFT", -offset, 0)
+    panel.scroll:SetHorizontalScroll(offset)
+    local bar = panel.columnBar
+    if not bar then return end
+    bar:SetShown(maximum > 0)
+    if maximum <= 0 then return end
+    local thumbWidth = math.max(ColumnWidths.THUMB_MIN, math.floor(CONTENT_WIDTH * CONTENT_WIDTH / panel.tableWidth))
+    bar.travel = CONTENT_WIDTH - thumbWidth
+    bar.thumb:SetWidth(thumbWidth)
+    bar.thumb:ClearAllPoints()
+    bar.thumb:SetPoint("LEFT", math.floor(bar.travel * offset / maximum + 0.5), 0)
+end
+
+function ColumnWidths.Scroll(panel, delta)
+    if (issecretvalue and issecretvalue(delta)) or type(delta) ~= "number" or delta ~= delta then return end
+    ColumnWidths.SetOffset(panel, panel.columnOffset - delta * ColumnWidths.WHEEL_STEP)
+end
+
+-- Cursorposition in den Einheiten des Rahmens, unabhaengig von der Skalierung.
+function ColumnWidths.CursorX(frame)
+    local ok, x = pcall(GetCursorPosition)
+    if not ok or (issecretvalue and issecretvalue(x)) or type(x) ~= "number" or x ~= x then return nil end
+    local scale = frame:GetEffectiveScale()
+    if type(scale) ~= "number" or scale <= 0 then scale = 1 end
+    return x / scale
+end
+
+-- Gemeinsame Ziehmechanik fuer Trennlinie und Balkengriff: Druecken merkt
+-- Cursor und Ausgangswert, OnUpdate rechnet laufend nach, Loslassen oder
+-- Ausblenden beendet den Zug. Waehrend ein Charakter gezogen wird, startet
+-- kein Spaltenzug.
+function ColumnWidths.AttachDrag(frame, begin, move, finish)
+    local function Stop(self)
+        if not self.dragStartX then return end
+        local x = ColumnWidths.CursorX(self)
+        if x then move(self, self.dragStartValue, x - self.dragStartX) end
+        self.dragStartX, self.dragStartValue = nil, nil
+        self:SetScript("OnUpdate", nil)
+        if finish then finish(self) end
+    end
+    frame:SetScript("OnMouseDown", function(self, button)
+        if button ~= "LeftButton" or WAT.dragCharacterKey then return end
+        local x = ColumnWidths.CursorX(self)
+        if not x then return end
+        self.dragStartX, self.dragStartValue = x, begin(self)
+        self:SetScript("OnUpdate", function(dragged)
+            local current = ColumnWidths.CursorX(dragged)
+            if current and dragged.dragStartX then
+                move(dragged, dragged.dragStartValue, current - dragged.dragStartX)
+            end
+        end)
+    end)
+    frame:SetScript("OnMouseUp", function(self, button)
+        if button == "LeftButton" then
+            Stop(self)
+        elseif button == "RightButton" and self.onRightClick then
+            self.onRightClick(self)
+        end
+    end)
+    frame:SetScript("OnHide", Stop)
+end
+
+function ColumnWidths.Apply(panel, column, width)
+    local applied = ColumnWidths.Clamp(column, width)
+    if not applied or applied == column.width then return column.width end
+    column.width = applied
+    ColumnWidths.Relayout(panel)
+    return applied
+end
+
+-- Setzt eine Spalte oder (columnKey nil) den ganzen Bereich auf den Standard.
+function ColumnWidths.Reset(panel, columnKey)
+    for _, column in ipairs(panel.columns) do
+        if columnKey == nil or column.key == columnKey then
+            column.width = ColumnWidths.Default(column)
+            ColumnWidths.Persist(panel, column)
+        end
+    end
+    ColumnWidths.Relayout(panel)
+end
+
+function ColumnWidths.OwnsTooltip(frame)
+    if not GameTooltip:IsShown() or type(GameTooltip.IsOwned) ~= "function" then return false end
+    local ok, owned = pcall(GameTooltip.IsOwned, GameTooltip, frame)
+    return ok and owned == true
+end
+
+function ColumnWidths.ShowTooltip(divider)
+    GameTooltip:SetOwner(divider, "ANCHOR_TOP")
+    GameTooltip:ClearLines()
+    GameTooltip:AddLine(L("COLUMN_RESIZE_TITLE"))
+    GameTooltip:AddLine(L("COLUMN_RESIZE_DRAG"), 1, 1, 1)
+    GameTooltip:AddLine(L("COLUMN_RESIZE_RESET_COLUMN"), 1, 1, 1)
+    GameTooltip:AddLine(L("COLUMN_RESIZE_RESET_AREA"), 1, 1, 1)
+    if (divider.panel.tableWidth or CONTENT_WIDTH) > CONTENT_WIDTH then
+        GameTooltip:AddLine(L("COLUMN_RESIZE_SCROLL"), 1, 1, 1)
+    end
+    GameTooltip:Show()
+end
+
+function ColumnWidths.PaintDivider(divider)
+    if divider.hovered or divider.dragStartX ~= nil then
+        divider.line:SetColorTexture(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.9)
+    else
+        divider.line:SetColorTexture(1, 1, 1, 0.12)
+    end
+end
+
+function ColumnWidths.CreateDivider(panel, column)
+    local divider = CreateFrame("Button", nil, panel.headerContent)
+    divider:SetSize(ColumnWidths.DIVIDER, HEADER_HEIGHT)
+    divider:SetFrameLevel(panel.headerContent:GetFrameLevel() + 10)
+    divider:EnableMouse(true)
+    divider.panel = panel
+    divider.column = column
+    local line = divider:CreateTexture(nil, "OVERLAY")
+    line:SetPoint("TOP", 0, -6)
+    line:SetPoint("BOTTOM", 0, 6)
+    line:SetWidth(1)
+    divider.line = line
+    ColumnWidths.PaintDivider(divider)
+    ColumnWidths.AttachDrag(divider, function() return column.width end, function(_, start, delta)
+        ColumnWidths.Apply(panel, column, start + delta)
+    end, function(self)
+        ColumnWidths.Persist(panel, column)
+        ColumnWidths.PaintDivider(self)
+    end)
+    divider.onRightClick = function() ColumnWidths.Reset(panel, nil) end
+    divider:SetScript("OnDoubleClick", function() ColumnWidths.Reset(panel, column.key) end)
+    divider:SetScript("OnEnter", function(self)
+        self.hovered = true
+        ColumnWidths.PaintDivider(self)
+        if not self.dragStartX then ColumnWidths.ShowTooltip(self) end
+    end)
+    divider:SetScript("OnLeave", function(self)
+        self.hovered = nil
+        ColumnWidths.PaintDivider(self)
+        if ColumnWidths.OwnsTooltip(self) then GameTooltip:Hide() end
+    end)
+    panel.columnDividers[column.key] = divider
+    return divider
+end
+
+-- Waagerechter Balken unter dem Panel, im freien Streifen ueber der
+-- Fusszeile: Viewport- und Zeilengeometrie bleiben unveraendert.
+function ColumnWidths.CreateBar(panel)
+    local bar = CreateFrame("Frame", nil, panel, "BackdropTemplate")
+    bar:SetSize(CONTENT_WIDTH, ColumnWidths.BAR_HEIGHT)
+    bar:SetPoint("TOPLEFT", panel, "BOTTOMLEFT", 0, -ColumnWidths.BAR_GAP)
+    SetBackdrop(bar, { 0.025, 0.035, 0.047, 0.98 }, COLORS.line)
+    bar:EnableMouse(true)
+    bar:EnableMouseWheel(true)
+    bar:SetScript("OnMouseWheel", function(_, delta) ColumnWidths.Scroll(panel, delta) end)
+    local thumb = CreateFrame("Button", nil, bar, "BackdropTemplate")
+    thumb:SetHeight(ColumnWidths.BAR_HEIGHT)
+    local accent = COLORS.turquoise
+    SetBackdrop(thumb, { accent[1], accent[2], accent[3], 0.45 }, { accent[1], accent[2], accent[3], 0.8 })
+    thumb:EnableMouse(true)
+    ColumnWidths.AttachDrag(thumb, function() return panel.columnOffset end, function(_, start, delta)
+        local maximum = math.max(0, panel.tableWidth - CONTENT_WIDTH)
+        if bar.travel and bar.travel > 0 then
+            ColumnWidths.SetOffset(panel, start + delta * maximum / bar.travel)
+        end
+    end)
+    bar.thumb = thumb
+    bar:Hide()
+    panel.columnBar = bar
+    return bar
+end
+
+-- Tabellen-API je Bereich und stabilem Spaltenschluessel. Sie wirkt nur auf
+-- Seiten mit ziehbaren Spalten und liefert sonst nil.
+function WAT:SetColumnWidth(panelKey, columnKey, width)
+    local panel = self.panels and self.panels[panelKey]
+    local column = panel and panel.resizableColumns and ColumnWidths.Find(panel, columnKey)
+    if not column then return nil end
+    local applied = ColumnWidths.Apply(panel, column, width)
+    ColumnWidths.Persist(panel, column)
+    return applied
+end
+
+function WAT:GetColumnWidth(panelKey, columnKey)
+    local panel = self.panels and self.panels[panelKey]
+    local column = panel and panel.columns and ColumnWidths.Find(panel, columnKey)
+    return column and column.width or nil
+end
+
+-- columnKey nil setzt den ganzen Bereich zurueck.
+function WAT:ResetColumnWidths(panelKey, columnKey)
+    local panel = self.panels and self.panels[panelKey]
+    if not (panel and panel.resizableColumns) then return false end
+    if columnKey ~= nil and not ColumnWidths.Find(panel, columnKey) then return false end
+    ColumnWidths.Reset(panel, columnKey)
+    return true
+end
+
+function WAT:SetColumnScroll(panelKey, offset)
+    local panel = self.panels and self.panels[panelKey]
+    if not (panel and panel.headerContent) then return nil end
+    ColumnWidths.SetOffset(panel, offset)
+    return panel.columnOffset
+end
+
 -- topOffset schiebt Kopf und Scrollbereich nach unten; die Katalogseite nutzt
 -- den frei werdenden Streifen fuer ihre Filterleiste.
 local function CreatePanel(parent, key, definition, topOffset)
@@ -1248,22 +1949,35 @@ local function CreatePanel(parent, key, definition, topOffset)
     local headerHeight = HEADER_HEIGHT
     panel.rowHeight = ROW_HEIGHT
 
+    -- Eine Tabellenseite mit Spalten hat ziehbare Breiten (ColumnWidths),
+    -- ausser ihre Definition meldet sich ausdruecklich ab.
+    panel.resizableColumns = #columns > 0 and definition.resizableColumns ~= false
+    ColumnWidths.Load(panel)
+
     local header = CreateFrame("Frame", nil, panel, "BackdropTemplate")
     if type(topOffset) ~= "number" then topOffset = 0 end
     header:SetPoint("TOPLEFT", 0, -topOffset)
     header:SetSize(CONTENT_WIDTH, headerHeight)
     SetBackdrop(header, { 0.025, 0.035, 0.047, 0.98 }, COLORS.line)
+    -- Der Kopf schneidet hart ab; sein Inhalt wird beim waagerechten Blaettern
+    -- um denselben Versatz verschoben wie die Zeilen im ScrollFrame.
+    header:SetClipsChildren(true)
     local topLine = header:CreateTexture(nil, "OVERLAY")
     topLine:SetPoint("TOPLEFT")
     topLine:SetPoint("TOPRIGHT")
     topLine:SetHeight(1)
     topLine:SetColorTexture(1, 1, 1, 0.08)
+    local headerContent = CreateFrame("Frame", nil, header)
+    headerContent:SetPoint("TOPLEFT", 0, 0)
+    headerContent:SetSize(CONTENT_WIDTH, headerHeight)
+    panel.header = header
+    panel.headerContent = headerContent
     panel.headerCells = {}
     panel.headerLabels = {}
     LayoutColumns(columns, function(column, left)
         -- Derselbe Clipping-Rahmen wie in der Datenzeile: ein Spaltenkopf darf
         -- ebenso wenig in den Nachbarn laufen wie ein Wert.
-        local cell = CreateFrame("Frame", nil, header)
+        local cell = CreateFrame("Frame", nil, headerContent)
         cell:SetPoint("LEFT", left, 0)
         cell:SetSize(column.width - 6, headerHeight - 6)
         cell:SetClipsChildren(true)
@@ -1290,6 +2004,15 @@ local function CreatePanel(parent, key, definition, topOffset)
     panel.scroll = scroll
     panel.child = child
     panel.rows = {}
+    panel.columnOffset = 0
+    if panel.resizableColumns then
+        panel.columnDividers = {}
+        for _, column in ipairs(columns) do ColumnWidths.CreateDivider(panel, column) end
+        ColumnWidths.CreateBar(panel)
+        header:EnableMouseWheel(true)
+        header:SetScript("OnMouseWheel", function(_, delta) ColumnWidths.Scroll(panel, delta) end)
+    end
+    ColumnWidths.Relayout(panel)
     return panel
 end
 
@@ -2445,7 +3168,7 @@ end
 local function BuildTableRow(panel)
     local rowHeight = panel.rowHeight or ROW_HEIGHT
     local row = CreateFrame("Frame", nil, panel.child, "BackdropTemplate")
-    row:SetSize(CONTENT_WIDTH, rowHeight - 1)
+    row:SetSize(panel.tableWidth or CONTENT_WIDTH, rowHeight - 1)
     SetBackdrop(row, COLORS.surface, { 1, 1, 1, 0.025 })
     row:EnableMouse(true)
     row.values = {}
@@ -2737,7 +3460,9 @@ local function BindCatalogRow(row, data, index)
     row.values.quest:SetText(textColor .. CatalogTitle(definition, (not data.stale) and entry or nil) .. "|r")
     row.values.area:SetText((data.stale and COLORS.stale or "|cffb0bac6")
         .. (CatalogText(definition.groupKey) or "-") .. "|r")
-    row.values.character:SetText(ClassColoredName(data.character, data.stale))
+    -- Der Name behaelt auch in einer alten Woche seine Klassenfarbe: die
+    -- Woche markieren Status- und Altersspalte, nicht die Identitaet.
+    row.values.character:SetText(ClassColoredName(data.character, false))
     if data.stale then
         row.values.status:SetText(COLORS.stale .. L("STATUS_STALE_WEEK") .. "|r")
         row.values.progress:SetText(COLORS.stale .. "-|r")
@@ -4444,15 +5169,27 @@ function WAT:CreateUI()
 
     self.tabButtons = {}
     self.panels = {}
-    -- Neun Navigationsziele: die letzte Schaltflaeche endet bei y=486 und passt
-    -- damit ohne hoeheren Rahmen in die 600er Seitenleiste.
-    local tabOrder = { "overview", "midnight", "weeklies", "professions", "sources", "keystones",
+    -- Zwoelf Navigationsziele; Tiefen, Dungeons und Schlachtzuege stehen direkt
+    -- nach den Wappenquellen. Die Schaltflaechenhoehe wird gegen die Seiten-
+    -- leiste gerechnet statt geschaetzt: zwischen Navigationsbeginn (108) und
+    -- dem Fusshinweis (unten 18 + Zeile + Abstand = 44) bleiben 600 - 108 - 44
+    -- = 448px. Zwoelf Ziele zu je hoechstens 42px passen nicht (504px), also
+    -- floor(448 / 12) = 37px: weiterhin hoeher als eine 38er-Tabellenzeile
+    -- abzueglich Rand und weit ueber der Mindesthoehe von 32px fuer eine
+    -- einzeilige kleine Beschriftung. Die letzte Schaltflaeche endet bei 552.
+    local tabOrder = { "overview", "midnight", "weeklies", "professions", "sources",
+                       "delves", "dungeons", "raids", "keystones",
                        "equipment", "statistics", "settings" }
+    -- Ein weiteres Ziel darf die Schaltflaechen nicht still unter 32px
+    -- quetschen: die Runtime-Harnesses pruefen Mindesthoehe und Unterkante.
+    local navTop = 108
+    local navHeight = math.min(42, math.floor((FRAME_HEIGHT - navTop - 44) / #tabOrder))
+    self.navButtonHeight = navHeight
     local definitions = PanelDefinitions()
     for index, key in ipairs(tabOrder) do
         local targetKey = key
         local definition = definitions[targetKey]
-        local button = CreateNavButton(sidebar, definition, -108 - ((index - 1) * 42))
+        local button = CreateNavButton(sidebar, definition, -navTop - ((index - 1) * navHeight), navHeight)
         button:SetScript("OnClick", function() WAT:SetActiveTab(targetKey) end)
         self.tabButtons[targetKey] = button
         if targetKey == "settings" then
@@ -4604,6 +5341,7 @@ local function FillOverview(row, character, weekly, stale)
     row.values.world:SetText(VaultText(weekly.worldVault, stale))
     row.values.mythic:SetText(VaultText(weekly.mythicPlusVault, stale))
     row.values.mythic10:SetText(MythicPlusTenText(weekly.mythicPlusVault, stale))
+    row.values.raid:SetText(VaultText(weekly.raidVault, stale))
     row.values.updated:SetText((stale and COLORS.stale or "|cffb0bac6") .. FormatAge(character.lastSeen) .. "|r")
 end
 
@@ -4763,6 +5501,9 @@ function WAT:RefreshUI()
                     FillSources(row, character, weekly, stale)
                 elseif panelKey == "keystones" then
                     FillKeystones(row, character, weekly, stale)
+                elseif CONTENT_VIEW.Fill[panelKey] then
+                    row.values.character:SetText(ClassColoredName(character, stale))
+                    CONTENT_VIEW.Fill[panelKey](row, character, stale)
                 else
                     FillOverview(row, character, weekly, stale)
                 end

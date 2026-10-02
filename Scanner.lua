@@ -567,6 +567,11 @@ function WAT:ScanCharacter(character, reason)
         if world and #world.slots > 0 then weekly.worldVault = MergeVault(weekly.worldVault, world) end
         local mythic = ReadVault(CopyNumber(types.Activities))
         if mythic and #mythic.slots > 0 then weekly.mythicPlusVault = MergeVault(weekly.mythicPlusVault, mythic) end
+        -- Raid-Schatzkammer: gleicher sicherer Pfad. Fehlt das Enum (aelterer
+        -- Client), liefert ReadVault nil und es entsteht kein erfundener Vault.
+        -- Bossdetails (GetActivityEncounterInfo) erfasst der Raid-Reiter.
+        local raid = ReadVault(CopyNumber(types.Raid))
+        if raid and #raid.slots > 0 then weekly.raidVault = MergeVault(weekly.raidVault, raid) end
     end
 
     if self.ScanActivities then self:ScanActivities(character, reason) end
@@ -621,29 +626,70 @@ function WAT:GetMythicPlusLevelStatus(vault, targetLevel)
     return nil
 end
 
-function WAT:GetVaultTooltip(vault, levelLabel)
+-- Gemeinsame Slotfelder aller Vault-Tooltips: Fortschritt, Schwelle, Status
+-- und Belohnungs-Itemlevel (echt oder Vorschau). Unbekanntes bleibt "-".
+local function VaultSlotFields(slot)
+    local progress = type(slot.progress) == "number" and tostring(slot.progress) or "-"
+    local threshold = type(slot.threshold) == "number" and tostring(slot.threshold) or "-"
+    local done = type(slot.progress) == "number" and type(slot.threshold) == "number"
+        and slot.progress >= slot.threshold
+    local state = type(slot.progress) ~= "number" and WAT.L("STATUS_UNKNOWN")
+        or (done and WAT.L("STATUS_UNLOCKED") or WAT.L("STATUS_OPEN"))
+    local itemLevel = type(slot.rewardItemLevel) == "number" and tostring(slot.rewardItemLevel) or "-"
+    local rewardLabel = slot.rewardIsPreview == true and WAT.L("REWARD_ITEM_LEVEL_UP_TO")
+        or (slot.rewardIsPreview == false and WAT.L("REWARD_ITEM_LEVEL")
+            or WAT.L("REWARD_LEVEL_GENERIC"))
+    return progress, threshold, state, rewardLabel, itemLevel
+end
+
+local function VaultTooltipLines(vault, formatSlot)
     if type(vault) ~= "table" or type(vault.slots) ~= "table" or #vault.slots == 0 then
         return WAT.L("VAULT_NO_DATA")
     end
     local lines = {}
     for _, slot in ipairs(vault.slots) do
-        if type(slot) == "table" then
-            local index = #lines + 1
-            local progress = type(slot.progress) == "number" and tostring(slot.progress) or "-"
-            local threshold = type(slot.threshold) == "number" and tostring(slot.threshold) or "-"
-            local level = type(slot.level) == "number" and tostring(slot.level) or "-"
-            local done = type(slot.progress) == "number" and type(slot.threshold) == "number"
-                and slot.progress >= slot.threshold
-            local state = type(slot.progress) ~= "number" and WAT.L("STATUS_UNKNOWN")
-                or (done and WAT.L("STATUS_UNLOCKED") or WAT.L("STATUS_OPEN"))
-            local itemLevel = type(slot.rewardItemLevel) == "number" and tostring(slot.rewardItemLevel) or "-"
-            local rewardLabel = slot.rewardIsPreview == true and WAT.L("REWARD_ITEM_LEVEL_UP_TO")
-                or (slot.rewardIsPreview == false and WAT.L("REWARD_ITEM_LEVEL")
-                    or WAT.L("REWARD_LEVEL_GENERIC"))
-            lines[#lines + 1] = WAT.L("VAULT_SLOT_LINE",
-                index, progress, threshold, levelLabel, level, state, rewardLabel, itemLevel)
-        end
+        if type(slot) == "table" then lines[#lines + 1] = formatSlot(#lines + 1, slot) end
     end
     if #lines == 0 then return WAT.L("VAULT_NO_DATA") end
     return table.concat(lines, "\n")
+end
+
+function WAT:GetVaultTooltip(vault, levelLabel)
+    return VaultTooltipLines(vault, function(index, slot)
+        local progress, threshold, state, rewardLabel, itemLevel = VaultSlotFields(slot)
+        local level = type(slot.level) == "number" and tostring(slot.level) or "-"
+        return WAT.L("VAULT_SLOT_LINE",
+            index, progress, threshold, levelLabel, level, state, rewardLabel, itemLevel)
+    end)
+end
+
+-- Beim Raid ist activity.level eine Schwierigkeits-ID, keine Schluesselstein-
+-- stufe: Blizzard_WeeklyRewards.lua zeigt sie ueber
+-- DifficultyUtil.GetDifficultyName(activityInfo.level) an (fixierte Quelle
+-- Gethe/wow-ui-source 09b9db79). Der Name wird erst beim Anzeigen
+-- clientlokalisiert aufgeloest und nie gespeichert.
+function WAT:GetRaidDifficultyName(difficultyID)
+    difficultyID = CopyNumber(difficultyID)
+    if not difficultyID or difficultyID <= 0 then return nil end
+    local util = DifficultyUtil
+    if not IsSafeValue(util) or type(util) ~= "table" then return nil end
+    local getter = util.GetDifficultyName
+    if not IsSafeValue(getter) or type(getter) ~= "function" then return nil end
+    local ok, name = pcall(getter, difficultyID)
+    name = ok and CopyString(name) or nil
+    if name == "" then return nil end
+    return name
+end
+
+function WAT:GetRaidVaultTooltip(vault)
+    return VaultTooltipLines(vault, function(index, slot)
+        local progress, threshold, state, rewardLabel, itemLevel = VaultSlotFields(slot)
+        -- Gesperrte Slots melden Schwierigkeit 0; dann gibt es keine Stufe.
+        local difficulty = "-"
+        if type(slot.level) == "number" and slot.level > 0 then
+            difficulty = WAT:GetRaidDifficultyName(slot.level) or WAT.L("RAID_DIFFICULTY_ID", slot.level)
+        end
+        return WAT.L("RAID_VAULT_SLOT_LINE",
+            index, progress, threshold, difficulty, state, rewardLabel, itemLevel)
+    end)
 end

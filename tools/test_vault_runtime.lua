@@ -116,6 +116,98 @@ assert(WAT:GetMythicPlusLevelStatus({ slots = {
 } }, 10) == nil,
     "ein gemischter Vault mit nicht lesbarem Slot muss unbekannt bleiben")
 
+-- ---------------------------------------------------------------------------
+-- Raid-Schatzkammer (#10)
+--
+-- Raid nutzt denselben sicheren ReadVault-/MergeVault-Pfad wie Tiefen und M+.
+-- Die Aktivitaetsart kommt ausschliesslich aus
+-- Enum.WeeklyRewardChestThresholdType.Raid (Blizzard_WeeklyRewards.lua nutzt
+-- den Namen); der Zahlwert hier ist nur ein Harness-Platzhalter. Bossdetails
+-- (GetActivityEncounterInfo) erfasst der Raid-Reiter, nicht dieser Scanner.
+-- ---------------------------------------------------------------------------
+-- Ohne Raid-Enum (aelterer Client) entsteht weder ein Fehler noch ein Vault.
+local noRaidEnum = { weekly = {} }
+WAT:ScanCharacter(noRaidEnum, "runtime-test")
+assert(noRaidEnum.weekly.raidVault == nil, "ohne Raid-Enum darf kein Raid-Vault entstehen")
+
+Enum.WeeklyRewardChestThresholdType.Raid = 3
+local originalActivities = C_WeeklyRewards.GetActivities
+local originalExamples = C_WeeklyRewards.GetExampleRewardItemHyperlinks
+local raidActivities = {
+    -- level ist bei Raid eine Schwierigkeits-ID (15 = PrimaryRaidHeroic laut
+    -- DifficultyUtil_Base.lua), keine Schluesselsteinstufe.
+    { id = 9101, index = 1, threshold = 2, progress = 2, level = 15,
+      rewards = { { itemDBID = 12345 } } },
+    { id = 9102, index = 2, threshold = 4, progress = 2, level = 0, rewards = {} },
+    { id = 9103, index = 3, threshold = 6, progress = 2, level = 0, rewards = {} },
+}
+C_WeeklyRewards.GetActivities = function(kind)
+    if kind == 3 then return raidActivities end
+    return originalActivities(kind)
+end
+C_WeeklyRewards.GetExampleRewardItemHyperlinks = function(activityID)
+    if activityID == 9102 then return "item:preview" end
+    if activityID == 9103 then return nil end
+    return originalExamples(activityID)
+end
+WAT:ScanCharacter(character, "WEEKLY_REWARDS_UPDATE")
+local raidVault = character.weekly.raidVault
+assert(type(raidVault) == "table" and raidVault.activityType == 3, "Raid-Vault fehlt nach GetActivities(Raid)")
+assert(WAT:GetVaultSummary(raidVault) == "1/3", "Raid-Schwellen aus API, erhalten "
+    .. tostring(WAT:GetVaultSummary(raidVault)))
+assert(raidVault.slots[1].level == 15, "Raid-Schwierigkeits-ID muss unveraendert erhalten bleiben")
+assert(raidVault.slots[1].rewardItemLevel == 710 and raidVault.slots[1].rewardIsPreview == false,
+    "freigeschalteter Raid-Slot nutzt den echten Reward")
+assert(raidVault.slots[2].rewardItemLevel == 700 and raidVault.slots[2].rewardIsPreview == true,
+    "gesperrter Raid-Slot nutzt nur die Vorschau")
+assert(raidVault.slots[3].rewardItemLevel == nil and raidVault.slots[3].rewardIsPreview == nil,
+    "ohne Beispiel-Link bleibt das Raid-Itemlevel unbekannt statt 0")
+-- Raid darf die anderen Vaults weder ersetzen noch vermischen.
+assert(character.weekly.mythicPlusVault.slots[1].level == 12 and #character.weekly.mythicPlusVault.slots == 1,
+    "Raid-Scan veraendert den M+-Vault")
+
+-- Partielle Secret-Antwort: sichere Same-Week-Werte bleiben, nichts wird genullt.
+raidActivities = { { id = 9101, index = 1, threshold = 2, progress = SECRET_VALUE, level = SECRET_VALUE,
+                     rewards = SECRET_VALUE } }
+WAT:ScanCharacter(character, "WEEKLY_REWARDS_UPDATE")
+raidVault = character.weekly.raidVault
+assert(#raidVault.slots == 3 and raidVault.slots[1].progress == 2 and raidVault.slots[1].level == 15,
+    "partielle Raid-Antwort erhaelt Slots und Secret-Felder")
+assert(raidVault.slots[1].rewardItemLevel == 710 and raidVault.slots[1].rewardIsPreview == false,
+    "Raid-Reward bleibt erhalten")
+
+-- Neuer sicherer Fortschritt ersetzt den alten Stand (keine Run-Historie).
+raidActivities = {
+    { id = 9101, index = 1, threshold = 2, progress = 4, level = 16, rewards = { { itemDBID = 12345 } } },
+    { id = 9102, index = 2, threshold = 4, progress = 4, level = 15, rewards = {} },
+    { id = 9103, index = 3, threshold = 6, progress = 4, level = 0, rewards = {} },
+}
+WAT:ScanCharacter(character, "WEEKLY_REWARDS_UPDATE")
+raidVault = character.weekly.raidVault
+assert(WAT:GetVaultSummary(raidVault) == "2/3" and raidVault.slots[1].level == 16
+    and raidVault.slots[2].level == 15 and #raidVault.slots == 3,
+    "sicherer Raid-Fortschritt wird aktualisiert")
+
+-- Leere, geheime oder werfende Antworten erhalten den Vorwert vollstaendig.
+local previousRaid = character.weekly.raidVault
+for _, unreadable in ipairs({ {}, SECRET_VALUE, "error" }) do
+    if unreadable == "error" then
+        C_WeeklyRewards.GetActivities = function(kind)
+            if kind == 3 then error("API nicht bereit") end
+            return originalActivities(kind)
+        end
+    else
+        raidActivities = unreadable
+    end
+    WAT:ScanCharacter(character, "runtime-test")
+    assert(character.weekly.raidVault == previousRaid, "leerer/geheimer Raid-Scan erhaelt Vorwert")
+    local unknownRaid = { weekly = {} }
+    WAT:ScanCharacter(unknownRaid, "runtime-test")
+    assert(unknownRaid.weekly.raidVault == nil, "unbekannter Raid darf keine Null erfinden")
+end
+C_WeeklyRewards.GetActivities = originalActivities
+C_WeeklyRewards.GetExampleRewardItemHyperlinks = originalExamples
+
 local keystone = character.weekly.keystone
 assert(type(keystone) == "table" and keystone.hasKey == true, "Schlüsselstein-Snapshot fehlt")
 assert(keystone.mapID == 503 and keystone.level == 12, "Schlüsselstein-ID oder -Stufe falsch")
@@ -263,6 +355,64 @@ for _, forbidden in ipairs({ "freigeschaltet", "Gegenstandsstufe", "Schatzkammer
 end
 assert(WAT:GetVaultTooltip(nil, "+") == "No Great Vault data recorded yet.",
     "englischer Leertext des Vault-Tooltips fehlt")
+
+-- Raid-Tooltip: Bossfortschritt je Slot, Schwierigkeitsname ueber die
+-- Blizzard-Hilfsfunktion DifficultyUtil.GetDifficultyName(level) (so in
+-- Blizzard_WeeklyRewards.lua SetProgressText) und echte/Vorschau-Itemlevel.
+-- Der Stub bildet nur die Tabellen-Nachschlagung aus DifficultyUtil_Shared.lua ab.
+local RAID_TOOLTIP_VAULT = {
+    slots = {
+        { threshold = 2, progress = 2, level = 15, rewardItemLevel = 710, rewardIsPreview = false },
+        { threshold = 4, progress = 2, level = 0, rewardItemLevel = 720, rewardIsPreview = true },
+        { threshold = 6, level = 99 },
+    },
+}
+DifficultyUtil = {
+    DifficultyNames = { [15] = "HEROISCH-STUB" },
+    GetDifficultyName = function(difficultyID) return DifficultyUtil.DifficultyNames[difficultyID] end,
+}
+for _, locale in ipairs({ "deDE", "enUS" }) do
+    LoadLocalization(locale)
+    local bosses = locale == "deDE" and "Bosse" or "bosses"
+    local raidTooltip = WAT:GetRaidVaultTooltip(RAID_TOOLTIP_VAULT)
+    for _, expected in ipairs({
+        "Slot 1: 2/2 " .. bosses .. " / HEROISCH-STUB",
+        "Slot 2: 2/4 " .. bosses .. " / - /",
+        "Slot 3: -/6 " .. bosses .. " / " .. WAT.L("RAID_DIFFICULTY_ID", 99),
+        WAT.L("REWARD_ITEM_LEVEL") .. " 710", WAT.L("REWARD_ITEM_LEVEL_UP_TO") .. " 720",
+        WAT.L("STATUS_UNLOCKED"), WAT.L("STATUS_OPEN"), WAT.L("STATUS_UNKNOWN"),
+    }) do
+        assert(string.find(raidTooltip, expected, 1, true),
+            "Raid-Tooltip (" .. locale .. ") fehlt: " .. expected .. ", erhalten: " .. raidTooltip)
+    end
+    -- Die Schwierigkeits-ID darf nie als M+-Stufe ("+15") erscheinen.
+    assert(not string.find(raidTooltip, "+15", 1, true), "Raid-Schwierigkeit als M+-Stufe formatiert")
+    assert(WAT:GetRaidVaultTooltip(nil) == WAT.L("VAULT_NO_DATA"), "Raid-Leertext fehlt (" .. locale .. ")")
+end
+assert(WAT.L("RAID_DIFFICULTY_ID", 99) == "Difficulty 99", "englischer Schwierigkeits-Fallback fehlt")
+
+-- Schwierigkeitsname: nur sichere, nicht leere Strings; alles andere bleibt nil.
+assert(WAT:GetRaidDifficultyName(15) == "HEROISCH-STUB", "bekannte Schwierigkeit wird nicht aufgeloest")
+for _, invalid in ipairs({ 0, -1, SECRET_VALUE, "15", 99 }) do
+    assert(WAT:GetRaidDifficultyName(invalid) == nil,
+        "ungueltige Schwierigkeits-ID muss unbekannt bleiben: " .. tostring(invalid))
+end
+for _, broken in ipairs({
+    function() error("nicht geladen") end,
+    function() return SECRET_VALUE end,
+    function() return "" end,
+    function() return 15 end,
+}) do
+    DifficultyUtil.GetDifficultyName = broken
+    assert(WAT:GetRaidDifficultyName(15) == nil, "defekter/geheimer Schwierigkeitsname muss nil liefern")
+end
+DifficultyUtil = SECRET_VALUE
+assert(WAT:GetRaidDifficultyName(15) == nil, "geheimes DifficultyUtil muss nil liefern")
+DifficultyUtil = nil
+assert(WAT:GetRaidDifficultyName(15) == nil, "fehlendes DifficultyUtil muss nil liefern")
+LoadLocalization("deDE")
+assert(string.find(WAT:GetRaidVaultTooltip(RAID_TOOLTIP_VAULT), "2/2 Bosse / Schwierigkeit 15", 1, true),
+    "ohne DifficultyUtil zeigt der Tooltip die lokalisierte Schwierigkeits-ID")
 
 -- Eine unbekannte Clientsprache muss auf Englisch landen, nicht auf Deutsch.
 LoadLocalization("frFR")
@@ -473,7 +623,7 @@ WAT:ScanCharacter(matchingCrests, "runtime-test")
 assert(matchingCrests.weekly.crests.myth.quantity == 23,
     "ein Same-Week-Vorwert mit exakt passender Currency-ID muss API-Ausfall überleben")
 
-print("LUA RUNTIME OK: Vault, Schlüsselstein +12, Secret-Erhalt, kein Schlüsselstein,"
+print("LUA RUNTIME OK: Vault, Raid-Schatzkammer mit Schwierigkeits-ID/Secret-Erhalt/Tooltip, Schlüsselstein +12, Secret-Erhalt, kein Schlüsselstein,"
     .. " konservative Vault-Summary und lückensichere Vorschau-Itemlevel,"
     .. " sprachneutraler GetVaultSummary-Vertrag in deDE/enUS"
     .. " und lokalisierter Vault-Tooltip inklusive frFR-Fallback,"

@@ -55,7 +55,7 @@ Eine Codebasis muss sowohl den aktuellen Retail-Client als auch den aktuellen PT
 - Neue sichtbare Texte ausschliesslich als Schluessel in beiden Woerterbuechern von `Localization.lua`; `enUS` bleibt Fallback fuer andere Clientsprachen.
 - Gespeicherte Daten bleiben sprachneutral. IDs und stabile technische Schluessel statt lokalisierter Namen speichern.
 - Neue Quest-, Currency-, Item-, Achievement- und Statistik-IDs muessen mit aktueller Quelle und Patchbezug belegt werden.
-- Keine Raid-Verfolgung; sie liegt ausserhalb des Projektumfangs.
+- Raid-Daten nur fuer die aktuelle Woche (Raid-Schatzkammer, besiegte Bosse im Bereich Schlachtzuege); keine Raid-Sperren, keine dauerhafte Run- oder Kill-Historie.
 - Keine Secrets, SavedVariables, Backups, lokalen Release-Verzeichnisse oder fremden Assets einchecken.
 
 ## Pull Requests
@@ -75,4 +75,4 @@ npx --yes luaparse@0.3.1 Localization.lua Core.lua Data.lua Scanner.lua Activiti
 
 Bei API-, Event-, Scanner- oder UI-Aenderungen sind die passenden Lua-Runtime-Harnesses zu erweitern. Mocks muessen die reale API-Form des Zielclients abbilden und duerfen fehlende Methoden nicht pauschal vortaeuschen.
 
-Ein gruenes statisches Gate ersetzt keinen In-Game-Test. Vor einem Release sind mindestens Login beziehungsweise `/reload`, manuelles Aktualisieren, Oeffnen aller sieben Bereiche und eine Kontrolle auf Lua-Fehler auf Retail sowie dem aktuellen PTR erforderlich.
+Ein gruenes statisches Gate ersetzt keinen In-Game-Test. Vor einem Release sind mindestens Login beziehungsweise `/reload`, manuelles Aktualisieren, Oeffnen aller zwoelf Bereiche und eine Kontrolle auf Lua-Fehler auf Retail sowie dem aktuellen PTR erforderlich.

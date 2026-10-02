@@ -90,6 +90,13 @@ function Widget:EnableMouse(value) self.mouseEnabled = value end
 function Widget:RegisterForDrag(...) self.dragButtons = { ... } end
 function Widget:RegisterForClicks(...) self.clickButtons = { ... } end
 function Widget:SetScrollChild(child) self.scrollChild = child end
+-- Ziehbare Spaltenbreiten: waagerechter Versatz, Rahmenebene der Trennlinien
+-- und Mausrad am Tabellenkopf.
+function Widget:SetHorizontalScroll(value) self.horizontalScroll = value end
+function Widget:GetHorizontalScroll() return self.horizontalScroll or 0 end
+function Widget:SetFrameLevel(value) self.frameLevel = value end
+function Widget:GetFrameLevel() return self.frameLevel or 1 end
+function Widget:EnableMouseWheel(value) self.mouseWheelEnabled = value end
 function Widget:SetShown(value) self.shown = value end
 function Widget:Show() self.shown = true end
 function Widget:Hide() self.shown = false end
@@ -325,6 +332,17 @@ local function MakeWAT()
                             },
                             updated = 995,
                         },
+                        -- level ist beim Raid eine Schwierigkeits-ID (15), keine M+-Stufe.
+                        raidVault = {
+                            slots = {
+                                { threshold = 2, progress = 2, level = 15, rewardItemLevel = 710,
+                                  rewardIsPreview = false },
+                                { threshold = 4, progress = 2, level = 0, rewardItemLevel = 720,
+                                  rewardIsPreview = true },
+                                { threshold = 6, progress = 2, level = 0 },
+                            },
+                            updated = 995,
+                        },
                         crests = {
                             adventurer = { quantity = 200, currencyID = 3442 },
                             veteran = { quantity = 160, currencyID = 3443 },
@@ -405,6 +423,7 @@ local function MakeWAT()
     function WAT:IsStale() return false end
     function WAT:GetVaultSummary() return "-" end
     function WAT:GetVaultTooltip() return "-" end
+    function WAT:GetRaidVaultTooltip() return "-" end
     function WAT:GetMythicPlusLevelStatus(vault, targetLevel)
         if type(vault) ~= "table" or type(vault.slots) ~= "table" then return nil end
         for _, slot in ipairs(vault.slots) do
@@ -480,6 +499,12 @@ local function RunSuite(locale, expect)
     LoadInto(core, "Core.lua")
     WAT.remove_character = core.remove_character
     WAT.NormalizeCharacterOrder = core.NormalizeCharacterOrder
+    -- Echte Vault-Formatierer aus Scanner.lua: Raid-Spalte und Raid-Tooltip
+    -- zeigen so den tatsaechlichen Summary-/Schwierigkeitsvertrag statt Stubs.
+    local scanner = { L = WAT.L }
+    LoadInto(scanner, "Scanner.lua")
+    WAT.GetVaultSummary = scanner.GetVaultSummary
+    WAT.GetRaidVaultTooltip = scanner.GetRaidVaultTooltip
     LoadInto(WAT, "UI.lua")
     WAT:CreateUI()
 
@@ -553,15 +578,22 @@ local function RunSuite(locale, expect)
     assert(math.abs(WAT.db.settings.minimapAngle) < 0.01,
         context("gezogene Minimap-Position wurde nicht als Winkel gespeichert"))
 
-    local order = { "overview", "midnight", "weeklies", "professions", "sources", "keystones",
+    -- Zwoelf Ziele; die Schaltflaechenhoehe ist gegen die Seitenleiste
+    -- gerechnet: floor((600 - 108 - 44) / 12) = 37px, Unterkante 552.
+    local order = { "overview", "midnight", "weeklies", "professions", "sources",
+                    "delves", "dungeons", "raids", "keystones",
                     "equipment", "statistics", "settings" }
+    assert(WAT.navButtonHeight == 37, context("Navigationshoehe muss 37px sein, ist "
+        .. tostring(WAT.navButtonHeight)))
+    assert(108 + #order * WAT.navButtonHeight <= 600 - 44 and WAT.navButtonHeight >= 32,
+        context("Navigation ragt in den Fusshinweis oder unterschreitet 32px"))
     local buttonCount = 0
     for _ in pairs(WAT.tabButtons) do buttonCount = buttonCount + 1 end
-    assert(buttonCount == #order, context("es muss genau neun Navigationsziele geben, gefunden " .. buttonCount))
+    assert(buttonCount == #order, context("es muss genau zwoelf Navigationsziele geben, gefunden " .. buttonCount))
     for index, key in ipairs(order) do
         local button = WAT.tabButtons[key]
         assert(button and type(button.scripts.OnClick) == "function", context("Klickziel fehlt: " .. key))
-        assert(button.points[1] and button.points[1][3] == -108 - (index - 1) * 42,
+        assert(button.points[1] and button.points[1][3] == -108 - (index - 1) * 37 and button.height == 37,
             context("Navigationsposition falsch: " .. key))
         button.scripts.OnClick()
         assert(WAT.activeTab == key,
@@ -645,6 +677,11 @@ local function RunSuite(locale, expect)
     assert(string.find(staleSourcesRow.values.mythicPlusKey.text or "", expect.staleWeek, 1, true),
         context("alter M+-Quellenstand wird nicht als alte Woche markiert, erhalten: "
             .. tostring(staleSourcesRow.values.mythicPlusKey.text)))
+    local staleRaid = WAT.panels.overview.rows[1].values.raid
+    assert(staleRaid and string.find(staleRaid.text or "", expect.staleWeek, 1, true)
+            and not string.find(staleRaid.text or "", "1/3", 1, true),
+        context("alter Raid-Vault wird nicht als alte Woche markiert, erhalten: "
+            .. tostring(staleRaid and staleRaid.text)))
     WAT.IsStale = savedIsStale
 
     -- Ein Snapshot aus Saison 1 darf unter dem gleichen semantischen Schlüssel
@@ -678,6 +715,31 @@ local function RunSuite(locale, expect)
             and string.find(overviewRow.values.mythic10.text or "", expect.yes, 1, true),
         context("M+10-Abschluss für die 318er Belohnung wird nicht auf einen Blick angezeigt"))
 
+    -- Raid-Schatzkammer (#10): eigene Übersichtsspalte im bestehenden
+    -- Vault-Format, Gesamtbreite weiterhin innerhalb von CONTENT_WIDTH.
+    assert(WAT.panels.overview.headerCells.raid, context("Raid-Spalte fehlt"))
+    local overviewWidthTotal, raidColumn = 0, nil
+    for _, column in ipairs(WAT.panels.overview.columns) do
+        overviewWidthTotal = overviewWidthTotal + column.width
+        if column.key == "raid" then raidColumn = column end
+    end
+    assert(overviewWidthTotal <= 920,
+        context("Übersichts-Spaltenbreiten überschreiten CONTENT_WIDTH: " .. overviewWidthTotal))
+    assert(raidColumn and raidColumn.label == expect.colRaid,
+        context("Raid-Spaltenkopf nicht lokalisiert: " .. tostring(raidColumn and raidColumn.label)))
+    assert(overviewRow.values.raid and string.find(overviewRow.values.raid.text or "", "1/3", 1, true),
+        context("Raid-Vault-Fortschritt fehlt in der Übersicht, erhalten: "
+            .. tostring(overviewRow.values.raid and overviewRow.values.raid.text)))
+    local savedRaidVault = WAT.db.characters.test.weekly.raidVault
+    WAT.db.characters.test.weekly.raidVault = nil
+    WAT:RefreshUI()
+    local unknownRaid = WAT.panels.overview.rows[1].values.raid.text or ""
+    assert(string.find(unknownRaid, "-", 1, true) and not string.find(unknownRaid, "0/", 1, true),
+        context("unbekannter Raid-Vault darf keine Null erfinden, erhalten: " .. unknownRaid))
+    WAT.db.characters.test.weekly.raidVault = savedRaidVault
+    WAT:RefreshUI()
+    overviewRow = WAT.panels.overview.rows[1]
+
     -- Midnight-Weekly: das Label entsteht aus der questID, nicht aus einem
     -- gespeicherten Text.
     local midnightRow = WAT.panels.midnight.rows[1]
@@ -705,6 +767,12 @@ local function RunSuite(locale, expect)
     for _, forbidden in ipairs(expect.forbiddenInTooltip) do
         assert(not string.find(overviewTooltip, forbidden, 1, true),
             context("fremdsprachiger Text im Tooltip: " .. forbidden))
+    end
+    -- Raid-Abschnitt: Bossfortschritt, Schwierigkeit (ohne DifficultyUtil im
+    -- Harness als lokalisierte ID) und echtes/Vorschau-Itemlevel.
+    for _, expected in ipairs({ expect.raidTooltipTitle, expect.raidSlotLine, "710", "720" }) do
+        assert(string.find(overviewTooltip, expected, 1, true),
+            context("Raid-Vault-Tooltip fehlt: " .. expected .. ", erhalten: " .. overviewTooltip))
     end
 
     WAT:SetActiveTab("keystones")
@@ -1655,6 +1723,9 @@ RunSuite("deDE", {
     keystonePanel = "Schlüsselsteine",
     overviewShort = "ÜBERSICHT",
     colCharacter = "CHARAKTER",
+    colRaid = "RAID-VAULT",
+    raidTooltipTitle = "Raid-Schatzkammer",
+    raidSlotLine = "Slot 1: 2/2 Bosse / Schwierigkeit 15",
     tooltipClass = "Klasse",
     keystoneLabel = "Challenge-Map-ID",
     offlineHint = "Offline-Daten werden beim nächsten Login",
@@ -1706,11 +1777,14 @@ RunSuite("enUS", {
     keystonePanel = "Keystones",
     overviewShort = "OVERVIEW",
     colCharacter = "CHARACTER",
+    colRaid = "RAID VAULT",
+    raidTooltipTitle = "Raid Vault",
+    raidSlotLine = "Slot 1: 2/2 bosses / Difficulty 15",
     tooltipClass = "Class",
     keystoneLabel = "Challenge Map ID",
     offlineHint = "Offline data updates the next time",
     dragHint = "Drag to reorder characters",
-    forbiddenInTooltip = { "Klasse", "Angelegte Gegenstandsstufe", "Wochenstand" },
+    forbiddenInTooltip = { "Klasse", "Angelegte Gegenstandsstufe", "Wochenstand", "Raid-Schatzkammer" },
     colHeroicShowdown = "HEROIC\nSHOWDOWNS",
     showdownTitle = "Showdown on Val (Heroic)",
 })
@@ -1758,11 +1832,14 @@ RunSuite("frFR", {
     keystonePanel = "Keystones",
     overviewShort = "OVERVIEW",
     colCharacter = "CHARACTER",
+    colRaid = "RAID VAULT",
+    raidTooltipTitle = "Raid Vault",
+    raidSlotLine = "Slot 1: 2/2 bosses / Difficulty 15",
     tooltipClass = "Class",
     keystoneLabel = "Challenge Map ID",
     offlineHint = "Offline data updates the next time",
     dragHint = "Drag to reorder characters",
-    forbiddenInTooltip = { "Klasse", "Angelegte Gegenstandsstufe", "Wochenstand" },
+    forbiddenInTooltip = { "Klasse", "Angelegte Gegenstandsstufe", "Wochenstand", "Raid-Schatzkammer" },
     colHeroicShowdown = "HEROIC\nSHOWDOWNS",
     showdownTitle = "Confrontation à Val (Héroïque)",
 })
@@ -2803,7 +2880,7 @@ RunDundunLocaleSuite("frFR", {
 })
 RunEasterEggSuite()
 
-print("LUA UI RUNTIME OK: 9/9 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10/318,"
+print("LUA UI RUNTIME OK: 12/12 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10/318,"
     .. " entlastete Übersicht ohne Wappen-/Truhenduplikate, Ritual-Verweis statt Doppelzählung,"
     .. " Saison-2-Wappenquellen mit M+ ab +9 und fünf Nebelwappenbeständen,"
     .. " offene Berufs-Wochenquest und Wappensymbole in den Wappenquellen"

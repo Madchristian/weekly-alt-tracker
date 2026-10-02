@@ -101,6 +101,13 @@ function Widget:EnableMouse(value) self.mouseEnabled = value end
 function Widget:RegisterForDrag(...) self.dragButtons = { ... } end
 function Widget:RegisterForClicks(...) self.clickButtons = { ... } end
 function Widget:SetScrollChild(child) self.scrollChild = child end
+-- Ziehbare Spaltenbreiten: waagerechter Versatz, Rahmenebene der Trennlinien
+-- und Mausrad am Tabellenkopf.
+function Widget:SetHorizontalScroll(value) self.horizontalScroll = value end
+function Widget:GetHorizontalScroll() return self.horizontalScroll or 0 end
+function Widget:SetFrameLevel(value) self.frameLevel = value end
+function Widget:GetFrameLevel() return self.frameLevel or 1 end
+function Widget:EnableMouseWheel(value) self.mouseWheelEnabled = value end
 function Widget:SetShown(value) self.shown = value and true or false end
 function Widget:Show() self.shown = true end
 function Widget:Hide() self.shown = false end

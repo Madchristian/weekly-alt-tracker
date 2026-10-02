@@ -8,28 +8,33 @@ WeeklyAltTracker ist ein eigenständiges Addon für World of Warcraft Retail. Es
 
 - Wochenaktivitäten und accountweiter Charaktervergleich
 - recherchierte Wochenquests der aktiven Saison für PvE und Berufe mit Status je Charakter
-- Große Schatzkammer für Mythic+ und Tiefen/Welt
+- Große Schatzkammer für Mythic+, Tiefen/Welt und Schlachtzüge
+- Tiefen, Dungeons und besiegte Schlachtzugsbosse der aktuellen Woche je Charakter
+- ziehbare Spaltenbreiten in allen Tabellen, accountweit gespeichert
 - saisonale Währungen und ihre unterstützten Quellen
 - Berufe, Wissenspunkte, Wochenquests und Traktate
 - Mythic+-Schlüsselsteine
 - lebenslange Charakterstatistiken und Accountsumme
 - Einstellungen für Aktualisierung, Skalierung, Fenster und Minimap-Symbol
 
-Raid-Fortschritt und Raid-Vault werden bewusst nicht getrackt.
+Die Raid-Schatzkammer erscheint als Wochenstand in der Übersicht. Tiefen, Dungeons und Schlachtzüge zeigen nur die aktuelle Woche: Tiefen-Abschlüsse je Stufe laut Großer Schatzkammer (Stufe 1 zählt auch Weltaktivitäten), heroische/mythische/Mythisch+-Dungeons aus dem Wochenzähler mit den M+-Läufen der Woche (normale Dungeons meldet das Spiel nicht) und besiegte Schlachtzugsbosse mit der höchsten gemeldeten Schwierigkeit. Keine Raid-Sperren, keine Kill-Historie und keine Lebenszeitwerte.
 
-## Neun kompakte Ansichten
+## Zwölf kompakte Ansichten
 
-Das Addon bündelt seinen Funktionsumfang in neun kompakte Ansichten:
+Das Addon bündelt seinen Funktionsumfang in zwölf kompakte Ansichten:
 
 1. Übersicht
 2. Midnight-Woche
 3. Wochenquests
 4. Berufe
 5. Wappenquellen
-6. Schlüsselsteine
-7. Ausrüstung
-8. Statistiken
-9. Einstellungen
+6. Tiefen
+7. Dungeons
+8. Schlachtzüge
+9. Schlüsselsteine
+10. Ausrüstung
+11. Statistiken
+12. Einstellungen
 
 Ausrüstung zeigt zuletzt angelegte Gegenstände mit Icons, Qualitätsrahmen, tatsächlichem Itemlevel, angelegtem Durchschnitt und Zeitstempeln im Charakterfenster-Stil. Jeden Alt zuerst einloggen; danach reine Offline-Snapshots ohne Wochenreset. Unbekannt, leer und nachladend bleiben getrennt. Gespeicherte Itemlinks liefern Tooltips; kein 3D-Modell, kein Transmog, keine Taschen-/Bankansicht oder Beratung.
 

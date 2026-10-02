@@ -1672,6 +1672,8 @@ local function RunActivityScans(self, character, reason)
     -- nutzt deren Identitaeten, statt GetProfessions erneut zu fragen.
     self:ScanWeeklyCatalog(character)
     self:ScanCrestSources(character)
+    -- Tiefen, Dungeons und Schlachtzuege der aktuellen Woche (weekly.content).
+    self:ScanWeeklyContent(character)
     -- Statistiken sind lebenslang und kein Wochenwert: sie liegen bewusst
     -- neben weekly und ueberleben deshalb den Wochenreset.
     self:ScanStatistics(character)
@@ -1686,4 +1688,622 @@ function WAT:ScanActivities(character, reason)
     local ok, err = pcall(RunActivityScans, self, character, reason)
     scanCache = nil
     if not ok then error(err, 0) end
+end
+
+-- ---------------------------------------------------------------------------
+-- Wocheninhalte: Tiefen, Dungeons und Schlachtzuege der aktuellen Woche
+--
+-- Datenvertrag (Gethe/wow-ui-source 09b9db79, Retail 12.1.0 (69933)):
+-- - Tiefen: C_WeeklyRewards.GetSortedProgressForActivity(World, true) liefert
+--   je Stufe { activityTierID, difficulty, numPoints }. Blizzard selbst zeigt
+--   nur difficulty > 1 als Tiefe an; Stufe 1 mischt Weltaktivitaeten und
+--   Tiefen (Blizzard_WeeklyRewards.lua, AddWorldRunsToTooltip). Namen
+--   einzelner Tiefen gibt es in dieser Struktur nicht.
+-- - Dungeons: C_WeeklyRewards.GetNumCompletedDungeonRuns() liefert getrennt
+--   numHeroic, numMythic, numMythicPlus. Normal fehlt ausdruecklich. Details
+--   nur fuer Mythisch+ ueber C_MythicPlus.GetRunHistory; die Listenlaenge ist
+--   keine autoritative Gesamtzahl, completed ist nicht "in Zeit".
+-- - Schlachtzuege: C_WeeklyRewards.GetActivityEncounterInfo(Raid, index) je
+--   Vault-Slot; bestDifficulty > 0 ist laut Blizzard ein abgeschlossener Boss.
+--   Mehrere Slots liefern dieselben Bosse und werden dedupliziert.
+--
+-- Alles liegt unter character.weekly.content und wird deshalb mit dem
+-- Wochenreset des eingeloggten Charakters geleert. Es gibt bewusst keine
+-- Run-Historie ueber die Woche hinaus. Innerhalb derselben Woche koennen die
+-- gemeldeten Werte nur steigen: ein leerer oder kleinerer Lesestand (z. B.
+-- direkt nach dem Login, bevor der Client die Vaultdaten hat) ueberschreibt
+-- deshalb nie einen sicheren Same-Week-Stand. Ungeklaerte In-Game-Grenzen
+-- (Login, Reset, nicht abgeholte Vault-Belohnung) dokumentiert
+-- tools/WEEKLY_CONTENT.md.
+--
+-- Periodenbindung: jeder der drei Abschnitte traegt das weekEnd, unter dem er
+-- gelesen wurde (Resetvertrag aus Core: time() + Sekunden bis zum Reset).
+-- Gemischt wird nur in derselben sicher bekannten Woche. Ohne lesbaren Timer
+-- ist die Woche unbekannt: dann ersetzt ein frischer sicherer Lesestand den
+-- Vorstand ungebunden, statt ein altes Maximum mitzunehmen, und ein
+-- unlesbarer Lesestand laesst den Vorstand mit seiner alten Bindung stehen.
+-- Angezeigt wird ein Abschnitt nur, wenn seine Bindung zur Woche des
+-- Charakters passt - so erscheint ein Vorwochenstand nach der Erholung des
+-- Timers nie als aktuelle Woche.
+-- ---------------------------------------------------------------------------
+
+local Content = {
+    SCHEMA = 1,
+    MAX_TIERS = 32,
+    MAX_RUNS = 40,
+    MAX_HISTORY = 200,
+    MAX_ENCOUNTERS = 64,
+    -- DifficultyUtil.PrimaryRaids in Blizzards Reihenfolge LFR < Normal <
+    -- Heroisch < Mythisch (DifficultyUtil_Base.lua: 17, 14, 15, 16). Eine
+    -- difficultyID ist keine Rangzahl und wird nie numerisch verglichen.
+    RAID_RANK = { [17] = 1, [14] = 2, [15] = 3, [16] = 4 },
+    -- weekEnd = time() + GetSecondsUntilWeeklyReset() schwankt zwischen zwei
+    -- Refreshes um Sekunden; zwei Wochen liegen 7 Tage auseinander.
+    PERIOD_TOLERANCE = 24 * 60 * 60,
+    mapInfoRequested = false,
+}
+
+-- Nicht negative, endliche Ganzzahl oder nil.
+function Content.Count(value)
+    value = SafeNumber(value)
+    if value == nil or value ~= value or value < 0 or value >= math.huge
+            or value ~= math.floor(value) then
+        return nil
+    end
+    return value
+end
+
+function Content.Table(value)
+    if not IsSafe(value) or type(value) ~= "table" then return nil end
+    return value
+end
+
+-- Liest namespace[name] geschuetzt und prueft es als Funktion: eine Metatable
+-- kann schon beim Lesen werfen.
+function Content.Function(namespace, name)
+    namespace = Content.Table(namespace)
+    if not namespace then return nil end
+    local ok, fn = pcall(function() return namespace[name] end)
+    if not ok or not IsSafe(fn) or type(fn) ~= "function" then return nil end
+    return fn
+end
+
+-- Gespeicherte Periodenbindung eines Abschnitts: false bei ungueltigem Wert
+-- (Abschnitt verwerfen), nil fuer "ungebunden" (unbekannte Woche oder aelterer
+-- Stand), sonst das weekEnd.
+function Content.SectionWeekEnd(raw)
+    local value = raw.weekEnd
+    if not IsSafe(value) then return false end
+    if value == nil then return nil end
+    value = Content.Count(value)
+    if not value or value == 0 then return false end
+    return value
+end
+
+-- weekEnd der sicher bekannten Woche des Charakters, sonst nil. Mit now nur,
+-- solange diese Woche noch laeuft (Scan); ohne now fuer die Anzeige.
+function Content.KnownWeekEnd(character, now)
+    local weekEnd = SafeNumber(character.weekEnd)
+    if SafeBoolean(character.weekUnknown) == true or not weekEnd then return nil end
+    if now ~= nil and now >= weekEnd then return nil end
+    return weekEnd
+end
+
+function Content.SamePeriod(a, b)
+    return a ~= nil and b ~= nil and math.abs(a - b) < Content.PERIOD_TOLERANCE
+end
+
+-- Gehoert ein gespeicherter Abschnitt zur Woche des Charakters? In bekannter
+-- Woche nur mit passender Bindung, in unbekannter Woche nur ungebunden.
+function Content.Matches(section, weekEnd)
+    if not section then return false end
+    if weekEnd == nil then return section.weekEnd == nil end
+    return Content.SamePeriod(section.weekEnd, weekEnd)
+end
+
+-- Liest eine dichte Liste geschuetzt; nil bei Fremdtyp, Secret oder Ueberlaenge.
+function Content.List(value, limit)
+    value = Content.Table(value)
+    if not value then return nil end
+    local list = {}
+    for index = 1, limit + 1 do
+        local ok, entry = pcall(function() return value[index] end)
+        if not ok then return nil end
+        if entry == nil then return list end
+        if index > limit or not IsSafe(entry) then return nil end
+        list[index] = entry
+    end
+    return nil
+end
+
+function Content.ThresholdType(name)
+    local enum = Content.Table(Enum)
+    local types = enum and Content.Table(enum.WeeklyRewardChestThresholdType)
+    return types and SafeNumber(types[name]) or nil
+end
+
+-- Vault-Aktivitaeten eines Typs, nur mit sicherem Index und Fortschritt je
+-- Eintrag: nur dann ist belegt, dass der Client die Wochendaten geladen hat.
+function Content.ReadActivities(activityType)
+    local getter = activityType and Content.Function(C_WeeklyRewards, "GetActivities")
+    if not getter then return nil end
+    local ok, activities = pcall(getter, activityType)
+    if not ok then return nil end
+    local list = Content.List(activities, 16)
+    if not list or #list == 0 then return nil end
+    local result = {}
+    for _, activity in ipairs(list) do
+        activity = Content.Table(activity)
+        local index = activity and Content.Count(activity.index)
+        local progress = activity and Content.Count(activity.progress)
+        if not index or not progress then return nil end
+        result[#result + 1] = { index = index, progress = progress }
+    end
+    return result
+end
+
+-- ---------------------------------------------------------------------------
+-- Tiefen
+-- ---------------------------------------------------------------------------
+
+function Content.SortTiers(tiers)
+    table.sort(tiers, function(a, b) return a.difficulty > b.difficulty end)
+    return tiers
+end
+
+-- Atomar: ein einziger unlesbarer Stufeneintrag verwirft den ganzen Lesestand.
+function Content.ReadDelveTiers(worldType)
+    local getter = worldType and Content.Function(C_WeeklyRewards, "GetSortedProgressForActivity")
+    if not getter then return nil end
+    local ok, progress = pcall(getter, worldType, true)
+    if not ok then return nil end
+    local list = Content.List(progress, Content.MAX_TIERS)
+    if not list then return nil end
+    local byDifficulty, tiers = {}, {}
+    for _, entry in ipairs(list) do
+        entry = Content.Table(entry)
+        local difficulty = entry and Content.Count(entry.difficulty)
+        local points = entry and Content.Count(entry.numPoints)
+        if not difficulty or not points then return nil end
+        -- Mit combineSharedDifficulty = true ist je Stufe ein Eintrag zu
+        -- erwarten. Kommt eine Stufe doch doppelt, zaehlt Blizzards eigene
+        -- Tooltipschleife jeden Eintrag einzeln - deshalb wird summiert.
+        local tier = byDifficulty[difficulty]
+        if tier then
+            tier.points = tier.points + points
+        else
+            tier = { difficulty = difficulty, points = points }
+            byDifficulty[difficulty] = tier
+            tiers[#tiers + 1] = tier
+        end
+    end
+    return Content.SortTiers(tiers)
+end
+
+-- Persistierten Tiefenstand fail-closed pruefen; liefert eine Kopie oder nil.
+function Content.ValidDelves(raw)
+    raw = Content.Table(raw)
+    if not raw then return nil end
+    local weekEnd = Content.SectionWeekEnd(raw)
+    if weekEnd == false then return nil end
+    local updated = Content.Count(raw.updated)
+    local list = updated and Content.List(raw.tiers, Content.MAX_TIERS)
+    if not list then return nil end
+    local seen, tiers = {}, {}
+    for _, tier in ipairs(list) do
+        tier = Content.Table(tier)
+        local difficulty = tier and Content.Count(tier.difficulty)
+        local points = tier and Content.Count(tier.points)
+        if not difficulty or not points or seen[difficulty] then return nil end
+        seen[difficulty] = true
+        tiers[#tiers + 1] = { difficulty = difficulty, points = points }
+    end
+    return { tiers = Content.SortTiers(tiers), updated = updated, weekEnd = weekEnd }
+end
+
+-- Eine leere Liste bedeutet nur dann "keine gemeldeten Abschluesse", wenn der
+-- Client im selben Scan sichere Welt-Vaultdaten geliefert hat. Sonst bleibt
+-- der Vorstand (oder unbekannt) stehen. Je Stufe gilt der groessere Wert.
+function Content.MergeDelves(previous, fresh, worldLoaded, now)
+    if not fresh then return previous end
+    if #fresh == 0 and not worldLoaded then return previous end
+    local merged, byDifficulty = {}, {}
+    local function Add(tier)
+        local old = byDifficulty[tier.difficulty]
+        if old then
+            if tier.points > old.points then old.points = tier.points end
+        else
+            old = { difficulty = tier.difficulty, points = tier.points }
+            byDifficulty[old.difficulty] = old
+            merged[#merged + 1] = old
+        end
+    end
+    for _, tier in ipairs(previous and previous.tiers or {}) do Add(tier) end
+    for _, tier in ipairs(fresh) do Add(tier) end
+    return { tiers = Content.SortTiers(merged), updated = now }
+end
+
+-- ---------------------------------------------------------------------------
+-- Dungeons
+-- ---------------------------------------------------------------------------
+
+function Content.ReadDungeonCounts()
+    local getter = Content.Function(C_WeeklyRewards, "GetNumCompletedDungeonRuns")
+    if not getter then return nil end
+    local result = { pcall(getter) }
+    if not result[1] then return nil end
+    local heroic = Content.Count(result[2])
+    local mythic = Content.Count(result[3])
+    local mythicPlus = Content.Count(result[4])
+    -- Partielle Antwort schlaegt atomar fehl (Invariante 4).
+    if heroic == nil or mythic == nil or mythicPlus == nil then return nil end
+    return { heroic = heroic, mythic = mythic, mythicPlus = mythicPlus }
+end
+
+-- Gespeichert werden nur stabile IDs und Zahlen; der Dungeonname entsteht
+-- erst zur Renderzeit clientlokalisiert. completed bleibt das neutrale
+-- API-Flag: ein sicher gelesenes false bleibt false, alles andere nil.
+function Content.CopyRun(run)
+    run = Content.Table(run)
+    if not run then return nil end
+    local mapID = Content.Count(run.mapID)
+    local level = Content.Count(run.level)
+    if not mapID or mapID == 0 or not level then return nil end
+    return {
+        mapID = mapID,
+        level = level,
+        completed = SafeBoolean(run.completed),
+        runScore = Content.Count(run.runScore),
+        durationSec = Content.Count(run.durationSec),
+    }
+end
+
+function Content.SortRuns(runs)
+    table.sort(runs, function(a, b)
+        if a.level ~= b.level then return a.level > b.level end
+        return a.mapID < b.mapID
+    end)
+    return runs
+end
+
+-- Laeufe dieser Woche inklusive unvollstaendiger Laeufe, wie Blizzards eigene
+-- Vault-Tooltipliste (GetRunHistory(false, true)). Ein unlesbarer Eintrag
+-- verwirft den ganzen Lesestand; thisWeek muss sicher gelesen sein.
+function Content.ReadRunHistory()
+    local getter = Content.Function(C_MythicPlus, "GetRunHistory")
+    if not getter then return nil end
+    local ok, history = pcall(getter, false, true, true)
+    if not ok then return nil end
+    local list = Content.List(history, Content.MAX_HISTORY)
+    if not list then return nil end
+    local runs = {}
+    for _, raw in ipairs(list) do
+        raw = Content.Table(raw)
+        local thisWeek = raw and SafeBoolean(raw.thisWeek)
+        if thisWeek == nil then return nil end
+        if thisWeek then
+            local run = Content.CopyRun({
+                mapID = raw.mapChallengeModeID, level = raw.level, completed = raw.completed,
+                runScore = raw.runScore, durationSec = raw.durationSec,
+            })
+            if not run then return nil end
+            runs[#runs + 1] = run
+        end
+    end
+    Content.SortRuns(runs)
+    local truncated = nil
+    while #runs > Content.MAX_RUNS do
+        runs[#runs] = nil
+        truncated = true
+    end
+    return runs, truncated
+end
+
+function Content.ValidDungeons(raw)
+    raw = Content.Table(raw)
+    if not raw then return nil end
+    local weekEnd = Content.SectionWeekEnd(raw)
+    if weekEnd == false then return nil end
+    local result = { weekEnd = weekEnd }
+    local countsUpdated = Content.Count(raw.countsUpdated)
+    local heroic, mythic = Content.Count(raw.heroic), Content.Count(raw.mythic)
+    local mythicPlus = Content.Count(raw.mythicPlus)
+    if countsUpdated and heroic and mythic and mythicPlus then
+        result.heroic, result.mythic, result.mythicPlus = heroic, mythic, mythicPlus
+        result.countsUpdated = countsUpdated
+    end
+    local runsUpdated = Content.Count(raw.runsUpdated)
+    local list = runsUpdated and Content.List(raw.runs, Content.MAX_RUNS)
+    if list then
+        local runs = {}
+        for _, run in ipairs(list) do
+            local copy = Content.CopyRun(run)
+            if not copy then runs = nil; break end
+            runs[#runs + 1] = copy
+        end
+        if runs then
+            result.runs = Content.SortRuns(runs)
+            result.runsUpdated = runsUpdated
+            if SafeBoolean(raw.runsTruncated) == true then result.runsTruncated = true end
+        end
+    end
+    if result.countsUpdated == nil and result.runsUpdated == nil then return nil end
+    return result
+end
+
+function Content.MergeDungeons(previous, counts, runs, truncated, now)
+    local result = {}
+    for key, value in pairs(previous or {}) do result[key] = value end
+    if counts then
+        -- Wochenzaehler fallen innerhalb derselben Woche nicht: ein kleinerer
+        -- Lesestand nach dem Login ersetzt keinen bekannten groesseren.
+        for _, key in ipairs({ "heroic", "mythic", "mythicPlus" }) do
+            local old = result[key]
+            if old == nil or counts[key] > old then result[key] = counts[key] end
+        end
+        result.countsUpdated = now
+    end
+    -- Dieselbe Regel fuer die Liste: eine kuerzere Antwort ist kein Beleg,
+    -- dass Laeufe verschwunden sind, sondern ein unvollstaendiger Lesestand.
+    if runs and (result.runs == nil or #runs >= #result.runs) then
+        result.runs = runs
+        result.runsTruncated = truncated
+        result.runsUpdated = now
+    end
+    if result.countsUpdated == nil and result.runsUpdated == nil then return nil end
+    return result
+end
+
+-- ---------------------------------------------------------------------------
+-- Schlachtzuege
+-- ---------------------------------------------------------------------------
+
+-- Ist candidate eine hoehere gemeldete Schwierigkeit als current? 0 heisst
+-- "nicht abgeschlossen"; eine unbekannte difficultyID > 0 schlaegt 0, aber
+-- nie eine bekannte Stufe.
+function WAT:IsBetterRaidDifficulty(candidate, current)
+    candidate, current = Content.Count(candidate), Content.Count(current)
+    if candidate == nil or candidate == 0 then return false end
+    if current == nil or current == 0 then return true end
+    return (Content.RAID_RANK[candidate] or 0) > (Content.RAID_RANK[current] or 0)
+end
+
+function Content.CopyEncounter(raw)
+    raw = Content.Table(raw)
+    if not raw then return nil end
+    local encounterID = Content.Count(raw.encounterID)
+    local bestDifficulty = Content.Count(raw.bestDifficulty)
+    local uiOrder = Content.Count(raw.uiOrder)
+    local instanceID = Content.Count(raw.instanceID)
+    if not encounterID or encounterID == 0 or not bestDifficulty or not uiOrder or not instanceID then
+        return nil
+    end
+    return { encounterID = encounterID, bestDifficulty = bestDifficulty, uiOrder = uiOrder, instanceID = instanceID }
+end
+
+-- Blizzards EncountersSort ohne den Abschlussvorrang: Instanz, dann uiOrder.
+function Content.SortEncounters(list)
+    table.sort(list, function(a, b)
+        if a.instanceID ~= b.instanceID then return a.instanceID < b.instanceID end
+        if a.uiOrder ~= b.uiOrder then return a.uiOrder < b.uiOrder end
+        return a.encounterID < b.encounterID
+    end)
+    return list
+end
+
+-- Fuegt Bosse dedupliziert ein; die hoehere gemeldete Schwierigkeit gewinnt.
+function Content.AddEncounters(byID, list, encounters)
+    for _, encounter in ipairs(encounters) do
+        local old = byID[encounter.encounterID]
+        if not old then
+            if #list >= Content.MAX_ENCOUNTERS then return false end
+            old = {
+                encounterID = encounter.encounterID, bestDifficulty = encounter.bestDifficulty,
+                uiOrder = encounter.uiOrder, instanceID = encounter.instanceID,
+            }
+            byID[old.encounterID] = old
+            list[#list + 1] = old
+        elseif WAT:IsBetterRaidDifficulty(encounter.bestDifficulty, old.bestDifficulty) then
+            old.bestDifficulty = encounter.bestDifficulty
+        end
+    end
+    return true
+end
+
+-- Liest die Bossliste aller Raid-Vaultslots. Ein werfender Aufruf oder ein
+-- unlesbarer Eintrag verwirft den ganzen Lesestand; ein Slot ohne Antwort
+-- (MayReturnNothing) wird uebersprungen. Ohne eine einzige Liste: nil.
+function Content.ReadRaidEncounters(raidType)
+    local getter = raidType and Content.Function(C_WeeklyRewards, "GetActivityEncounterInfo")
+    if not getter then return nil end
+    local activities = Content.ReadActivities(raidType)
+    if not activities then return nil end
+    local byID, list, answered, asked = {}, {}, false, {}
+    for _, activity in ipairs(activities) do
+        if not asked[activity.index] then
+            asked[activity.index] = true
+            local ok, raw = pcall(getter, raidType, activity.index)
+            if not ok or not IsSafe(raw) then return nil end
+            if raw ~= nil then
+                local entries = Content.List(raw, Content.MAX_ENCOUNTERS)
+                if not entries then return nil end
+                local copies = {}
+                for _, entry in ipairs(entries) do
+                    local copy = Content.CopyEncounter(entry)
+                    if not copy then return nil end
+                    copies[#copies + 1] = copy
+                end
+                if not Content.AddEncounters(byID, list, copies) then return nil end
+                answered = true
+            end
+        end
+    end
+    if not answered then return nil end
+    return Content.SortEncounters(list)
+end
+
+function Content.ValidRaids(raw)
+    raw = Content.Table(raw)
+    if not raw then return nil end
+    local weekEnd = Content.SectionWeekEnd(raw)
+    if weekEnd == false then return nil end
+    local updated = Content.Count(raw.updated)
+    local entries = updated and Content.List(raw.encounters, Content.MAX_ENCOUNTERS)
+    if not entries then return nil end
+    local byID, list = {}, {}
+    for _, entry in ipairs(entries) do
+        local copy = Content.CopyEncounter(entry)
+        if not copy or byID[copy.encounterID] then return nil end
+        byID[copy.encounterID] = copy
+        list[#list + 1] = copy
+    end
+    return { encounters = Content.SortEncounters(list), updated = updated, weekEnd = weekEnd }
+end
+
+function Content.MergeRaids(previous, fresh, now)
+    if not fresh then return previous end
+    local byID, list = {}, {}
+    Content.AddEncounters(byID, list, previous and previous.encounters or {})
+    if not Content.AddEncounters(byID, list, fresh) then return previous end
+    return { encounters = Content.SortEncounters(list), updated = now }
+end
+
+-- ---------------------------------------------------------------------------
+-- Container, Scan und read-only Zugriff
+-- ---------------------------------------------------------------------------
+
+-- Prueft weekly.content fail-closed und liefert eine bereinigte Kopie oder nil.
+-- Legt nie einen Container an, wenn keiner da war.
+function WAT:NormalizeWeeklyContent(raw)
+    raw = Content.Table(raw)
+    if not raw or SafeNumber(raw.schemaVersion) ~= Content.SCHEMA then return nil end
+    local delves = Content.ValidDelves(raw.delves)
+    local dungeons = Content.ValidDungeons(raw.dungeons)
+    local raids = Content.ValidRaids(raw.raids)
+    if not delves and not dungeons and not raids then return nil end
+    return { schemaVersion = Content.SCHEMA, delves = delves, dungeons = dungeons, raids = raids }
+end
+
+-- Read-only Snapshot fuer Renderer und die Raid-Vault-Anzeige: geprueft und
+-- kopiert, ohne API-Zugriff. nil heisst unbekannt.
+function WAT:GetWeeklyContentSnapshot(character)
+    character = Content.Table(character)
+    local weekly = character and Content.Table(character.weekly)
+    if not weekly then return nil end
+    local snapshot = self:NormalizeWeeklyContent(weekly.content)
+    if not snapshot then return nil end
+    -- Ohne now: eine Offline-Woche bleibt ihrem weekEnd zugeordnet und
+    -- erscheint grau als alte Woche, nie als aktuelle.
+    local weekEnd = Content.KnownWeekEnd(character, nil)
+    for _, section in ipairs({ "delves", "dungeons", "raids" }) do
+        if not Content.Matches(snapshot[section], weekEnd) then snapshot[section] = nil end
+    end
+    if not snapshot.delves and not snapshot.dungeons and not snapshot.raids then return nil end
+    return snapshot
+end
+
+function WAT:GetWeeklyRaidEncounters(character)
+    local snapshot = self:GetWeeklyContentSnapshot(character)
+    return snapshot and snapshot.raids or nil
+end
+
+-- Verdichtung fuer Tabellenzellen. Stufe > 1 ist eindeutig Tiefe, Stufe 1
+-- bleibt "Welt oder Tiefe" und geht nie in die Tiefensumme ein.
+function WAT:SummarizeDelves(delves)
+    if type(delves) ~= "table" or type(delves.tiers) ~= "table" then return nil end
+    local summary = { delveRuns = 0, worldOrDelve = 0, highestTier = nil, tiers = delves.tiers }
+    for _, tier in ipairs(delves.tiers) do
+        if tier.difficulty > 1 then
+            summary.delveRuns = summary.delveRuns + tier.points
+            if tier.points > 0 and (summary.highestTier == nil or tier.difficulty > summary.highestTier) then
+                summary.highestTier = tier.difficulty
+            end
+        else
+            summary.worldOrDelve = summary.worldOrDelve + tier.points
+        end
+    end
+    return summary
+end
+
+-- Bossfortschritt je Instanz und gesamt; highestDifficulty nach Blizzards
+-- Rangfolge, nicht nach der numerischen ID.
+function WAT:SummarizeRaids(raids)
+    if type(raids) ~= "table" or type(raids.encounters) ~= "table" then return nil end
+    local summary = { completed = 0, total = 0, highestDifficulty = nil, instances = {} }
+    local byInstance = {}
+    for _, encounter in ipairs(raids.encounters) do
+        local instance = byInstance[encounter.instanceID]
+        if not instance then
+            instance = { instanceID = encounter.instanceID, completed = 0, total = 0, encounters = {} }
+            byInstance[encounter.instanceID] = instance
+            summary.instances[#summary.instances + 1] = instance
+        end
+        instance.total = instance.total + 1
+        instance.encounters[#instance.encounters + 1] = encounter
+        summary.total = summary.total + 1
+        if encounter.bestDifficulty > 0 then
+            instance.completed = instance.completed + 1
+            summary.completed = summary.completed + 1
+            if self:IsBetterRaidDifficulty(encounter.bestDifficulty, summary.highestDifficulty) then
+                summary.highestDifficulty = encounter.bestDifficulty
+            end
+        end
+    end
+    return summary
+end
+
+-- RequestMapInfo stoesst CHALLENGE_MODE_MAPS_UPDATE an, das wiederum einen
+-- Refresh ausloest. Genau einmal je Sitzung - sonst entstuende eine Schleife.
+function Content.RequestMapInfo()
+    if Content.mapInfoRequested then return end
+    Content.mapInfoRequested = true
+    local request = Content.Function(C_MythicPlus, "RequestMapInfo")
+    if request then pcall(request) end
+end
+
+function WAT:ScanWeeklyContent(character)
+    if type(character) ~= "table" or type(character.weekly) ~= "table" then return end
+    local weekly = character.weekly
+    local previous = self:NormalizeWeeklyContent(weekly.content) or {}
+    local now = time()
+    local weekEnd = Content.KnownWeekEnd(character, now)
+    Content.RequestMapInfo()
+
+    -- Basis fuer das Maximum ist nur ein Abschnitt derselben sicher bekannten
+    -- Woche. Ohne frischen Lesestand bleibt der Vorstand mit seiner alten
+    -- Bindung stehen (keine Neudatierung); ein frischer wird gebunden.
+    local function Base(section)
+        if weekEnd ~= nil and section and Content.SamePeriod(section.weekEnd, weekEnd) then return section end
+        return nil
+    end
+    local function Bind(section, merged, base)
+        if merged == nil or merged == base then return section end
+        merged.weekEnd = weekEnd
+        return merged
+    end
+
+    local worldType = Content.ThresholdType("World")
+    local worldLoaded = Content.ReadActivities(worldType) ~= nil
+    local base = Base(previous.delves)
+    local delves = Bind(previous.delves,
+        Content.MergeDelves(base, Content.ReadDelveTiers(worldType), worldLoaded, now), base)
+
+    -- MergeDungeons kopiert die Basis immer; ohne frischen Teil bleibt es beim Vorstand.
+    local runs, truncated = Content.ReadRunHistory()
+    local counts = Content.ReadDungeonCounts()
+    local dungeons = previous.dungeons
+    if counts or runs then
+        dungeons = Bind(previous.dungeons,
+            Content.MergeDungeons(Base(previous.dungeons), counts, runs, truncated, now), nil)
+    end
+
+    local raidType = Content.ThresholdType("Raid")
+    base = Base(previous.raids)
+    local raids = Bind(previous.raids, Content.MergeRaids(base, Content.ReadRaidEncounters(raidType), now), base)
+
+    if delves or dungeons or raids then
+        weekly.content = { schemaVersion = Content.SCHEMA, delves = delves, dungeons = dungeons, raids = raids }
+    else
+        weekly.content = nil
+    end
 end

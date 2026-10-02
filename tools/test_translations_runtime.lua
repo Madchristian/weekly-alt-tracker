@@ -703,6 +703,11 @@ function Widget:RegisterForClicks(...) self.clickButtons = { ... } end
 function Widget:RegisterEvent(event) self.registered = self.registered or {}; self.registered[event] = true end
 function Widget:UnregisterEvent() end
 function Widget:SetScrollChild(child) self.scrollChild = child end
+-- Ziehbare Spaltenbreiten: waagerechter Versatz, Rahmenebene der Trennlinien
+-- und Mausrad am Tabellenkopf.
+function Widget:SetHorizontalScroll(value) self.horizontalScroll = value end
+function Widget:GetHorizontalScroll() return self.horizontalScroll or 0 end
+function Widget:EnableMouseWheel(value) self.mouseWheelEnabled = value end
 function Widget:GetScrollChild() return self.scrollChild end
 function Widget:UpdateScrollChildRect() end
 function Widget:SetShown(value) self.shown = value and true or false end
@@ -881,7 +886,7 @@ do
     checkEqual(WAT.panels.professions.lureToggle.label.text, "顯示誘餌", "Köder-Steuerung nutzt gespeicherten Override")
     local navigationCount = 0
     for _ in pairs(WAT.tabButtons) do navigationCount = navigationCount + 1 end
-    checkEqual(navigationCount, 9, "Editor und Gear behalten neun Navigationsziele")
+    checkEqual(navigationCount, 12, "Editor, Gear und Wocheninhalte ergeben zwoelf Navigationsziele")
 end
 
 -- ---------------------------------------------------------------------------

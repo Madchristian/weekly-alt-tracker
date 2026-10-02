@@ -58,9 +58,9 @@ Data.DUNDUN_CURRENCY_ID = 3376
 
 -- Midnight-Meta-Weekly: Erkennungspool der Seite "Midnight-Woche". Der Pool
 -- enthält auch die Raid-Variante 93912 (und die PvP-Variante 94457), damit das
--- Addon eine vom Spieler gewählte Weekly erkennen kann. Es gibt dennoch
--- keinerlei Raid-Vault- oder Raid-Fortschritts-Tracker, und der Wochenquest-
--- Katalog unten führt beide Varianten ausdrücklich NICHT.
+-- Addon eine vom Spieler gewählte Weekly erkennen kann. Der Wochenquest-
+-- Katalog unten führt beide Varianten ausdrücklich NICHT; die Raid-
+-- Schatzkammer erfasst der Scanner getrennt davon (weekly.raidVault).
 -- Saison 2: 93891 (Legends of the Haranir) ist live obsolete und entfällt;
 -- 96727 (Offworld Showdowns) und 98232 (Vaults of Atal'Utek) sind ergänzt.
 Data.META_QUESTS = {

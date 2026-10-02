@@ -655,14 +655,15 @@
         <aside class="note-panel">
           <h3>Window and character order</h3>
           <p><strong>ESC</strong> closes WeeklyAltTracker like a standard Blizzard window.</p>
-          <p>Drag a character row or a character tab onto another character to reorder it. The account-wide order applies to all five tables and the Statistics tabs, survives reloads, and keeps <strong>TOTAL</strong> pinned first.</p>
+          <p>Drag a character row or a character tab onto another character to reorder it. The account-wide order applies to all eight character tables and the Statistics tabs, survives reloads, and keeps <strong>TOTAL</strong> pinned first.</p>
+          <p><strong>Column widths</strong> can be dragged at the dividers in the column header of every table, including <strong>Weekly Quests</strong>. Double-click resets one column, right-click every column of the page. Wider tables scroll sideways with the bar below the table or the mouse wheel over the header; header and rows stay aligned. Widths apply account-wide.</p>
         </aside>
       </div>
     </section>
 
     <section class="section" id="features">
       <div class="section-head">
-        <div><p class="kicker">Feature set</p><h2>Nine views. One weekly picture.</h2></div>
+        <div><p class="kicker">Feature set</p><h2>Twelve views. One weekly picture.</h2></div>
         <p class="section-intro">The interface stays deliberately compact. Each view answers one concrete question instead of squeezing all data into one overly wide table.</p>
       </div>
 
@@ -670,7 +671,7 @@
         <article class="feature">
           <span class="feature-index">01</span>
           <h3>Overview</h3>
-          <div><p>Compares character level, equipped item level and the unlocked Great Vault slots for Mythic+ and Delves/World. The dedicated column <strong>M+10 / 318</strong> shows immediately whether at least one dungeon has been completed at +10 or higher for the 318 vault reward. Gilded Stash and Mistcrests are no longer duplicated here; they live only under <strong>Crest Sources</strong>.</p><div class="feature-tags"><span>M+10 / 318</span><span>Vault item level</span><span>Offline snapshot</span><span>no raid</span></div></div>
+          <div><p>Compares character level, equipped item level and the unlocked Great Vault slots for Mythic+, Delves/World and raids. For the raid vault the row tooltip lists defeated bosses, difficulty and reward item level per slot. The dedicated column <strong>M+10 / 318</strong> shows immediately whether at least one dungeon has been completed at +10 or higher for the 318 vault reward. Gilded Stash and Mistcrests are no longer duplicated here; they live only under <strong>Crest Sources</strong>.</p><div class="feature-tags"><span>M+10 / 318</span><span>Vault item level</span><span>Offline snapshot</span><span>Raid vault</span></div></div>
         </article>
         <article class="feature">
           <span class="feature-index">02</span>
@@ -696,21 +697,36 @@
         </article>
         <article class="feature">
           <span class="feature-index">06</span>
+          <h3>Delves</h3>
+          <div><p>Shows each character's delve completions for the <strong>current week</strong> per tier, as reported by the Great Vault. Tier 1 also counts world activities and is therefore listed separately as World/Delve; the delve total starts at tier 2. No lifetime history and no delve names.</p><div class="feature-tags"><span>This week</span><span>Tiers</span><span>Great Vault</span></div></div>
+        </article>
+        <article class="feature">
+          <span class="feature-index">07</span>
+          <h3>Dungeons</h3>
+          <div><p>Heroic, Mythic (Mythic 0) and Mythic+ completions this week from the Great Vault's weekly counter, plus this week's Mythic+ runs with the dungeon name in the tooltip. The game does not report Normal dungeons &ndash; that column explicitly shows <strong>n/a</strong>. The API field <code>completed</code> appears only as a neutral note, never as &ldquo;in time&rdquo;.</p><div class="feature-tags"><span>Heroic</span><span>Mythic 0</span><span>Mythic+</span><span>This week</span></div></div>
+        </article>
+        <article class="feature">
+          <span class="feature-index">08</span>
+          <h3>Raids</h3>
+          <div><p>Bosses defeated this week per raid with the highest reported difficulty. The ranking follows Blizzard (Raid Finder &lt; Normal &lt; Heroic &lt; Mythic), never the numeric ID; the name comes client-localised from WoW, otherwise from the addon's own strings. No raid lockouts, no kill count and no history of earlier weeks.</p><div class="feature-tags"><span>Bosses</span><span>Difficulty</span><span>This week</span></div></div>
+        </article>
+        <article class="feature">
+          <span class="feature-index">09</span>
           <h3>Keystones</h3>
           <div><p>Stores dungeon name and level of the currently owned Mythic+ keystone per character. Safe data is preserved when API responses arrive early or protected.</p><div class="feature-tags"><span>Dungeon</span><span>Level</span><span>Data age</span></div></div>
         </article>
         <article class="feature">
-          <span class="feature-index">07</span>
+          <span class="feature-index">10</span>
           <h3>Equipment</h3>
           <div><p>A character-window layout with eight slots on each side and weapons below: icons, quality borders, actual item level per item and equipped average in the centre. Choose a character from six tiles showing class-colored names and realms. The side arrows move the bar by six places, stopping at the last full window. Browsing leaves the displayed equipment unchanged until you click a tile. The header shows the name, last active specialization, an unambiguously equipped set and realm where recorded. Selection and the bar use stable character keys; the counter labels the visible range and total. Log in on every character with the addon enabled first; last equipped gear then remains stored offline and across weekly resets. No live queries of logged-out characters.</p><p><strong>Unknown</strong> means not safely captured, <strong>Empty</strong> confirmed empty and <strong>Pending</strong> partially loaded. Capture and average timestamps appear in the centre; slot timestamps in tooltips. Partial scans may retain older safe slots. Offline does not automatically mean outdated. Item tooltips use the stored link but may scale in the current client context: the slot value remains the captured actual item level.</p><p>No 3D model or transmog reconstruction; no attributes, bags, bank, set management or advice. Sockets, enchants and upgrade ranks are not evaluated as separate completeness checks. After separate installation approval, two real alts, changes/removal/loading, reload and in-game screenshots at 70/100/150% still need acceptance.</p></div>
         </article>
         <article class="feature">
-          <span class="feature-index">08</span>
+          <span class="feature-index">11</span>
           <h3>Statistics</h3>
           <div><p>Since 0.4.0 shows thirteen lifetime values &ndash; delves, dungeons, playtime, deaths, healthstones and quests. Since 0.4.2 the page is no longer a side-by-side comparison of all characters but a <strong>per-scope dashboard</strong>: a fixed register bar along the bottom selects the scope &ndash; pinned at the far left is <strong>TOTAL</strong> (the account total), and to its right one tab per known character. From the eighth character onwards the character tabs live in a horizontally paged viewport with explicit arrow buttons; <strong>TOTAL</strong> always stays pinned and never pages away. The active character tab carries its class colour, the active TOTAL tab the turquoise of the interface. Above the bar all thirteen values of the selected scope are shown <em>simultaneously</em> as metric cards in three sections: <strong>content</strong> (delves, Midnight delves, dungeons entered, Midnight dungeons, playtime), <strong>survival</strong> (deaths total, in dungeons, in raids, from falling, healthstones) and <strong>quests</strong> (completed, daily, abandoned). Every card visibly binds a concise label to a prominent value and clips hard &ndash; no value can bleed into its neighbour, at any scale preset. Very large lifetime values are abbreviated on the card (for example <em>123T</em>); the tooltip still states the exact full value, small values stay exact and playtime is never abbreviated. <strong>Dungeons entered</strong> counts 5-player dungeons <em>entered</em>, not completed; the tooltip says so explicitly. <strong>Midnight dungeons</strong> is not a single Blizzard statistic but the sum of the 24 final boss statistics of the eight Midnight dungeons across Normal, Heroic and Mythic &ndash; it only appears when all 24 components are safely readable. Only safely known values are summed; if no value is known, &ldquo;&minus;&rdquo; is shown and never an invented zero.</p><div class="feature-tags"><span>Dashboard</span><span>TOTAL</span><span>Delves</span><span>Dungeons</span><span>Playtime</span><span>Deaths</span><span>Quests</span></div></div>
         </article>
         <article class="feature">
-          <span class="feature-index">09</span>
+          <span class="feature-index">12</span>
           <h3>Settings</h3>
           <div><p>Bundles every option: refresh, reset the window position, show or hide the minimap button and six fixed scale steps from 70% to 150%. Under <strong>Manage characters</strong>, select a character with the arrows, click <strong>Remove character</strong> and confirm. Cancel preserves the data. The currently logged-in character is protected; log in on another character to remove it. Logging in with WAT enabled records it again. The <strong>Translation editor</strong> opens a compact window: search keys or text, show only missing entries, save or reset per entry, and export language packs as text or import them after a preview.</p><div class="feature-tags"><span>Scale</span><span>Minimap</span><span>Position</span><span>Translations</span></div></div>
         </article>
@@ -774,8 +790,8 @@
           <p>About the client language: If you switch the client to German, the interface appears fully German after restarting the WoW client, including characters already recorded. That works because the addon no longer stores its own translation labels as the display source: it stores stable IDs and localizes them only when displaying, and that runtime resolution takes precedence. Already-localized names supplied by WoW may still sit in the snapshot, but only for backwards compatibility and as a fallback; if no localization is available you see a neutral <code>Dungeon ID</code> instead of a name stored in another language.</p>
         </details>
         <details>
-          <summary>Why is there no raid tracking?</summary>
-          <p>The addon is deliberately tailored to Mythic+, Delves/World, Midnight weekly activities and alt management. Raid progress and the raid vault stay fully excluded.</p>
+          <summary>Which raid data does the addon track?</summary>
+          <p>The addon is deliberately tailored to Mythic+, Delves/World, Midnight weekly activities and alt management. The overview shows the current week of the raid vault (slots, threshold, difficulty, reward level). The <strong>Raids</strong> section lists the bosses defeated this week with the highest reported difficulty. The addon does not track raid lockouts, kill counts or earlier weeks; whether the client briefly still reports previous-week values right after the weekly reset has not been verified in game.</p>
         </details>
         <details>
           <summary>How do I update the addon manually?</summary>

@@ -76,11 +76,12 @@ Tables and tooltips use changed texts immediately. Labels created at load time �
 - Gilded Stash (0/4 per week) and the five Mistcrests (currency IDs 3442 to 3446) are no longer duplicated here; they live only under `Crest Sources`
 - Great Vault for Delves/World: slots 2/4/8
 - Great Vault for Mythic+: slots 1/4/8
+- Great Vault for raids: unlocked slots as a dedicated overview column `RAID VAULT`; the row tooltip shows defeated bosses/threshold, the difficulty (client-localised via Blizzard's `DifficultyUtil`) and the reward item level per slot
 - Per vault slot: progress, tier/keystone level, state and reward item level
 - Dedicated overview column `M+10 / 318`: `Yes` as soon as at least one dungeon has been safely completed at +10 or higher
 - Actual rewards appear as "Item Level …", forecasts as "up to Item Level …"
 - Character level, equipped item level and last snapshot
-- Raid progress and the raid vault are deliberately not included
+- Only the current week of the raid vault; no run history. Bosses defeated this week are shown in the `Raids` section. Old weeks appear as `old week`, unreadable or protected values never overwrite a safe snapshot of the same week
 
 ### Midnight Week
 
@@ -141,6 +142,16 @@ Then log out normally or `/reload`: WoW writes `WTF/Account/<Account>/SavedVaria
 The source view never presents obsolete Season 1 rewards as current Mistcrests. An old Dawncrest snapshot is retained only when its currency ID exactly matches the current definition; otherwise the new value remains unknown.
 
 The Dundun balance deliberately lives outside the weekly reset. An unreadable or protected API value never overwrites a known balance. The tooltip states data age and API scope; account-wide values are never summed across characters.
+
+### Delves, Dungeons, Raids
+
+Three sections right after Crest Sources, per character and for the **current week** only. There is no lifetime or season history, no raid lockouts and no kill count:
+
+- `Delves` – delve completions per tier as reported by the Great Vault. Tier 1 also counts world activities and is therefore shown separately as `World/Delve`; the delve total starts at tier 2. The API provides no delve names for this.
+- `Dungeons` – Heroic, Mythic (Mythic 0) and Mythic+ completions from the Great Vault's weekly counter, plus this week's Mythic+ runs. The game does not report Normal dungeons, so that column explicitly shows `n/a`. The run list's `completed` field is shown only as a neutral API note, not as "in time".
+- `Raids` – bosses defeated this week per raid with the highest reported difficulty. The order follows Blizzard's ranking (Raid Finder < Normal < Heroic < Mythic), never the numeric ID; the name comes client-localised from `DifficultyUtil`, otherwise from the addon's own strings.
+
+Only IDs and numbers are stored; dungeon, boss and raid names are resolved at display time. A missing value shows `-`. Within the same week counters, tier points and boss difficulties only go up; an incomplete read after login never lowers a known value. After the weekly reset the logged-in character starts empty and logged-out characters appear as `old week`.
 
 ### Keystones
 
@@ -209,17 +220,22 @@ There is deliberately no slider: the fixed steps stay exactly inside the range t
 
 Version 0.3.0 uses a standalone Midnight-dark layout inspired by EllesmereUI principles: a fixed left navigation, a large page header with description, flat buttons and compact comparison tables. The addon copies no EllesmereUI assets and does not require EllesmereUI as a dependency.
 
-The left navigation has nine sections:
+The left navigation has twelve sections:
 
 1. `Overview`
 2. `Midnight Week`
 3. `Weekly Quests`
 4. `Professions`
 5. `Crest Sources`
-6. `Keystones`
-7. `Equipment`
-8. `Statistics`
-9. `Settings`
+6. `Delves`
+7. `Dungeons`
+8. `Raids`
+9. `Keystones`
+10. `Equipment`
+11. `Statistics`
+12. `Settings`
+
+Column widths can be dragged at the dividers in the column header of every table (including `Weekly Quests` and the three content sections). Double-clicking a divider resets that column, right-clicking resets every column of the page. When a table is wider than the window, a bar below the table or the mouse wheel over the header or bar scrolls sideways; header and rows move together. Widths apply account-wide and survive restarts. Class-coloured names stay coloured in `Weekly Quests` even for an old week; there, status and data age mark the old week in grey.
 
 Status colours:
 
@@ -244,7 +260,8 @@ The installation path depends on the drive you chose; the Windows default is `C:
 - Any argument after `/wat` opens the `Settings` section directly; the former subcommands `show`, `hide`, `refresh`, `resetpos` and `scale` moved there without replacement.
 - `ESC` closes the window like any other Blizzard standard window, with no custom key binding and no conflict with the slash command or minimap button.
 - Minimap button: left click opens or closes the window; dragging changes the stored position. The button can be hidden in the `Settings` section.
-- Drag a character row or character tab with the left mouse button onto another row or tab to reorder it. The order is global and stable: it applies to all five table sections and the statistics page's character tabs at once, survives refreshes and restarts, and a new character appears predictably in alphabetical order at the end instead of disturbing the stored order.
+- Drag a character row or character tab with the left mouse button onto another row or tab to reorder it. The order is global and stable: it applies to all eight character tables and the statistics page's character tabs at once, survives refreshes and restarts, and a new character appears predictably in alphabetical order at the end instead of disturbing the stored order.
+- Change a column width: drag the divider in the column header; double-click resets the column, right-click the whole page. Scroll wide tables sideways with the bar or the mouse wheel over the header.
 - Quest rows on the `Weekly Quests` page are deliberately not draggable and never change the character order. Filters, search and sorting on that page only last for the current session.
 
 ## Important technical limits
@@ -259,12 +276,14 @@ The Midnight quest pools were determined from current local addon references and
 
 Vault reward item levels can temporarily be unavailable from Blizzard depending on UI/cache state. The last safe value is then kept; unknown appears as `-`.
 
+The `Delves`, `Dungeons` and `Raids` sections show only what `C_WeeklyRewards` and `C_MythicPlus.GetRunHistory` report for the current week. Not yet verified in game are, among other things, whether the counters keep counting above the vault thresholds, what `completed` means for abandoned or late keystones, and whether the client briefly still reports the previous week right after the weekly reset. Because weekly values only go up within the same safely identified week, such a previous-week value would stay until the next reset. If the reset time cannot be read, nothing is merged with older values, and data without a matching week binding never appears as the current week. The raid vault shows only slots, threshold, difficulty and reward level; boss details live in the `Raids` section.
+
 The overview shows `M+10` in green as `Yes` as soon as the Blizzard vault reports at least one unlocked slot with keystone level +10 or higher. In Midnight Season 2 this corresponds to the 318 reward level (Myth 1/6) of the Great Vault. `Open` means safely not yet reached; `-` means unknown.
 
 ## In-game test procedure
 
 1. Enable the addon and run `/reload`.
-2. Open `/wat` and click all nine entries of the left navigation.
+2. Open `/wat` and click all twelve entries of the left navigation; the last button must not cover the hint at the bottom of the sidebar.
 3. In the `Settings` section pick a scale step, hide and show the minimap button again and reset the position.
 4. Open the Great Vault and click `Refresh now` in the `Settings` section.
 5. Hover the vault row and check the item level per slot.
@@ -273,7 +292,7 @@ The overview shows `M+10` in green as `Yes` as soon as the Blizzard vault report
 8. Open the quest log or complete a Midnight activity and check the `Midnight Week` section.
 9. In the `Weekly Quests` section find an accepted weekly quest: status `Active` with progress, `Ready to turn in` once all objectives are met, `Turned in` after turning it in; cycle through the character, category, status and title filters, sort every column ascending and descending, hover a row and check tooltip, scrolling and clipping of long titles at 70%, 100% and 150%. The row "Purging the Vaults" shows the stripe and the `Hero via map` badge (no other row does, old weeks in grey); the `Info: Prey hero chest` button overlaps neither the entry count nor the sort bar and opens or closes its tooltip on hover and click.
 10. In the `Professions` section check skill, `Free / Bags`, profession weekly and treatise; hover the row for item details.
-11. In the `Keystones` section check dungeon name and level of a character holding a Mythic+ keystone.
+11. In the `Keystones` section check dungeon name and level of a character holding a Mythic+ keystone. After a delve, a dungeon and a raid boss, check the `Delves`, `Dungeons` and `Raids` sections with their tooltips and the `RAID VAULT` overview column. In one table drag a column wider, scroll sideways, reset with double-click and right-click, and check the stored width after `/reload`.
 12. In the `Statistics` section check that the logged-in character's values appear and that the account total really adds up across at least two characters. Statistics are only filled once the achievement data has been loaded; until then `-` is shown.
 13. Log in an alt and check that both character snapshots are visible.
 14. In the `Settings` section open the `Translation editor`: change and save an entry, have an invalid value (for example containing `|cff`) rejected, copy `Export` with Ctrl+A/Ctrl+C, feed the same pack through `Import`, `Preview` and `Apply`, then check after `/reload` that the changed labels appear everywhere.
@@ -307,6 +326,8 @@ Separate V2 acceptance test:
 Lua runtime tests of the harnesses in `tools/*.lua` against the real addon files:
 
 `python tools/test_runtime.py`
+
+Twelve harnesses are registered: `test_localization_runtime.lua`, `test_core_runtime.lua`, `test_vault_runtime.lua`, `test_profession_runtime.lua`, `test_profession_lure_runtime.lua`, `test_statistics_runtime.lua`, `test_equipment_runtime.lua`, `test_ui_runtime.lua`, `test_weekly_catalog_runtime.lua`, `test_translations_runtime.lua`, `test_column_widths_runtime.lua` and `test_weekly_content_runtime.lua`. The column-width harness checks all nine tables and runs the raid vault, the three content sections, drag/reset/sideways scrolling and the class colours together in one session.
 
 The runtime harnesses are executed with Fengari, a Lua implementation in JavaScript. Fengari runs the tests but does not check the Lua 5.1 syntax of every source file. For that, `luaparse@0.3.1` is additionally run manually over the Lua files in the development workflow; `luaparse` is not wired into `tools/check.py`.
 

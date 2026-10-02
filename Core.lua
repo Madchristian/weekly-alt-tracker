@@ -29,6 +29,42 @@ local function SafeTable(value)
     return type(value) == "table" and value or nil
 end
 
+-- Gespeicherte Spaltenbreiten: { [panelKey] = { [columnKey] = Breite } }.
+-- Hier wird nur die Form geprueft - sichere Schluessel, endliche Zahl in
+-- einem groben Rahmen, ganzzahlig gerundet. Die spaltengenauen Grenzen kennt
+-- erst die UI und klemmt beim Anwenden erneut. Unbekannte Bereiche und
+-- Spalten bleiben erhalten, damit eine neuere oder aeltere Version die
+-- Breiten ihrer eigenen Spalten nicht verliert. Ein leerer Bereich entfaellt.
+local function SafeLayoutKey(value)
+    local key = SafeString(value)
+    if not key or #key > 40 or not string.find(key, "^%a[%w_]*$") then return nil end
+    return key
+end
+
+local function NormalizeColumnWidths(value)
+    local result = {}
+    local stored = SafeTable(value)
+    if not stored then return result end
+    for panelKey, columns in pairs(stored) do
+        local safePanel = SafeLayoutKey(panelKey)
+        local safeColumns = SafeTable(columns)
+        if safePanel and safeColumns then
+            local widths, count = {}, 0
+            for columnKey, width in pairs(safeColumns) do
+                local safeColumn = SafeLayoutKey(columnKey)
+                local number = SafeNumber(width)
+                if safeColumn and number and number == number and number >= 16 and number <= 2000 then
+                    widths[safeColumn] = math.floor(number + 0.5)
+                    count = count + 1
+                end
+            end
+            if count > 0 then result[safePanel] = widths end
+        end
+    end
+    return result
+end
+WAT.NormalizeColumnWidths = NormalizeColumnWidths
+
 -- Ein sicher gelesenes false bleibt false (Invariante 1). Die fruehere Form
 -- "type(value) == 'boolean' and value or nil" liess false zu nil kollabieren.
 local function SafeBoolean(value)
@@ -177,6 +213,16 @@ local function NormalizeWeeklyCatalog(weekly)
     }
 end
 
+-- Wocheninhalte (Tiefen/Dungeons/Schlachtzuege) fail-closed: ein Secret- oder
+-- Fremdtyp-Container oder ein fremdes Schema wird verworfen, nie erfunden.
+-- Der Pruefer lebt neben dem Scanner in Activities.lua; ohne ihn bleibt der
+-- Container unberuehrt und wird erst beim Rendern geprueft.
+local function NormalizeWeeklyContent(weekly)
+    local raw = weekly.content
+    if not (issecretvalue and issecretvalue(raw)) and raw == nil then return end
+    if WAT.NormalizeWeeklyContent then weekly.content = WAT:NormalizeWeeklyContent(raw) end
+end
+
 -- Langlebige, identitaetsgebundene Notizen; nie Bestandteil von weekly.
 local function NormalizeProfessionLures(record)
     if WAT.GetProfessionLureSnapshot then
@@ -189,6 +235,7 @@ local function NormalizeCharacter(record, oldKey)
     if type(record) ~= "table" then return nil end
     record.weekly = SafeTable(record.weekly) or {}
     NormalizeWeeklyCatalog(record.weekly)
+    NormalizeWeeklyContent(record.weekly)
     record.season = SafeTable(record.season) or {}
     record.professions = SafeTable(record.professions) or {}
     -- Additiv: eine 0.2.6-Datenbank kennt noch keine Statistiken. Der Container
@@ -276,6 +323,7 @@ function WAT:InitializeDatabase()
     settings.activeTab = (activeTab == "overview" or activeTab == "midnight"
         or activeTab == "weeklies"
         or activeTab == "professions" or activeTab == "sources" or activeTab == "keystones"
+        or activeTab == "delves" or activeTab == "dungeons" or activeTab == "raids"
         or activeTab == "equipment" or activeTab == "statistics" or activeTab == "settings")
         and activeTab or "overview"
     -- Additiv: eine Datenbank vor dieser Version kennt noch keine gespeicherte
@@ -283,6 +331,9 @@ function WAT:InitializeDatabase()
     -- eigentliche Inhalt wird gleich unten durch NormalizeCharacterOrder
     -- gegen db.characters gefiltert und ergaenzt.
     settings.characterOrder = SafeTable(settings.characterOrder) or {}
+    -- Additiv: accountweite Spaltenbreiten je Bereich und stabilem
+    -- Spaltenschluessel (siehe ColumnWidths in UI.lua).
+    settings.columnWidths = NormalizeColumnWidths(settings.columnWidths)
     -- Additiv: accountweite Benutzeruebersetzungen (db.translations) liegen
     -- neben characters/settings und ueberleben Updates. Localization.lua ist
     -- laut TOC bereits geladen; sie normalisiert den Container fail-closed
@@ -448,14 +499,32 @@ function WAT:PrepareCurrentCharacter()
     end
     if currentWeekEnd then
         local weekStart = currentWeekEnd - (7 * 24 * 60 * 60)
-        local snapshotUpdated = SafeNumber(character.weekly.updated)
+        -- In unbekannter Woche erneuert jeder Refresh weekly.updated, auch
+        -- wenn kein Leser Erfolg hatte; ein Vorwochen-Vault ueberlebt das per
+        -- Merge. Bei der Wiedererkennung zaehlt deshalb nur, wann die
+        -- unbekannte Phase mit leerem Wochenstand begann. Ohne diesen
+        -- Nachweis wird der Stand fail-closed verworfen; der Scan direkt
+        -- danach fuellt die erkannte Woche neu.
+        local evidence
+        if character.weekUnknown == true then
+            evidence = SafeNumber(character.weekly.unknownSince)
+        else
+            evidence = SafeNumber(character.weekly.updated)
+        end
         if not character.weekEnd and next(character.weekly) ~= nil
-                and (not snapshotUpdated or snapshotUpdated < weekStart) then
+                and (not evidence or evidence < weekStart) then
             character.weekly = {}
         end
+        character.weekly.unknownSince = nil
         character.weekEnd = currentWeekEnd
         character.weekUnknown = nil
     elseif not character.weekEnd then
+        -- Nur ein leerer Wochenstand belegt, dass alles Folgende aus dieser
+        -- unbekannten Phase stammt. Danach ist weekly nicht mehr leer, die
+        -- Markierung bleibt also beim ersten Zeitpunkt stehen.
+        if next(character.weekly) == nil then
+            character.weekly.unknownSince = now
+        end
         character.weekUnknown = true
     end
 
