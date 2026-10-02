@@ -5289,12 +5289,18 @@ function WAT:CreateUI()
     FitLabel(footer, FRAME_WIDTH - CONTENT_LEFT - (20 + SCROLLBAR_GUTTER))
     self.footer = footer
 
+    -- Zaehlt echte Renders; ShowUI erkennt daran, ob OnShow schon gerendert hat.
+    self.uiRenderSerial = 0
     self.frame = frame
     self:CreateMinimapButton()
+    -- Erst die Sichtbarkeit, dann der Reiter: ein geschlossen startendes
+    -- Fenster bindet beim Laden keine Seite, sein erstes Oeffnen rendert ueber
+    -- OnShow. Nur das Intro (offen) rendert sofort.
+    frame:SetScript("OnShow", function() WAT:RefreshUI() end)
+    if self.db.settings.seenIntro then frame:Hide() else self.db.settings.seenIntro = true end
     local initialTab = self.db.settings.activeTab
     if not self.panels[initialTab] then initialTab = "overview" end
     self:SetActiveTab(initialTab)
-    if self.db.settings.seenIntro then frame:Hide() else self.db.settings.seenIntro = true end
 end
 
 -- Liefert die Charaktere UND ihre stabilen Datenbankschluessel in derselben
@@ -5447,29 +5453,34 @@ local function PaintRow(row, color)
     row:SetBackdropColor(color[1], color[2], color[3], color[4])
 end
 
+-- Gebunden wird nur, was man sieht: bei geschlossenem Fenster nichts, sonst
+-- allein die aktive Seite. Die Scans laufen davon unabhaengig weiter und
+-- schreiben die Snapshots; das OnShow des Fensters (CreateUI) und
+-- SetActiveTab rufen RefreshUI auf, sobald eine Seite sichtbar wird, und
+-- zeigen so sofort den aktuellen Stand.
 function WAT:RefreshUI()
     if not self.frame or not self.panels then return end
+    if not self.frame:IsShown() then return end
+    self.uiRenderSerial = self.uiRenderSerial + 1
     local characters, characterKeys = GetCharacters()
     if self.activeTab == "settings" then
         self.toolbar:SetText(L("CHROME_TOOLBAR_SETTINGS"))
+        self:UpdateSettingsState()
     else
         self.toolbar:SetText(L("CHROME_TOOLBAR_COUNT", #characters))
     end
-    self:UpdateSettingsState()
 
-    for panelKey, panel in pairs(self.panels) do
+    local panelKey = self.activeTab
+    local panel = self.panels[panelKey]
+    if panel then
         -- Das Einstellungspanel ist ein Formular, die Statistikseite ein
         -- Dashboard. Beide erzeugen bewusst keine Charakterzeilen.
         if panel.isEquipment then
-            if self.activeTab == panelKey then self:RefreshEquipmentPanel(panel, characters, characterKeys) end
+            self:RefreshEquipmentPanel(panel, characters, characterKeys)
         elseif panel.isDashboard then
             self:RefreshStatisticsDashboard(panel, characters, characterKeys)
         elseif panel.isCatalog then
-            -- Nur die sichtbare Katalogseite rechnet; SetActiveTab ruft
-            -- RefreshUI nach dem Umschalten ohnehin erneut auf.
-            if self.activeTab == panelKey then
-                self:RefreshWeeklyCatalogPanel(panel, characters, characterKeys)
-            end
+            self:RefreshWeeklyCatalogPanel(panel, characters, characterKeys)
         elseif not panel.isForm then
             for _, row in ipairs(panel.rows) do
                 row.character = nil
@@ -5525,7 +5536,12 @@ function WAT:RefreshUI()
 end
 
 function WAT:ShowUI()
-    if self.frame then self.frame:Show(); self:RefreshUI() end
+    if not self.frame then return end
+    local serial = self.uiRenderSerial
+    self.frame:Show()
+    -- Beim Oeffnen hat OnShow bereits gerendert; nur ein schon offenes
+    -- Fenster wird hier aufgefrischt. So entsteht nie ein doppelter Render.
+    if self.uiRenderSerial == serial then self:RefreshUI() end
 end
 function WAT:HideUI() if self.frame then self.frame:Hide() end end
 function WAT:ToggleUI()

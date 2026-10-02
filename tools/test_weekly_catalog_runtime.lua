@@ -1213,6 +1213,9 @@ local function StartAddon(locale, db)
     local WAT = Load(locale, ALL_FILES)
     local onEvent = WAT.events:GetScript("OnEvent")
     onEvent(nil, "ADDON_LOADED", "WeeklyAltTracker")
+    -- Diese Suite prueft sichtbare Seiten. Seit #17 bindet RefreshUI nur die
+    -- aktive Seite eines offenen Fensters, deshalb ist das Fenster hier offen.
+    WAT:ShowUI()
     return WAT, onEvent
 end
 
@@ -1757,6 +1760,7 @@ local function StartSortAddon(locale, db)
     InstallSortFixture(WAT)
     local onEvent = WAT.events:GetScript("OnEvent")
     onEvent(nil, "ADDON_LOADED", "WeeklyAltTracker")
+    WAT:ShowUI() -- sichtbare Seite, siehe StartAddon (#17)
     return WAT, onEvent
 end
 

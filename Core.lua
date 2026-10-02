@@ -641,10 +641,13 @@ local function HandleSlash(message)
         -- Befehlsliste zu drucken, fuehrt jedes Argument dorthin, wo die
         -- Optionen jetzt liegen. Die Guards sind noetig, weil Core.lua vor
         -- UI.lua geladen wird und ein Aufruf theoretisch davor liegen kann.
-        if WAT.ShowUI then WAT:ShowUI() end
+        -- Erst der Reiter, dann das Oeffnen: so rendert genau einmal die
+        -- Einstellungsseite statt zuerst die alte Seite und dann die neue.
+        local wasShown = WAT.frame and WAT.frame:IsShown()
         if WAT.SetActiveTab and WAT.panels and WAT.panels.settings then
             WAT:SetActiveTab("settings")
         end
+        if not wasShown and WAT.ShowUI then WAT:ShowUI() end
         Print(WAT.L("SLASH_HELP"))
     end
 end

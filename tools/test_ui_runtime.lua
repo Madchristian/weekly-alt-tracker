@@ -438,6 +438,21 @@ local function MakeWAT()
     return WAT
 end
 
+-- Seit Issue #17 bindet RefreshUI nur die sichtbare Seite eines offenen
+-- Fensters. Pruefungen ueber mehrere Tabellenseiten oeffnen deshalb das
+-- Fenster und besuchen jede Tabellenseite wie ein Spieler; danach ist wieder
+-- der vorige Reiter aktiv und frisch gebunden.
+local function RenderAllPanels(WAT)
+    WAT.frame:Show()
+    local previous = WAT.activeTab
+    for key, panel in pairs(WAT.panels) do
+        if not (panel.isForm or panel.isDashboard or panel.isCatalog or panel.isEquipment) then
+            WAT:SetActiveTab(key)
+        end
+    end
+    WAT:SetActiveTab(previous)
+end
+
 local function LoadInto(WAT, file)
     local chunk, loadError = loadfile(file)
     assert(chunk, loadError)
@@ -651,7 +666,7 @@ local function RunSuite(locale, expect)
     -- deshalb nicht grün wie ein Erfolg erscheinen.
     local mythicSource = WAT.db.characters.test.weekly.crestSources.mythicPlus
     mythicSource.highestUnlockedLevel = 7
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     local belowThreshold = WAT.panels.sources.rows[1].values.mythicPlusKey.text or ""
     assert(string.find(belowThreshold, "+7", 1, true),
         context("sicher abgeschlossene M+-Stufe +7 fehlt: " .. belowThreshold))
@@ -661,7 +676,7 @@ local function RunSuite(locale, expect)
         context("M+7 unterhalb der Myth-Schwelle muss als Teilfortschritt bernstein erscheinen: "
             .. belowThreshold))
     mythicSource.highestUnlockedLevel = 10
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     sourcesRow = WAT.panels.sources.rows[1]
 
     assert(string.find(sourcesRow.values.crestAdventurer.text or "", "200", 1, true)
@@ -672,7 +687,7 @@ local function RunSuite(locale, expect)
     -- M+-Abschlüsse aussehen.
     local savedIsStale = WAT.IsStale
     WAT.IsStale = function() return true end
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     local staleSourcesRow = WAT.panels.sources.rows[1]
     assert(string.find(staleSourcesRow.values.mythicPlusKey.text or "", expect.staleWeek, 1, true),
         context("alter M+-Quellenstand wird nicht als alte Woche markiert, erhalten: "
@@ -689,7 +704,7 @@ local function RunSuite(locale, expect)
     -- muss zur aktuellen Definition passen.
     local champion = WAT.db.characters.test.weekly.crests.champion
     champion.currencyID = 3343
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     local mismatchedSources = WAT.panels.sources.rows[1]
     assert(WAT.panels.overview.rows[1].values.crests == nil and WAT.panels.overview.rows[1].values.gilded == nil,
         context("die Übersicht darf keine Wappen-/Truhenduplikate mehr führen"))
@@ -699,7 +714,7 @@ local function RunSuite(locale, expect)
     assert(not string.find(GameTooltip:TooltipText(), "\t120", 1, true),
         context("altes Champion-Wappen wird im Tooltip als Nebelwappen angezeigt"))
     champion.currencyID = 3444
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
 
     -- Die Spaltenbreiten des Wappenquellen-Panels bleiben trotz der neuen
     -- Spalte innerhalb von CONTENT_WIDTH.
@@ -732,12 +747,12 @@ local function RunSuite(locale, expect)
             .. tostring(overviewRow.values.raid and overviewRow.values.raid.text)))
     local savedRaidVault = WAT.db.characters.test.weekly.raidVault
     WAT.db.characters.test.weekly.raidVault = nil
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     local unknownRaid = WAT.panels.overview.rows[1].values.raid.text or ""
     assert(string.find(unknownRaid, "-", 1, true) and not string.find(unknownRaid, "0/", 1, true),
         context("unbekannter Raid-Vault darf keine Null erfinden, erhalten: " .. unknownRaid))
     WAT.db.characters.test.weekly.raidVault = savedRaidVault
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     overviewRow = WAT.panels.overview.rows[1]
 
     -- Midnight-Weekly: das Label entsteht aus der questID, nicht aus einem
@@ -1219,7 +1234,7 @@ local function RunSuite(locale, expect)
     -- Auswahl ueberlebt RefreshUI, fehlende Auswahl faellt auf GESAMT zurueck
     -- -----------------------------------------------------------------------
 
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     assert(statisticsPanel.scopeKey == "test",
         context("die Auswahl ueberlebt RefreshUI nicht, aktuell: "
             .. tostring(statisticsPanel.scopeKey)))
@@ -1229,7 +1244,7 @@ local function RunSuite(locale, expect)
     -- Lebenslange Werte veralten nicht mit der Woche.
     local savedIsStale = WAT.IsStale
     WAT.IsStale = function() return true end
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     local staleText = PlainText(cards.delvesTotal.value)
     assert(staleText == "120",
         context("lebenslange Statistiken duerfen nicht als alte Woche ausgegraut werden, erhalten: "
@@ -1242,7 +1257,7 @@ local function RunSuite(locale, expect)
     -- auf GESAMT zurueck statt eine leere oder falsche Karte zu zeigen.
     local savedCharacter = WAT.db.characters.test
     WAT.db.characters.test = nil
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     assert(statisticsPanel.scopeKey == totalTab.scopeKey,
         context("ein fehlender Charakter muss auf GESAMT zurueckfallen, aktuell: "
             .. tostring(statisticsPanel.scopeKey)))
@@ -1261,7 +1276,7 @@ local function RunSuite(locale, expect)
     -- fuer den Rest dieser Suite ist aber weiterhin die urspruengliche
     -- alphabetische Reihenfolge (test, alt) vorausgesetzt.
     WAT.db.settings.characterOrder = nil
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
 
     -- -----------------------------------------------------------------------
     -- Kein Objektwachstum: Karten und Reiter werden wiederverwendet
@@ -1271,9 +1286,9 @@ local function RunSuite(locale, expect)
     local pooledCard = cards.delvesTotal
     local pooledTabCount = #statisticsPanel.characterTabs
     local widgetsBefore = WidgetsCreated()
-    WAT:RefreshUI()
-    WAT:RefreshUI()
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
+    RenderAllPanels(WAT)
+    RenderAllPanels(WAT)
     assert(WidgetsCreated() == widgetsBefore,
         context("wiederholtes RefreshUI erzeugt neue Objekte: " .. WidgetsCreated()
             .. " statt " .. widgetsBefore .. " - der Statistikbereich leckt Rahmen"))
@@ -1410,9 +1425,13 @@ local function RunSuite(locale, expect)
     for _, key in ipairs(WAT.db.settings.characterOrder) do
         assert(key ~= selected_key, context("entfernter Charakter noch in Sortierung"))
     end
+    -- Verborgene Seiten gleichen ihre Auswahl beim naechsten Sichtbarwerden
+    -- ab (Issue #17): geprueft wird, was der Spieler beim Wechsel sieht.
+    WAT:SetActiveTab("statistics")
     assert(WAT.panels.statistics.scopeKey ~= selected_key, context("Statistikauswahl veraltet"))
     WAT:SetActiveTab("weeklies")
     assert(WAT.panels.weeklies.filter.characterKey ~= selected_key, context("Katalogfilter veraltet"))
+    WAT:SetActiveTab("overview")
     for _, row in ipairs(WAT.panels.overview.rows) do
         assert(row.character ~= selected_record, context("entfernter Charakter noch in Uebersicht"))
     end
@@ -1434,12 +1453,12 @@ local function RunSuite(locale, expect)
     assert(not controls.character_confirm:IsShown(), context("Schliessen verwirft Bestaetigung nicht"))
     local saved_characters = WAT.db.characters
     WAT.db.characters = {}
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     assert(not controls.character_remove:IsShown(), context("leere Liste erlaubt Entfernen"))
     assert(not controls.character_next:IsShown(), context("leere Liste hat Blaetterpfeile"))
     WAT.db.characters = saved_characters
     WAT.db.settings.characterOrder = saved_order
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
 
     -- Kein Button zum Loeschen der gesamten Datenbank.
     for _, forbidden in ipairs({ "wipe", "Wipe", "delete", "Delete" }) do
@@ -1490,7 +1509,7 @@ local function RunSuite(locale, expect)
 
     -- Fallback ohne API: exakt lesbarer bisheriger Plain-Text, kein halbes |T-Markup.
     C_CurrencyInfo = nil
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     local plainText = SourcesCrestText()
     assert(not string.find(plainText, "|T", 1, true),
         context("ohne C_CurrencyInfo darf kein Texturmarkup entstehen, erhalten: " .. plainText))
@@ -1566,7 +1585,7 @@ local function RunSuite(locale, expect)
     -- Der Kurzbuchstabe stammt primär aus Data.CRESTS[key].short: eine geänderte
     -- Datentabelle muss sich im Fallback zeigen, sonst gäbe es eine zweite Wahrheit.
     WAT.Data.CRESTS.champion.short = "Z"
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     local shortText = SourcesCrestText()
     assert(string.find(shortText, "Z 120", 1, true),
         context("Fallback-Buchstabe kommt nicht aus Data.CRESTS[key].short, erhalten: " .. shortText))
@@ -1575,7 +1594,7 @@ local function RunSuite(locale, expect)
     -- iconFileIDs sind reine Laufzeit-Referenzen und dürfen nirgends in WAT.db und
     -- damit nie in den SavedVariables landen. Rekursiv über die gesamte DB geprüft.
     C_CurrencyInfo = RealCurrencyInfo()
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
 
     local function FindIconID(value, seen, path)
         if type(value) == "number" then
@@ -1673,7 +1692,7 @@ local function RunSuite(locale, expect)
         active = true,
         variantKnown = true,
     }
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     local onlyLegacy = WAT.panels.midnight.rows[1].values.weekly.text or ""
     assert(string.find(onlyLegacy, "Nur-Alttext", 1, true),
         context("ohne questID muss das Legacy-Label noch lesbar sein, erhalten: " .. onlyLegacy))
@@ -1869,7 +1888,8 @@ local function RunDerivedOnlyStatisticsSuite()
     for _ in pairs(panel.cards) do cardCount = cardCount + 1 end
     assert(cardCount == 13,
         "[derived-only] die stabile 13-Werte-Geometrie wurde verändert: " .. tostring(cardCount))
-    WAT:RefreshUI()
+    WAT.frame:Show()
+    WAT:SetActiveTab("statistics")
     assert(panel.scopeKey == panel.totalTab.scopeKey,
         "[derived-only] der Standardbereich muss GESAMT sein")
     assert(string.find(panel.cards.midnightDungeons.value.text or "", "60", 1, true),
@@ -1915,8 +1935,9 @@ local function RunPaginationSuite()
     LoadInto(WAT, "Data.lua")
     LoadInto(WAT, "UI.lua")
     WAT:CreateUI()
+    WAT.frame:Show() -- offenes Fenster: nur sichtbare Seiten werden gebunden (#17)
     WAT:SetActiveTab("statistics")
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
 
     local panel = WAT.panels.statistics
     local totalCharacters = 0
@@ -1938,19 +1959,19 @@ local function RunPaginationSuite()
         removedCharacters[key] = WAT.db.characters[key]
         WAT.db.characters[key] = nil
     end
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     assert(panel.prevArrow:IsShown() ~= true and panel.nextArrow:IsShown() ~= true,
         "[pagination] bei exakt sieben Charakteren duerfen keine Blaetterpfeile sichtbar sein")
 
     WAT.db.characters.page06 = removedCharacters.page06
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     assert(panel.prevArrow:IsShown() == true and panel.nextArrow:IsShown() == true,
         "[pagination] ab dem achten Charakter muessen beide Blaetterpfeile sichtbar sein")
 
     for key, character in pairs(removedCharacters) do
         WAT.db.characters[key] = character
     end
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
 
     -- Genau ein Reiter je Charakter im Pool - kein Charakter doppelt, keiner
     -- verloren. Sichtbar ist davon nur ein Ausschnitt.
@@ -2071,8 +2092,8 @@ local function RunPaginationSuite()
 
     -- Auch bei vielen Charakteren waechst nichts nach.
     local widgetsBefore = WidgetsCreated()
-    WAT:RefreshUI()
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
+    RenderAllPanels(WAT)
     assert(WidgetsCreated() == widgetsBefore,
         "[pagination] wiederholtes RefreshUI erzeugt neue Objekte: " .. WidgetsCreated()
             .. " statt " .. widgetsBefore)
@@ -2106,6 +2127,7 @@ local function RunCharacterOrderSuite()
     LoadInto(WAT, "Data.lua")
     LoadInto(WAT, "UI.lua")
     WAT:CreateUI()
+    RenderAllPanels(WAT)
 
     local function AssertPanelOrder(panelKey)
         local panel = WAT.panels[panelKey]
@@ -2139,7 +2161,7 @@ local function RunCharacterOrderSuite()
         lastSeen = 999, statistics = { scanned = 999 }, weekly = {},
     }
     WAT:SetActiveTab("overview")
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     local overview = WAT.panels.overview
     assert(overview.rows[1].character == WAT.db.characters.alt
             and overview.rows[2].character == WAT.db.characters.test
@@ -2175,6 +2197,7 @@ local function RunDragReorderSuite()
     LoadInto(WAT, "Data.lua")
     LoadInto(WAT, "UI.lua")
     WAT:CreateUI()
+    WAT.frame:Show() -- offenes Fenster: nur sichtbare Seiten werden gebunden (#17)
     WAT:SetActiveTab("overview")
 
     local overview = WAT.panels.overview
@@ -2197,9 +2220,11 @@ local function RunDragReorderSuite()
     assert(order[1] == "alt" and order[2] == "test",
         "[drag] Ziehen einer Zeile auf eine andere hat die Reihenfolge nicht vertauscht, erhalten: "
             .. tostring(order[1]) .. ", " .. tostring(order[2]))
-    -- Wirkt SOFORT auf alle fuenf Panels: die Zeile an Position 1 zeigt jetzt alt.
+    -- Wirkt SOFORT auf die sichtbare Seite und beim Besuch auf alle fuenf
+    -- Panels (#17: verborgene Seiten werden erst beim Sichtbarwerden gebunden).
     assert(WAT.panels.overview.rows[1].character == WAT.db.characters.alt,
         "[drag] Drag-Umsortierung aktualisiert die Uebersicht nicht sofort")
+    RenderAllPanels(WAT)
     assert(WAT.panels.midnight.rows[1].character == WAT.db.characters.alt,
         "[drag] Drag-Umsortierung wirkt nicht auf alle fuenf Panels (midnight)")
     assert(WAT.panels.keystones.rows[1].character == WAT.db.characters.alt,
@@ -2257,7 +2282,7 @@ local function RunDragReorderSuite()
     -- Frischer, bekannter Ausgangszustand: der vorherige Zeilentest hat die
     -- Reihenfolge bereits auf [alt, test] gebracht.
     WAT.db.settings.characterOrder = { "test", "alt" }
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
 
     local function TabFor(key)
         for _, tab in ipairs(statisticsPanel.characterTabs) do
@@ -2310,8 +2335,8 @@ local function RunDragReorderSuite()
 
     -- Kein Objektwachstum durch Drag-Handling selbst.
     local widgetsBefore = WidgetsCreated()
-    WAT:RefreshUI()
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
+    RenderAllPanels(WAT)
     assert(WidgetsCreated() == widgetsBefore,
         "[drag] Drag-Handling erzeugt bei wiederholtem RefreshUI neue Objekte")
 
@@ -2319,7 +2344,7 @@ local function RunDragReorderSuite()
     -- behalten. Das ist bei versteckten Frames zwar nicht erreichbar, verhindert
     -- aber, dass spaetere Pool-Aenderungen versehentlich auf veraltete Ziele zeigen.
     WAT.db.characters.alt = nil
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     for _, panelKey in ipairs({ "overview", "midnight", "professions", "sources", "keystones" }) do
         local recycled = WAT.panels[panelKey].rows[2]
         assert(recycled and recycled.dragCharacterKey == nil and recycled.character == nil,
@@ -2342,11 +2367,12 @@ local function RunWeeklyQuestRenderingSuite()
     LoadInto(WAT, "Data.lua")
     LoadInto(WAT, "UI.lua")
     WAT:CreateUI()
+    WAT.frame:Show() -- offenes Fenster: nur sichtbare Seiten werden gebunden (#17)
 
     local character = WAT.db.characters.test
     local function FirstRow(panelKey)
         WAT:SetActiveTab(panelKey)
-        WAT:RefreshUI()
+        RenderAllPanels(WAT)
         return WAT.panels[panelKey].rows[1]
     end
 
@@ -2471,8 +2497,9 @@ local function RunDundunSuite()
     LoadInto(WAT, "Data.lua")
     LoadInto(WAT, "UI.lua")
     WAT:CreateUI()
+    WAT.frame:Show() -- offenes Fenster: nur sichtbare Seiten werden gebunden (#17)
     WAT:SetActiveTab("sources")
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
 
     -- Neue Spalte, Gesamtbreite bleibt innerhalb von CONTENT_WIDTH (920).
     local columns = WAT.panels.sources.columns
@@ -2536,8 +2563,8 @@ local function RunDundunSuite()
 
     -- Objektfreier Mehrfach-Refresh: die neue Spalte darf den Pool nicht sprengen.
     local widgetsBefore = WidgetsCreated()
-    WAT:RefreshUI()
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
+    RenderAllPanels(WAT)
     assert(WidgetsCreated() == widgetsBefore,
         "[dundun] wiederholtes RefreshUI erzeugt mit der Dundun-Spalte neue Objekte")
 end
@@ -2619,8 +2646,9 @@ local function RunHeroicShowdownSuite()
     LoadInto(WAT, "Data.lua")
     LoadInto(WAT, "UI.lua")
     WAT:CreateUI()
+    WAT.frame:Show() -- offenes Fenster: nur sichtbare Seiten werden gebunden (#17)
     WAT:SetActiveTab("sources")
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
 
     local rows = WAT.panels.sources.rows
     assert(string.find(rows[1].values.heroicShowdown.text or "", "10/10", 1, true),
@@ -2650,7 +2678,7 @@ local function RunHeroicShowdownSuite()
     -- die darunterliegenden Slotdetails bleiben nur der letzte bekannte Stand.
     local savedIsStale = WAT.IsStale
     WAT.IsStale = function() return true end
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     assert(string.find(rows[1].values.heroicShowdown.text or "", "old week", 1, true),
         "[showdown] Zelle maskiert einen alten Wochenwert nicht: "
             .. tostring(rows[1].values.heroicShowdown.text))
@@ -2659,7 +2687,7 @@ local function RunHeroicShowdownSuite()
     assert(string.find(staleTooltip, "old week", 1, true),
         "[showdown] Tooltip markiert einen alten Wochenstand nicht: " .. staleTooltip)
     WAT.IsStale = savedIsStale
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
 
     -- Ohne Snapshot bleibt der Tooltip unbekannt statt 0 zu erfinden.
     rows[4].scripts.OnEnter(rows[4])
@@ -2684,8 +2712,8 @@ local function RunHeroicShowdownSuite()
 
     -- Objektfreier Mehrfach-Refresh: die neue Spalte darf den Pool nicht sprengen.
     local widgetsBefore = WidgetsCreated()
-    WAT:RefreshUI()
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
+    RenderAllPanels(WAT)
     assert(WidgetsCreated() == widgetsBefore,
         "[showdown] wiederholtes RefreshUI erzeugt mit der Heroische-Showdowns-Spalte neue Objekte")
 end
@@ -2713,8 +2741,9 @@ local function RunDundunLocaleSuite(locale, expected)
     LoadInto(WAT, "Data.lua")
     LoadInto(WAT, "UI.lua")
     WAT:CreateUI()
+    WAT.frame:Show() -- offenes Fenster: nur sichtbare Seiten werden gebunden (#17)
     WAT:SetActiveTab("sources")
-    WAT:RefreshUI()
+    RenderAllPanels(WAT)
     local row = WAT.panels.sources.rows[1]
     row.scripts.OnEnter(row)
     local tooltip = GameTooltip:TooltipText()
@@ -2741,13 +2770,14 @@ local function RunEasterEggSuite()
         LoadInto(WAT, "Data.lua")
         LoadInto(WAT, "UI.lua")
         WAT:CreateUI()
+        WAT.frame:Show() -- offenes Fenster: nur sichtbare Seiten werden gebunden (#17)
         return WAT
     end
 
     local function TooltipForCharacter(WAT, key)
         WAT.db.settings.characterOrder = nil
         WAT:SetActiveTab("sources")
-        WAT:RefreshUI()
+        RenderAllPanels(WAT)
         local order = WAT:NormalizeCharacterOrder()
         local index
         for position, characterKey in ipairs(order) do

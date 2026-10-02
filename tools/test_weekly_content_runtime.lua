@@ -708,6 +708,7 @@ end
 
 -- Zelltext der eigenen Zeile in einem Inhaltsreiter (Renderer, kein Scan).
 local function Cell(WAT, panelKey, columnKey)
+    WAT.frame:Show() -- ein Reiterklick setzt ein offenes Fenster voraus (#17)
     WAT.tabButtons[panelKey].scripts.OnClick()
     local row = WAT.panels[panelKey].rows[1]
     return row and PlainText(row.values[columnKey].text)
@@ -912,6 +913,7 @@ local VAULT_FIELDS = { worldVault = "world", mythicPlusVault = "mythic", raidVau
 
 -- Zelltext der Zeile des Hauptcharakters, unabhängig von der Zeilenfolge.
 local function MainCell(WAT, panelKey, columnKey)
+    WAT.frame:Show() -- ein Reiterklick setzt ein offenes Fenster voraus (#17)
     WAT.tabButtons[panelKey].scripts.OnClick()
     for _, row in ipairs(WAT.panels[panelKey].rows) do
         if row.shown ~= false and row.dragCharacterKey == "Player-Main" then
@@ -1152,7 +1154,8 @@ local function RunUISuite(locale)
         end
     end
 
-    -- Tiefen
+    -- Tiefen (Reiterklicks setzen ein offenes Fenster voraus, #17)
+    WAT:ShowUI()
     WAT.tabButtons.delves.scripts.OnClick()
     checkEqual(WAT.activeTab, "delves", context("Klick öffnet Tiefen"))
     checkEqual(WAT.panels.delves.shown, true, context("Tiefen-Panel sichtbar"))

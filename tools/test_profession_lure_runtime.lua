@@ -420,7 +420,9 @@ for _, locale in ipairs({ "deDE", "enUS", "frFR" }) do
     current.professionLures.characterGUID = guid
     -- Echte Produktions-UI, Klicks, feste Geometrie, alle fuenf Loopbindungen.
     WAT:CreateUI()
-    WAT:RefreshUI()
+    -- Gebunden wird nur die sichtbare Seite eines offenen Fensters (#17).
+    WAT.frame:Show()
+    WAT:SetActiveTab("professions")
     local panel = WAT.panels.professions
     panel.lureToggle.scripts.OnClick()
     check(panel.luresExpanded and #panel.lureBlocks == 2, "bounded expanded subview")
