@@ -13,7 +13,7 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 
 ### Version 2026.10.2
 
-The overview now shows the Great Vault for raids in a `RAID-VAULT` column. Three new pages, `Delves`, `Dungeons` and `Raids`, show each character's progress for the current week; there are no raid lockouts, kill counts or run history. Column widths can be dragged, reset and saved account-wide in all nine tables, and wide tables scroll sideways. `Weekly Quests` shows character names in class color. The features were accepted in game before release; individual API limits around the weekly reset and counter behavior have not been checked separately in the client. See the [2026.10.2 changelog](changelog/CHANGELOG-2026.10.2-en.md).
+The overview now shows the Great Vault for raids in a `RAID VAULT` column. Three new pages, `Delves`, `Dungeons` and `Raids`, show each character's progress for the current week; there are no raid lockouts, kill counts or run history beyond the current week. Column widths can be dragged, reset and saved account-wide in all nine tables, and wide tables scroll sideways. `Weekly Quests` shows character names in class color. The features were accepted in game before release; individual API limits around the weekly reset and counter behavior have not been checked separately in the client. See the [2026.10.2 changelog](changelog/CHANGELOG-2026.10.2-en.md).
 
 ### Version 2026.10.1
 
