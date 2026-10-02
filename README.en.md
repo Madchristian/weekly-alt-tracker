@@ -11,6 +11,10 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.3
+
+With the window closed, WeeklyAltTracker no longer redraws any pages; with it open, it redraws only the visible page. Background data collection is unchanged, and opening the window shows the current data right away. Whether this removes the reported profiler spikes has not been measured in game yet. See the [2026.10.3 changelog](changelog/CHANGELOG-2026.10.3-en.md).
+
 ### Version 2026.10.2
 
 The overview now shows the Great Vault for raids in a `RAID VAULT` column. Three new pages, `Delves`, `Dungeons` and `Raids`, show each character's progress for the current week; there are no raid lockouts, kill counts or run history beyond the current week. Column widths can be dragged, reset and saved account-wide in all nine tables, and wide tables scroll sideways. `Weekly Quests` shows character names in class color. The features were accepted in game before release; individual API limits around the weekly reset and counter behavior have not been checked separately in the client. See the [2026.10.2 changelog](changelog/CHANGELOG-2026.10.2-en.md).

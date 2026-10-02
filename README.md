@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.3
+
+Bei geschlossenem Fenster zeichnet WeeklyAltTracker keine Seiten mehr neu, bei offenem Fenster nur die sichtbare Seite. Die Datenerfassung im Hintergrund bleibt unverändert, und beim Öffnen erscheint sofort der aktuelle Stand. Ob damit die gemeldeten Profiler-Spitzen verschwinden, ist im Spiel noch nicht gemessen. Details im [Changelog zu 2026.10.3](changelog/CHANGELOG-2026.10.3-de.md).
+
 ### Version 2026.10.2
 
 Die Übersicht zeigt jetzt die Große Schatzkammer für Schlachtzüge als Spalte `RAID-VAULT`. Drei neue Bereiche `Tiefen`, `Dungeons` und `Schlachtzüge` zeigen je Charakter den Stand der aktuellen Woche; Raid-Sperren, Kill-Zählung und eine Laufhistorie über die aktuelle Woche hinaus gibt es nicht. Spaltenbreiten lassen sich in allen neun Tabellen ziehen, zurücksetzen und accountweit speichern, breite Tabellen blättern seitlich. `Wochenquests` zeigt Charakternamen in Klassenfarbe. Die Funktionen wurden vor dem Release im Spiel abgenommen; einzelne API-Grenzen rund um Wochenreset und Zählerverhalten sind im Client nicht separat geprüft. Details im [Changelog zu 2026.10.2](changelog/CHANGELOG-2026.10.2-de.md).

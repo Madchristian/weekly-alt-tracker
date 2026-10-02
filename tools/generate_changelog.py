@@ -47,6 +47,7 @@ PLACEHOLDER_LINE = re.compile(
     re.IGNORECASE,
 )
 RELEASE_VERSIONS = (
+    "2026.10.3",
     "2026.10.2",
     "2026.10.1",
     "2026.9.29-2",
