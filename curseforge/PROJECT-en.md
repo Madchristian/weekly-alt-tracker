@@ -25,7 +25,7 @@ WeeklyAltTracker collects progress from your WoW Retail characters and shows it 
 - weekly activities and account-wide character comparison
 - researched weekly quests of the active season for PvE and professions with the status per character
 - Great Vault progress for Mythic+, Delves/World and raids
-- delves, dungeons and raid bosses defeated in the current week per character
+- dungeons and raid bosses defeated in the current week per character
 - resizable column widths in every table, saved account-wide
 - seasonal currencies and supported sources
 - professions, knowledge points, weekly quests, and treatises
@@ -33,22 +33,21 @@ WeeklyAltTracker collects progress from your WoW Retail characters and shows it 
 - lifetime character statistics and account totals
 - settings for refresh, scale, window position, and the minimap button
 
-The raid vault appears as the current week's state in the overview. Delves, Dungeons and Raids show the current week only: delve completions per tier as reported by the Great Vault (tier 1 also counts world activities), Heroic/Mythic/Mythic+ dungeons from the weekly counter with this week's Mythic+ runs (the game does not report Normal dungeons) and raid bosses defeated with the highest reported difficulty. No raid lockouts, no kill history and no lifetime values.
+The raid vault appears as the current week's state in the overview. Dungeons and Raids show the current week only: Heroic/Mythic/Mythic+ dungeons from the weekly counter with this week's Mythic+ runs (the game does not report Normal dungeons) and raid bosses defeated with the highest reported difficulty. No raid lockouts, no kill history and no lifetime values.
 
-### Twelve views
+### Eleven views
 
 1. Overview
 2. Midnight Week
 3. Weekly Quests
 4. Professions
 5. Crest Sources
-6. Delves
-7. Dungeons
-8. Raids
-9. Keystones
-10. Equipment
-11. Statistics
-12. Settings
+6. Dungeons
+7. Raids
+8. Keystones
+9. Equipment
+10. Statistics
+11. Settings
 
 Equipment shows last equipped items with icons, quality borders, actual item levels, equipped average and timestamps in a character-window layout. Log in on each alt first; then read offline snapshots that survive weekly resets. Unknown, empty and pending remain distinct. Stored item links provide tooltips; no bag/bank view or advice.
 

@@ -97,7 +97,7 @@ def check_content_harness_registered() -> None:
 
     harnesses = getattr(test_runtime, "HARNESSES", {})
     require(harnesses.get("test_weekly_content_runtime.lua") == "LUA WEEKLY CONTENT RUNTIME OK:",
-            "der Wocheninhalt-Harness (Tiefen/Dungeons/Schlachtzüge) muss im Runtime-Orchestrator registriert sein")
+            "der Wocheninhalt-Harness (Dungeons/Schlachtzüge) muss im Runtime-Orchestrator registriert sein")
 
 
 def check_translations_harness_registered() -> None:
@@ -706,7 +706,7 @@ def main() -> int:
     require(scanner.count('return "-"') >= 3,
             "GetVaultSummary muss unbekannt weiterhin als sprachneutrales '-' liefern")
 
-    panel_order = ("overview", "midnight", "weeklies", "professions", "sources", "delves", "dungeons",
+    panel_order = ("overview", "midnight", "weeklies", "professions", "sources", "dungeons",
                    "raids", "keystones", "statistics", "settings")
     require('label = L("PANEL_WEEKLIES")' in ui and "CreateWeeklyCatalogPanel" in ui,
             "Wochenquest-Seite fehlt oder ist nicht lokalisiert")
@@ -714,25 +714,24 @@ def main() -> int:
             "Titel der Wochenquest-Seite fehlt in einem der beiden Wörterbücher")
     require('"overview", "midnight", "weeklies", "professions"' in ui,
             "die Wochenquest-Seite muss in der Navigation zwischen Midnight und Berufe stehen")
-    # Wocheninhalte (Issues #12/#13/#14): drei Reiter direkt nach den
-    # Wappenquellen, zwölf Navigationsziele, Höhe gegen die Seitenleiste
+    # Wocheninhalte (Issues #12/#13/#14): zwei Reiter direkt nach den
+    # Wappenquellen, elf Navigationsziele, Höhe gegen die Seitenleiste
     # gerechnet statt fest 42px.
     require('"overview", "midnight", "weeklies", "professions", "sources",\n'
-            '                       "delves", "dungeons", "raids", "keystones",' in ui,
-            "Tiefen, Dungeons und Schlachtzüge müssen in der Navigation direkt nach den Wappenquellen stehen")
+            '                       "dungeons", "raids", "keystones",' in ui,
+            "Dungeons und Schlachtzüge müssen in der Navigation direkt nach den Wappenquellen stehen")
     require("math.floor((FRAME_HEIGHT - navTop - 44) / #tabOrder)" in ui,
             "die Höhe der Navigationsschaltflächen muss gegen die Seitenleiste gerechnet werden")
-    for key, de_label, en_label in (("PANEL_DELVES", "Tiefen", "Delves"),
-                                    ("PANEL_DUNGEONS", "Dungeons", "Dungeons"),
+    for key, de_label, en_label in (("PANEL_DUNGEONS", "Dungeons", "Dungeons"),
                                     ("PANEL_RAIDS", "Schlachtzüge", "Raids")):
         require(f'label = L("{key}")' in ui, f"Paneldefinition {key} fehlt")
         require(f'{key} = "{de_label}"' in de_dict and f'{key} = "{en_label}"' in en_dict,
                 f"Titel {key} fehlt in einem der beiden Wörterbücher")
+    require("GetSortedProgressForActivity" not in activities and "SummarizeDelves" not in activities,
+            "keine Auswertung für den entfernten Tiefen-Reiter")
+    require("PANEL_DELVES" not in ui and "PANEL_DELVES" not in de_dict and "PANEL_DELVES" not in en_dict,
+            "entfernter Tiefen-Reiter darf keine Definition oder Übersetzung behalten")
     for activity_name, contract, message in (
-            ("Activities.lua", "pcall(getter, worldType, true)",
-             "Tiefen müssen GetSortedProgressForActivity(World, true) wie Blizzards Vault-Tooltip lesen"),
-            ("Activities.lua", "if tier.difficulty > 1 then",
-             "nur Stufe > 1 ist eindeutig Tiefe; Stufe 1 darf nie in die Tiefensumme"),
             ("Activities.lua", "pcall(getter, false, true, true)",
              "M+-Details nur aus GetRunHistory der aktuellen Woche inklusive unvollständiger Läufe"),
             ("Activities.lua", "SafeBoolean(raw.thisWeek)",
@@ -895,26 +894,31 @@ def main() -> int:
         "Anleitung.html": text("Anleitung.html"),
         "Guide.en.html": text("Guide.en.html"),
     }
-    require("Zwölf Ansichten. Ein Wochenbild." in html_guides["Anleitung.html"],
-            "Deutsche HTML-Anleitung nennt nicht zwölf Ansichten")
-    require("Twelve views. One weekly picture." in html_guides["Guide.en.html"],
-            "Englische HTML-Anleitung nennt nicht zwölf Ansichten")
+    require("Elf Ansichten. Ein Wochenbild." in html_guides["Anleitung.html"],
+            "Deutsche HTML-Anleitung nennt nicht elf Ansichten")
+    require("Eleven views. One weekly picture." in html_guides["Guide.en.html"],
+            "Englische HTML-Anleitung nennt nicht elf Ansichten")
     for name, body in html_guides.items():
+        require(len(re.findall(r'<article class="feature">', body)) == 11,
+                f"HTML-Anleitung {name} muss genau elf Bereiche beschreiben")
+        require("<h3>Tiefen</h3>" not in body and "<h3>Delves</h3>" not in body,
+                f"HTML-Anleitung {name} bewirbt den entfernten Tiefen-Reiter")
         for stale in ("Fünf Ansichten", "Five views", "Sieben Ansichten", "Seven views",
-                      "Neun Ansichten", "Nine views"):
+                      "Neun Ansichten", "Nine views", "Zwölf Ansichten", "Twelve views"):
             require(stale not in body, f"HTML-Anleitung {name} nennt noch veraltet: {stale}")
     require("Wochenquests" in html_guides["Anleitung.html"] and "Weekly Quests" in html_guides["Guide.en.html"],
             "HTML-Anleitungen beschreiben die Wochenquest-Seite nicht")
-    require("Zwölf Ansichten" in platform_docs["curseforge/PROJECT-de.md"],
-            "Deutsche CurseForge-Beschreibung nennt nicht zwölf Ansichten")
-    require("Twelve views" in platform_docs["curseforge/PROJECT-en.md"],
-            "Englische CurseForge-Beschreibung nennt nicht zwölf Ansichten")
-    require("zwölf kompakte Ansichten" in platform_docs["wago/BESCHREIBUNG.md"],
-            "Wago-Beschreibung nennt nicht zwölf Ansichten")
+    require("Elf Ansichten" in platform_docs["curseforge/PROJECT-de.md"],
+            "Deutsche CurseForge-Beschreibung nennt nicht elf Ansichten")
+    require("Eleven views" in platform_docs["curseforge/PROJECT-en.md"],
+            "Englische CurseForge-Beschreibung nennt nicht elf Ansichten")
+    require("elf kompakte Ansichten" in platform_docs["wago/BESCHREIBUNG.md"],
+            "Wago-Beschreibung nennt nicht elf Ansichten")
     for name, body in platform_docs.items():
         for stale in ("Sieben Ansichten", "Seven views", "sieben kompakte Ansichten",
-                      "Neun Ansichten", "Nine views", "neun kompakte Ansichten"):
-            require(stale not in body, f"Plattformtext {name} nennt noch veraltet: {stale}")
+                      "Neun Ansichten", "Nine views", "neun kompakte Ansichten",
+                      "Zwölf Ansichten", "Twelve views", "zwölf kompakte Ansichten"):
+            require(stale.casefold() not in body.casefold(), f"Plattformtext {name} nennt noch veraltet: {stale}")
         require("Wochenquests" in body or "Weekly Quests" in body,
                 f"Plattformtext {name} beschreibt die Wochenquest-Seite nicht")
     for name, body in platform_docs.items():

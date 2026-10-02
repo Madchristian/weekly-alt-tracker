@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "2026.10.4"
+WAT.version = "2026.10.5"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -213,7 +213,7 @@ local function NormalizeWeeklyCatalog(weekly)
     }
 end
 
--- Wocheninhalte (Tiefen/Dungeons/Schlachtzuege) fail-closed: ein Secret- oder
+-- Wocheninhalte (Dungeons/Schlachtzuege) fail-closed: ein Secret- oder
 -- Fremdtyp-Container oder ein fremdes Schema wird verworfen, nie erfunden.
 -- Der Pruefer lebt neben dem Scanner in Activities.lua; ohne ihn bleibt der
 -- Container unberuehrt und wird erst beim Rendern geprueft.
@@ -323,7 +323,7 @@ function WAT:InitializeDatabase()
     settings.activeTab = (activeTab == "overview" or activeTab == "midnight"
         or activeTab == "weeklies"
         or activeTab == "professions" or activeTab == "sources" or activeTab == "keystones"
-        or activeTab == "delves" or activeTab == "dungeons" or activeTab == "raids"
+        or activeTab == "dungeons" or activeTab == "raids"
         or activeTab == "equipment" or activeTab == "statistics" or activeTab == "settings")
         and activeTab or "overview"
     -- Additiv: eine Datenbank vor dieser Version kennt noch keine gespeicherte

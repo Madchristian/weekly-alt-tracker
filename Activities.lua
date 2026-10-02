@@ -1672,7 +1672,7 @@ local function RunActivityScans(self, character, reason)
     -- nutzt deren Identitaeten, statt GetProfessions erneut zu fragen.
     self:ScanWeeklyCatalog(character)
     self:ScanCrestSources(character)
-    -- Tiefen, Dungeons und Schlachtzuege der aktuellen Woche (weekly.content).
+    -- Dungeons und Schlachtzuege der aktuellen Woche (weekly.content).
     self:ScanWeeklyContent(character)
     -- Statistiken sind lebenslang und kein Wochenwert: sie liegen bewusst
     -- neben weekly und ueberleben deshalb den Wochenreset.
@@ -1691,14 +1691,9 @@ function WAT:ScanActivities(character, reason)
 end
 
 -- ---------------------------------------------------------------------------
--- Wocheninhalte: Tiefen, Dungeons und Schlachtzuege der aktuellen Woche
+-- Wocheninhalte: Dungeons und Schlachtzuege der aktuellen Woche
 --
 -- Datenvertrag (Gethe/wow-ui-source 09b9db79, Retail 12.1.0 (69933)):
--- - Tiefen: C_WeeklyRewards.GetSortedProgressForActivity(World, true) liefert
---   je Stufe { activityTierID, difficulty, numPoints }. Blizzard selbst zeigt
---   nur difficulty > 1 als Tiefe an; Stufe 1 mischt Weltaktivitaeten und
---   Tiefen (Blizzard_WeeklyRewards.lua, AddWorldRunsToTooltip). Namen
---   einzelner Tiefen gibt es in dieser Struktur nicht.
 -- - Dungeons: C_WeeklyRewards.GetNumCompletedDungeonRuns() liefert getrennt
 --   numHeroic, numMythic, numMythicPlus. Normal fehlt ausdruecklich. Details
 --   nur fuer Mythisch+ ueber C_MythicPlus.GetRunHistory; die Listenlaenge ist
@@ -1716,7 +1711,7 @@ end
 -- (Login, Reset, nicht abgeholte Vault-Belohnung) dokumentiert
 -- tools/WEEKLY_CONTENT.md.
 --
--- Periodenbindung: jeder der drei Abschnitte traegt das weekEnd, unter dem er
+-- Periodenbindung: jeder der beiden Abschnitte traegt das weekEnd, unter dem er
 -- gelesen wurde (Resetvertrag aus Core: time() + Sekunden bis zum Reset).
 -- Gemischt wird nur in derselben sicher bekannten Woche. Ohne lesbaren Timer
 -- ist die Woche unbekannt: dann ersetzt ein frischer sicherer Lesestand den
@@ -1729,7 +1724,6 @@ end
 
 local Content = {
     SCHEMA = 1,
-    MAX_TIERS = 32,
     MAX_RUNS = 40,
     MAX_HISTORY = 200,
     MAX_ENCOUNTERS = 64,
@@ -1840,87 +1834,6 @@ function Content.ReadActivities(activityType)
         result[#result + 1] = { index = index, progress = progress }
     end
     return result
-end
-
--- ---------------------------------------------------------------------------
--- Tiefen
--- ---------------------------------------------------------------------------
-
-function Content.SortTiers(tiers)
-    table.sort(tiers, function(a, b) return a.difficulty > b.difficulty end)
-    return tiers
-end
-
--- Atomar: ein einziger unlesbarer Stufeneintrag verwirft den ganzen Lesestand.
-function Content.ReadDelveTiers(worldType)
-    local getter = worldType and Content.Function(C_WeeklyRewards, "GetSortedProgressForActivity")
-    if not getter then return nil end
-    local ok, progress = pcall(getter, worldType, true)
-    if not ok then return nil end
-    local list = Content.List(progress, Content.MAX_TIERS)
-    if not list then return nil end
-    local byDifficulty, tiers = {}, {}
-    for _, entry in ipairs(list) do
-        entry = Content.Table(entry)
-        local difficulty = entry and Content.Count(entry.difficulty)
-        local points = entry and Content.Count(entry.numPoints)
-        if not difficulty or not points then return nil end
-        -- Mit combineSharedDifficulty = true ist je Stufe ein Eintrag zu
-        -- erwarten. Kommt eine Stufe doch doppelt, zaehlt Blizzards eigene
-        -- Tooltipschleife jeden Eintrag einzeln - deshalb wird summiert.
-        local tier = byDifficulty[difficulty]
-        if tier then
-            tier.points = tier.points + points
-        else
-            tier = { difficulty = difficulty, points = points }
-            byDifficulty[difficulty] = tier
-            tiers[#tiers + 1] = tier
-        end
-    end
-    return Content.SortTiers(tiers)
-end
-
--- Persistierten Tiefenstand fail-closed pruefen; liefert eine Kopie oder nil.
-function Content.ValidDelves(raw)
-    raw = Content.Table(raw)
-    if not raw then return nil end
-    local weekEnd = Content.SectionWeekEnd(raw)
-    if weekEnd == false then return nil end
-    local updated = Content.Count(raw.updated)
-    local list = updated and Content.List(raw.tiers, Content.MAX_TIERS)
-    if not list then return nil end
-    local seen, tiers = {}, {}
-    for _, tier in ipairs(list) do
-        tier = Content.Table(tier)
-        local difficulty = tier and Content.Count(tier.difficulty)
-        local points = tier and Content.Count(tier.points)
-        if not difficulty or not points or seen[difficulty] then return nil end
-        seen[difficulty] = true
-        tiers[#tiers + 1] = { difficulty = difficulty, points = points }
-    end
-    return { tiers = Content.SortTiers(tiers), updated = updated, weekEnd = weekEnd }
-end
-
--- Eine leere Liste bedeutet nur dann "keine gemeldeten Abschluesse", wenn der
--- Client im selben Scan sichere Welt-Vaultdaten geliefert hat. Sonst bleibt
--- der Vorstand (oder unbekannt) stehen. Je Stufe gilt der groessere Wert.
-function Content.MergeDelves(previous, fresh, worldLoaded, now)
-    if not fresh then return previous end
-    if #fresh == 0 and not worldLoaded then return previous end
-    local merged, byDifficulty = {}, {}
-    local function Add(tier)
-        local old = byDifficulty[tier.difficulty]
-        if old then
-            if tier.points > old.points then old.points = tier.points end
-        else
-            old = { difficulty = tier.difficulty, points = tier.points }
-            byDifficulty[old.difficulty] = old
-            merged[#merged + 1] = old
-        end
-    end
-    for _, tier in ipairs(previous and previous.tiers or {}) do Add(tier) end
-    for _, tier in ipairs(fresh) do Add(tier) end
-    return { tiers = Content.SortTiers(merged), updated = now }
 end
 
 -- ---------------------------------------------------------------------------
@@ -2177,7 +2090,8 @@ end
 function WAT:NormalizeWeeklyContent(raw)
     raw = Content.Table(raw)
     if not raw or SafeNumber(raw.schemaVersion) ~= Content.SCHEMA then return nil end
-    local delves = Content.ValidDelves(raw.delves)
+    -- Historischer Tiefenstand bleibt inert erhalten; keine Migration oder Auswertung.
+    local delves = Content.Table(raw.delves)
     local dungeons = Content.ValidDungeons(raw.dungeons)
     local raids = Content.ValidRaids(raw.raids)
     if not delves and not dungeons and not raids then return nil end
@@ -2195,34 +2109,17 @@ function WAT:GetWeeklyContentSnapshot(character)
     -- Ohne now: eine Offline-Woche bleibt ihrem weekEnd zugeordnet und
     -- erscheint grau als alte Woche, nie als aktuelle.
     local weekEnd = Content.KnownWeekEnd(character, nil)
-    for _, section in ipairs({ "delves", "dungeons", "raids" }) do
+    snapshot.delves = nil -- Altbestand ist kein aktiver Wocheninhalt mehr.
+    for _, section in ipairs({ "dungeons", "raids" }) do
         if not Content.Matches(snapshot[section], weekEnd) then snapshot[section] = nil end
     end
-    if not snapshot.delves and not snapshot.dungeons and not snapshot.raids then return nil end
+    if not snapshot.dungeons and not snapshot.raids then return nil end
     return snapshot
 end
 
 function WAT:GetWeeklyRaidEncounters(character)
     local snapshot = self:GetWeeklyContentSnapshot(character)
     return snapshot and snapshot.raids or nil
-end
-
--- Verdichtung fuer Tabellenzellen. Stufe > 1 ist eindeutig Tiefe, Stufe 1
--- bleibt "Welt oder Tiefe" und geht nie in die Tiefensumme ein.
-function WAT:SummarizeDelves(delves)
-    if type(delves) ~= "table" or type(delves.tiers) ~= "table" then return nil end
-    local summary = { delveRuns = 0, worldOrDelve = 0, highestTier = nil, tiers = delves.tiers }
-    for _, tier in ipairs(delves.tiers) do
-        if tier.difficulty > 1 then
-            summary.delveRuns = summary.delveRuns + tier.points
-            if tier.points > 0 and (summary.highestTier == nil or tier.difficulty > summary.highestTier) then
-                summary.highestTier = tier.difficulty
-            end
-        else
-            summary.worldOrDelve = summary.worldOrDelve + tier.points
-        end
-    end
-    return summary
 end
 
 -- Bossfortschritt je Instanz und gesamt; highestDifficulty nach Blizzards
@@ -2282,11 +2179,7 @@ function WAT:ScanWeeklyContent(character)
         return merged
     end
 
-    local worldType = Content.ThresholdType("World")
-    local worldLoaded = Content.ReadActivities(worldType) ~= nil
-    local base = Base(previous.delves)
-    local delves = Bind(previous.delves,
-        Content.MergeDelves(base, Content.ReadDelveTiers(worldType), worldLoaded, now), base)
+    local delves = previous.delves -- Altbestand nur durchreichen, niemals neu scannen.
 
     -- MergeDungeons kopiert die Basis immer; ohne frischen Teil bleibt es beim Vorstand.
     local runs, truncated = Content.ReadRunHistory()
@@ -2298,7 +2191,7 @@ function WAT:ScanWeeklyContent(character)
     end
 
     local raidType = Content.ThresholdType("Raid")
-    base = Base(previous.raids)
+    local base = Base(previous.raids)
     local raids = Bind(previous.raids, Content.MergeRaids(base, Content.ReadRaidEncounters(raidType), now), base)
 
     if delves or dungeons or raids then

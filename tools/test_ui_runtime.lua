@@ -593,22 +593,25 @@ local function RunSuite(locale, expect)
     assert(math.abs(WAT.db.settings.minimapAngle) < 0.01,
         context("gezogene Minimap-Position wurde nicht als Winkel gespeichert"))
 
-    -- Zwoelf Ziele; die Schaltflaechenhoehe ist gegen die Seitenleiste
-    -- gerechnet: floor((600 - 108 - 44) / 12) = 37px, Unterkante 552.
+    -- Elf Ziele; die Schaltflaechenhoehe ist gegen die Seitenleiste
+    -- gerechnet: floor((600 - 108 - 44) / 11) = 40px, Unterkante 548.
     local order = { "overview", "midnight", "weeklies", "professions", "sources",
-                    "delves", "dungeons", "raids", "keystones",
+                    "dungeons", "raids", "keystones",
                     "equipment", "statistics", "settings" }
-    assert(WAT.navButtonHeight == 37, context("Navigationshoehe muss 37px sein, ist "
+    assert(WAT.navButtonHeight == math.floor((600 - 108 - 44) / #order), context("Navigationshoehe muss der berechneten Höhe entsprechen, ist "
         .. tostring(WAT.navButtonHeight)))
     assert(108 + #order * WAT.navButtonHeight <= 600 - 44 and WAT.navButtonHeight >= 32,
         context("Navigation ragt in den Fusshinweis oder unterschreitet 32px"))
+    assert(WAT.panels.delves == nil and WAT.tabButtons.delves == nil, context("Tiefen-Reiter muss entfernt sein"))
+    WAT:SetActiveTab("delves")
+    assert(WAT.activeTab == "overview", context("alter Tiefen-Reiter braucht Übersicht-Fallback"))
     local buttonCount = 0
     for _ in pairs(WAT.tabButtons) do buttonCount = buttonCount + 1 end
-    assert(buttonCount == #order, context("es muss genau zwoelf Navigationsziele geben, gefunden " .. buttonCount))
+    assert(buttonCount == #order, context("es muss genau elf Navigationsziele geben, gefunden " .. buttonCount))
     for index, key in ipairs(order) do
         local button = WAT.tabButtons[key]
         assert(button and type(button.scripts.OnClick) == "function", context("Klickziel fehlt: " .. key))
-        assert(button.points[1] and button.points[1][3] == -108 - (index - 1) * 37 and button.height == 37,
+        assert(button.points[1] and button.points[1][3] == -108 - (index - 1) * WAT.navButtonHeight and button.height == WAT.navButtonHeight,
             context("Navigationsposition falsch: " .. key))
         button.scripts.OnClick()
         assert(WAT.activeTab == key,
@@ -616,6 +619,8 @@ local function RunSuite(locale, expect)
         assert(WAT.panels[key].shown == true, context("aktives Panel ist nicht sichtbar: " .. key))
         assert(button.active == true, context("aktive Sidebar-Markierung fehlt: " .. key))
     end
+    assert(WAT.panels.sources.rows[1].values.gilded, context("Goldene Truhe bleibt erhalten"))
+    assert(WAT.panels.overview.rows[1].values.world, context("Welt-Schatzkammer bleibt erhalten"))
     -- Ohne geladenen Katalogleser (diese Suite lädt Activities.lua nicht)
     -- zeigt die Wochenquest-Seite ihren Nicht-verfügbar-Hinweis statt Zeilen.
     WAT:SetActiveTab("weeklies")
@@ -2910,7 +2915,7 @@ RunDundunLocaleSuite("frFR", {
 })
 RunEasterEggSuite()
 
-print("LUA UI RUNTIME OK: 12/12 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10/318,"
+print("LUA UI RUNTIME OK: 11/11 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10/318,"
     .. " entlastete Übersicht ohne Wappen-/Truhenduplikate, Ritual-Verweis statt Doppelzählung,"
     .. " Saison-2-Wappenquellen mit M+ ab +9 und fünf Nebelwappenbeständen,"
     .. " offene Berufs-Wochenquest und Wappensymbole in den Wappenquellen"

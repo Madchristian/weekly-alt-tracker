@@ -178,19 +178,6 @@ local function PanelDefinitions()
     },
     -- Wocheninhalte der aktuellen Woche. Jede Tabelle ergibt exakt
     -- CONTENT_WIDTH (920); Details stehen im Zeilen-Tooltip.
-    delves = {
-        label = L("PANEL_DELVES"),
-        shortLabel = L("PANEL_DELVES_SHORT"),
-        description = L("PANEL_DELVES_DESC"),
-        columns = {
-            { key = "character", label = L("COL_CHARACTER"), width = 200, left = true },
-            { key = "delveRuns", label = L("COL_DELVE_RUNS"), width = 140 },
-            { key = "highestTier", label = L("COL_DELVE_HIGHEST"), width = 110 },
-            { key = "worldOrDelve", label = L("COL_DELVE_WORLD"), width = 140 },
-            { key = "tiers", label = L("COL_DELVE_TIERS"), width = 230, left = true },
-            { key = "updated", label = L("COL_DATA_AGE"), width = 100 },
-        },
-    },
     dungeons = {
         label = L("PANEL_DUNGEONS"),
         shortLabel = L("PANEL_DUNGEONS_SHORT"),
@@ -1228,7 +1215,7 @@ local function ShowStatisticCardTooltip(card, scope)
 end
 
 -- ---------------------------------------------------------------------------
--- Wocheninhalte: Tiefen, Dungeons, Schlachtzuege
+-- Wocheninhalte: Dungeons, Schlachtzuege
 --
 -- Reine Anzeige der gespeicherten weekly.content-Snapshots ueber die
 -- read-only Helfer aus Activities.lua; kein Scan im Renderer. Namen entstehen
@@ -1320,57 +1307,6 @@ function CONTENT_VIEW.AddNotes(note)
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(note, 0.56, 0.6, 0.66, true)
     GameTooltip:AddLine(L("CONTENT_TT_LIMITS"), 0.56, 0.6, 0.66, true)
-end
-
--- Tiefen ---------------------------------------------------------------------
-
-function CONTENT_VIEW.Fill.delves(row, character, stale)
-    local snapshot = CONTENT_VIEW.Snapshot(character)
-    local delves = snapshot and snapshot.delves
-    local summary = delves and WAT:SummarizeDelves(delves)
-    local values = row.values
-    if not summary then
-        for _, key in ipairs({ "delveRuns", "highestTier", "worldOrDelve", "tiers" }) do
-            values[key]:SetText(CONTENT_VIEW.Value(nil, stale))
-        end
-        values.updated:SetText(CONTENT_VIEW.Age(nil, stale))
-        return
-    end
-    values.delveRuns:SetText(CONTENT_VIEW.Count(summary.delveRuns, stale))
-    values.highestTier:SetText(summary.highestTier
-        and CONTENT_VIEW.Value(L("CONTENT_TIER", summary.highestTier), stale, "|cff0dd19e")
-        or CONTENT_VIEW.Value(L("CONTENT_NONE"), stale, COLORS.unknown))
-    values.worldOrDelve:SetText(CONTENT_VIEW.Count(summary.worldOrDelve, stale))
-    local parts = {}
-    for _, tier in ipairs(summary.tiers) do
-        if tier.points > 0 then parts[#parts + 1] = L("CONTENT_TIER_POINTS", tier.difficulty, tier.points) end
-    end
-    values.tiers:SetText(#parts > 0 and CONTENT_VIEW.Value(table.concat(parts, ", "), stale)
-        or CONTENT_VIEW.Value(L("CONTENT_NONE"), stale, COLORS.unknown))
-    values.updated:SetText(CONTENT_VIEW.Age(delves.updated, stale))
-end
-
-function CONTENT_VIEW.Tooltip.delves(character)
-    local snapshot = CONTENT_VIEW.Snapshot(character)
-    local delves = snapshot and snapshot.delves
-    local summary = delves and WAT:SummarizeDelves(delves)
-    if not summary then
-        AddTooltipLine(L("PANEL_DELVES"), L("STATUS_NOT_TRACKED"))
-    else
-        AddTooltipLine(L("CONTENT_TT_DELVE_RUNS"), tostring(summary.delveRuns))
-        local listed = false
-        for _, tier in ipairs(summary.tiers) do
-            if tier.points > 0 then
-                listed = true
-                local label = tier.difficulty > 1 and L("CONTENT_TT_DELVE_TIER", tier.difficulty)
-                    or L("CONTENT_TT_WORLD_TIER", tier.difficulty)
-                AddTooltipLine(label, tostring(tier.points))
-            end
-        end
-        if not listed then GameTooltip:AddLine(L("CONTENT_TT_NO_TIERS"), 0.56, 0.6, 0.66, true) end
-        AddTooltipLine(L("KEY_RECORDED"), FormatAge(delves.updated))
-    end
-    CONTENT_VIEW.AddNotes(L("CONTENT_TT_DELVE_NOTE"))
 end
 
 -- Dungeons -------------------------------------------------------------------
@@ -5214,16 +5150,15 @@ function WAT:CreateUI()
 
     self.tabButtons = {}
     self.panels = {}
-    -- Zwoelf Navigationsziele; Tiefen, Dungeons und Schlachtzuege stehen direkt
+    -- Elf Navigationsziele; Dungeons und Schlachtzuege stehen direkt
     -- nach den Wappenquellen. Die Schaltflaechenhoehe wird gegen die Seiten-
     -- leiste gerechnet statt geschaetzt: zwischen Navigationsbeginn (108) und
     -- dem Fusshinweis (unten 18 + Zeile + Abstand = 44) bleiben 600 - 108 - 44
-    -- = 448px. Zwoelf Ziele zu je hoechstens 42px passen nicht (504px), also
-    -- floor(448 / 12) = 37px: weiterhin hoeher als eine 38er-Tabellenzeile
-    -- abzueglich Rand und weit ueber der Mindesthoehe von 32px fuer eine
-    -- einzeilige kleine Beschriftung. Die letzte Schaltflaeche endet bei 552.
+    -- = 448px. Elf Ziele ergeben floor(448 / 11) = 40px und bleiben ueber
+    -- der Mindesthoehe von 32px fuer eine einzeilige kleine Beschriftung.
+    -- Die letzte Schaltflaeche endet bei 108 + 11 * 40 = 548.
     local tabOrder = { "overview", "midnight", "weeklies", "professions", "sources",
-                       "delves", "dungeons", "raids", "keystones",
+                       "dungeons", "raids", "keystones",
                        "equipment", "statistics", "settings" }
     -- Ein weiteres Ziel darf die Schaltflaechen nicht still unter 32px
     -- quetschen: die Runtime-Harnesses pruefen Mindesthoehe und Unterkante.

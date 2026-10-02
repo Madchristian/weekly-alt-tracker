@@ -1,4 +1,4 @@
-# Wocheninhalte: Tiefen, Dungeons, Schlachtzüge
+# Wocheninhalte: Dungeons und Schlachtzüge
 
 Arbeitsdokument zu den Issues #9, #12, #13 und #14. Es beschreibt den
 umgesetzten Datenvertrag, die Quellen und die offenen In-Game-Grenzen. Nicht
@@ -10,15 +10,11 @@ Alle API-Fakten sind gegen Gethe/wow-ui-source, Commit
 `09b9db7948abc9b9648dedaab51eb0cf3ee67b31` (Retail 12.1.0 (69933)) geprüft:
 
 - `Blizzard_APIDocumentationGenerated/WeeklyRewardsDocumentation.lua`:
-  `GetSortedProgressForActivity(type, combineSharedDifficulty)` →
-  `WeeklyRewardActivityTierProgress { activityTierID, difficulty, numPoints }`;
   `GetNumCompletedDungeonRuns()` → `numHeroic, numMythic, numMythicPlus`;
   `GetActivityEncounterInfo(type, index)` (MayReturnNothing) →
   `WeeklyRewardActivityEncounterInfo { encounterID, bestDifficulty, uiOrder, instanceID }`;
   Events `WEEKLY_REWARDS_UPDATE`, `WEEKLY_REWARDS_ITEM_CHANGED`.
 - `Blizzard_WeeklyRewards/Blizzard_WeeklyRewards.lua`:
-  `AddWorldRunsToTooltip` nutzt `GetSortedProgressForActivity(World, true)`,
-  zeigt nur `difficulty > 1` als Tiefe und Stufe 1 als „Tiefe oder Welt“.
   `AddRaidCompletionInfoToGameTooltip` wertet `bestDifficulty > 0` als
   besiegten Boss und löst Namen über `EJ_GetEncounterInfo` → 6. Rückgabe
   (Journal-instanceID) → `EJ_GetInstanceInfo` auf. `AddTopRunsToTooltip`
@@ -36,6 +32,23 @@ Alle API-Fakten sind gegen Gethe/wow-ui-source, Commit
 - `Blizzard_FrameXMLUtil/Mainline/DifficultyUtil_Base.lua`:
   `PrimaryRaids = { 17 (LFR), 14 (Normal), 15 (Heroisch), 16 (Mythisch) }`.
 
+## Entfernter Tiefen-Reiter
+
+Der dedizierte Reiter, seine Stufenauswertung und der ausschließlich dafür
+benötigte Aufruf von `GetSortedProgressForActivity` sind entfernt. Goldene
+Truhe (`ReadGildedStash`/Widgets), Welt/Tiefen-Schatzkammer (`GetActivities`)
+und bestehende Lebenszeit-Statistiken bleiben unverändert; kein Ersatztracker.
+
+Alte `weekly.content.delves`-Tabellen werden nur inert durchgereicht: keine
+Stufenvalidierung, keine Neudatierung, kein API-Aufruf und keine Anzeige.
+`GetWeeklyContentSnapshot` gibt sie nicht zurück. Ein gültiger Schema-1-Container
+mit ausschließlich diesem Altbestand bleibt gespeichert. Secret-/Fremdtyp-
+Container und fremde Schemas bleiben nach dem bestehenden Vertrag fail-closed.
+Kein Datenbank-Cleanup fremder Charaktere; der normale Wochenreset des
+eingeloggten Charakters bleibt unverändert. Alte `columnWidths.delves` bleiben
+wie andere unbekannte Breiten erhalten. Gespeichertes `activeTab = "delves"`
+fällt auf `overview` zurück.
+
 ## Snapshotvertrag
 
 `character.weekly.content` (Schema 1), unter `weekly` und damit vom
@@ -44,7 +57,6 @@ Wochenreset des eingeloggten Charakters geleert:
 ```lua
 content = {
     schemaVersion = 1,
-    delves = { tiers = { { difficulty, points } ... }, updated, weekEnd },  -- absteigend
     dungeons = { heroic, mythic, mythicPlus, countsUpdated,                -- Zähler atomar
                  runs = { { mapID, level, completed, runScore, durationSec } ... },
                  runsUpdated, runsTruncated, weekEnd },
@@ -54,9 +66,7 @@ content = {
 ```
 
 - Gespeichert werden nur IDs und Zahlen, nie clientlokalisierte Namen.
-- Unbekannt ist `nil`. Eine leere Stufenliste gilt nur dann als „keine“, wenn
-  im selben Scan sichere Welt-Vaultdaten (`GetActivities(World)` mit
-  numerischem Fortschritt je Slot) gelesen wurden.
+- Unbekannt ist `nil`, niemals ein erfundener Nullwert.
 - Atomar: ein werfender Aufruf, Secret-Container oder unlesbarer Eintrag
   verwirft den gesamten Lesestand des jeweiligen Inhalts.
 - Periodenbindung: `weekEnd` je Abschnitt ist das `character.weekEnd`
@@ -66,7 +76,7 @@ content = {
   nicht `weekUnknown`, `now < weekEnd` und Abweichung der beiden `weekEnd`
   unter einem Tag (Sekundenversatz des Timers; Wochen liegen 7 Tage
   auseinander). Eine selbst erfundene Wochen-ID aus der lokalen Uhr gibt es nicht.
-- Same-Week: nur in derselben sicher bekannten Woche werden Stufenpunkte,
+- Same-Week: nur in derselben sicher bekannten Woche werden
   Dungeonzähler und Bossschwierigkeiten erhöht, nie gesenkt; eine kürzere
   M+-Liste ersetzt keine längere. Damit überschreibt kein unvollständiger
   Login-Lesestand einen sicheren Wert.
@@ -95,7 +105,7 @@ content = {
   erscheinen aber nicht in einer bekannten Woche.
 - Schwierigkeiten werden nach Blizzards `PrimaryRaids`-Rang verglichen, nie
   numerisch; eine unbekannte ID > 0 schlägt nur „nicht besiegt“.
-- Obergrenzen: 32 Stufen, 40 gespeicherte M+-Läufe (höchste zuerst,
+- Obergrenzen: 40 gespeicherte M+-Läufe (höchste zuerst,
   `runsTruncated`), 64 Bosse (Überlänge verwirft den Lesestand).
 - `NormalizeCharacter` prüft den Container beim Laden fail-closed
   (`WAT:NormalizeWeeklyContent`), legt aber nie einen an.
@@ -103,17 +113,14 @@ content = {
   `CHALLENGE_MODE_MAPS_UPDATE` löst nur einen normalen Refresh aus.
 
 Read-only Zugriff: `WAT:GetWeeklyContentSnapshot(character)`,
-`WAT:GetWeeklyRaidEncounters(character)`, `WAT:SummarizeDelves(delves)`,
+`WAT:GetWeeklyRaidEncounters(character)`,
 `WAT:SummarizeRaids(raids)`, `WAT:IsBetterRaidDifficulty(a, b)`.
 
 ## Anzeige
 
-Drei Reiter direkt nach den Wappenquellen (`delves`, `dungeons`, `raids`),
+Zwei Reiter direkt nach den Wappenquellen (`dungeons`, `raids`),
 je 920 px Spaltenbreite, Details im Zeilen-Tooltip:
 
-- **Tiefen:** Tiefen ab Stufe 2 (Summe der gemeldeten Punkte mit
-  `difficulty > 1`), höchste Stufe, Stufe 1 getrennt als „Welt/Tiefe“, Liste
-  der gemeldeten Stufen. Keine Tiefennamen.
 - **Dungeons:** Normal ausdrücklich „n. v.“, Heroisch, Mythisch 0 und
   Mythisch+ aus dem Wochenzähler, M+-Stufen der Woche aus `GetRunHistory`.
   Tooltip: Dungeonname, Dauer und `completed` als neutrales API-Flag.
@@ -124,8 +131,8 @@ je 920 px Spaltenbreite, Details im Zeilen-Tooltip:
   (Scanner.lua, `DifficultyUtil.GetDifficultyName`, derselbe Helfer wie im
   Raid-Vault-Tooltip), sonst aus den Schlüsseln `DIFFICULTY_*`.
 
-Die Navigation hat zwölf Ziele; die Schaltflächenhöhe wird gerechnet:
-`floor((600 - 108 - 44) / 12) = 37` px, letzte Unterkante 552.
+Die Navigation hat elf Ziele; die Schaltflächenhöhe wird gerechnet:
+`floor((600 - 108 - 44) / 11) = 40` px, letzte Unterkante 548.
 
 ## Bewusst nicht umgesetzt
 
@@ -141,16 +148,16 @@ Die Navigation hat zwölf Ziele; die Schaltflächenhöhe wird gerechnet:
 Die Runtime-Harnesses stubben nur die dokumentierten Signaturen. Im Spiel
 noch zu prüfen:
 
-1. Liefern `GetSortedProgressForActivity` und `GetNumCompletedDungeonRuns`
-   oberhalb der Vaultschwellen (8 Welt, 8 Dungeons) weiter hochzählende Werte?
+1. Liefert `GetNumCompletedDungeonRuns` oberhalb der Vaultschwelle
+   (8 Dungeons) weiter hochzählende Werte?
 2. Semantik von `completed` und `includeIncompleteRuns` bei abgebrochenen
    oder nicht rechtzeitig beendeten Schlüsseln; Umfang der Wochenhistorie.
 3. Werte direkt nach dem Login, rund um den Wochenreset und bei nicht
    abgeholter Vault-Belohnung der Vorwoche (wird kurz noch die Vorwoche
    gemeldet?).
-4. Feuert nach einem Bosskill bzw. Tiefen-/Dungeonabschluss zeitnah
+4. Feuert nach einem Bosskill bzw. Dungeonabschluss zeitnah
    `WEEKLY_REWARDS_UPDATE`, oder aktualisiert erst der nächste Zonenwechsel?
 5. Sind `EJ_GetEncounterInfo`/`EJ_GetInstanceInfo` ohne geöffnetes
    Abenteuerhandbuch verfügbar (sonst bleibt die ID-Anzeige)?
-6. Passen die zweizeiligen Spaltenköpfe und die 37-px-Navigation in deDE,
+6. Passen die zweizeiligen Spaltenköpfe und die 40-px-Navigation in deDE,
    enUS und den Community-Sprachen sichtbar ohne Abschneiden?

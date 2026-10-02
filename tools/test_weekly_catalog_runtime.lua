@@ -1269,18 +1269,18 @@ local function RunVerticalSuite(locale)
     check(DeepEqual(WeeklyAltTrackerDB.characters["Player-Alt"], offlineCopy),
         context("Refresh des Hauptcharakters darf den Offline-Snapshot nicht umschreiben"))
 
-    -- Zwoelf Navigationsziele in fester Reihenfolge, Wochenquests nach
-    -- Midnight, Tiefen/Dungeons/Schlachtzuege nach den Wappenquellen.
-    local ORDER = { "overview", "midnight", "weeklies", "professions", "sources", "delves", "dungeons",
+    -- Elf Navigationsziele in fester Reihenfolge, Wochenquests nach
+    -- Midnight, Dungeons/Schlachtzuege nach den Wappenquellen.
+    local ORDER = { "overview", "midnight", "weeklies", "professions", "sources", "dungeons",
                     "raids", "keystones", "equipment", "statistics", "settings" }
     local count = 0
     for _ in pairs(WAT.tabButtons) do count = count + 1 end
-    checkEqual(count, 12, context("Anzahl Navigationsziele"))
+    checkEqual(count, #ORDER, context("Anzahl Navigationsziele"))
     for index, key in ipairs(ORDER) do
         local button = WAT.tabButtons[key]
         check(button ~= nil, context("Navigationsziel fehlt: " .. key))
         if button then
-            checkEqual(button.points[1] and button.points[1][3], -108 - (index - 1) * 37,
+            checkEqual(button.points[1] and button.points[1][3], -108 - (index - 1) * math.floor((600 - 108 - 44) / #ORDER),
                 context("Navigationsposition " .. key))
             button.scripts.OnClick()
             checkEqual(WAT.activeTab, key, context("Klick öffnet " .. key))
@@ -1288,7 +1288,8 @@ local function RunVerticalSuite(locale)
         end
     end
     local lastButton = WAT.tabButtons.settings
-    checkEqual(108 + 11 * 37 + (lastButton and lastButton.height or 0), 552, context("Sidebar-Unterkante"))
+    checkEqual(108 + (#ORDER - 1) * WAT.navButtonHeight + (lastButton and lastButton.height or 0),
+        108 + #ORDER * math.floor((600 - 108 - 44) / #ORDER), context("Sidebar-Unterkante"))
 
     WAT:SetActiveTab("weeklies")
     local panel = WAT.panels.weeklies
@@ -3101,7 +3102,7 @@ print("LUA WEEKLY CATALOG RUNTIME OK: " .. EXPECTED_ENTRY_COUNT .. " freigegeben
     .. " Mehrziel/IsComplete/Abbruch/Variantenwechsel, Secret-Container und -Callables, API-Cache pro Scan,"
     .. " S2/S3-Grenzen, Definitionsversion, fehlender Katalog, Offline unverändert, Wochenreset,"
     .. " Berufszugehörigkeit, fail-closed SavedVariables und voller Refresh bis in die Katalogzelle"
-    .. " mit Filtern, Scrollklemme, Pooling und neun Navigationszielen in deDE, enUS und frFR,"
+    .. " mit Filtern, Scrollklemme, Pooling und elf Navigationszielen in deDE, enUS und frFR,"
     .. " globale Fortschrittsleisten-API mit Same-Week-Erhalt, Tooltip-Refresh bei offenem Hover,"
     .. " UTF-8-Titelsuche und Sortierung per Klick (sechs Spalten auf/ab, Gleichstände in"
     .. " Katalogreihenfolge, unbekannt/alte Woche am Ende, Filter/Scroll/Tooltip-Pooling, nur Sitzung)"

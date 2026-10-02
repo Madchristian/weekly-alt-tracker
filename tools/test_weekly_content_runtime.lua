@@ -1,4 +1,4 @@
--- Ausführbarer Runtime-Test für die Wocheninhalte Tiefen, Dungeons und
+-- Ausführbarer Runtime-Test für die Wocheninhalte Dungeons und
 -- Schlachtzüge (Issues #9/#12/#13/#14).
 --
 -- Lädt die ECHTEN Produktionsdateien in TOC-Reihenfolge. Gestubbt werden nur
@@ -414,7 +414,7 @@ local function RunLevels(content)
 end
 
 -- ---------------------------------------------------------------------------
--- 1. Erstscan: Datenvertrag aller drei Inhalte
+-- 1. Erstscan: Datenvertrag der erhaltenen Inhalte
 -- ---------------------------------------------------------------------------
 
 do
@@ -426,14 +426,9 @@ do
     check(type(content) == "table", "Erstscan legt weekly.content an")
     content = content or {}
     checkEqual(content.schemaVersion, 1, "Schema der Wocheninhalte")
-    checkEqual(calls.sortedType, WORLD, "Tiefen lesen den Welt-Vaulttyp")
-    checkEqual(calls.combine, true, "combineSharedDifficulty wie Blizzards Tooltip")
-    checkEqual(TierPoints(content), "11:2,8:1,1:4", "Stufen absteigend mit gemeldeten Punkten")
-    local summary = WAT:SummarizeDelves(content.delves)
-    checkEqual(summary and summary.delveRuns, 3, "Tiefensumme nur aus Stufe > 1")
-    checkEqual(summary and summary.worldOrDelve, 4, "Stufe 1 bleibt getrennt als Welt oder Tiefe")
-    checkEqual(summary and summary.highestTier, 11, "höchste gemeldete Tiefenstufe")
-    checkEqual(content.delves and content.delves.updated, NOW, "Tiefen-Zeitstempel")
+    checkEqual(calls.sortedType, nil, "entfernter Tiefen-Scanner wird niemals aufgerufen")
+    checkEqual(content.delves, nil, "kein neuer Tiefenstand")
+    checkEqual(WAT.SummarizeDelves, nil, "keine Tiefen-Auswertung")
 
     local dungeons = content.dungeons or {}
     checkEqual(dungeons.heroic, 2, "Heroisch-Zähler")
@@ -514,7 +509,7 @@ do
                                Encounter(201, 0, 1, 2) } }
     WAT:Refresh("test")
     content = Content(WAT)
-    checkEqual(TierPoints(content), "11:2,8:1,1:4", "leere Stufenliste löscht keine Same-Week-Abschlüsse")
+    checkEqual(TierPoints(content), "", "kein aktiver Tiefenstand")
     checkEqual(content.dungeons.heroic, 2, "kleinerer Heroisch-Zähler ersetzt keinen größeren")
     checkEqual(content.dungeons.mythicPlus, 3, "kleinerer M+-Zähler ersetzt keinen größeren")
     checkEqual(content.dungeons.countsUpdated, NOW, "bestätigter Zählerlesestand erneuert den Zeitstempel")
@@ -528,7 +523,7 @@ do
     api.encounters = { [1] = { Encounter(101, 16, 1, 1), Encounter(201, 17, 1, 2) } }
     WAT:Refresh("test")
     content = Content(WAT)
-    checkEqual(TierPoints(content), "11:3,8:1,4:1,1:4", "neue Stufen und höhere Punkte werden ergänzt")
+    checkEqual(TierPoints(content), "", "kein aktiver Tiefenstand")
     checkEqual(content.dungeons.mythicPlus, 4, "höherer M+-Zähler wird übernommen")
     checkEqual(RunLevels(content), "12,10,7", "längere Laufliste ersetzt die alte")
     checkEqual(EncounterState(content), "101:16,102:16,103:14,201:17",
@@ -554,11 +549,7 @@ do
     api.world = { Slot(1, 0), Slot(2, 0), Slot(3, 0) }
     WAT:Refresh("test")
     content = Content(WAT)
-    check(content and content.delves and #content.delves.tiers == 0,
-        "leere Stufenliste mit geladenem Vault ist ein gemeldetes 'keine'")
-    local summary = WAT:SummarizeDelves(content and content.delves)
-    checkEqual(summary and summary.delveRuns, 0, "gemeldet keine Tiefen ist 0, nicht unbekannt")
-    checkEqual(summary and summary.highestTier, nil, "ohne Abschluss keine höchste Stufe")
+    checkEqual(content.delves, nil, "geladener Welt-Vault erzeugt keinen Tiefenstand")
 
     api.world = { Slot(1, SECRET_VALUE) }
     api.tiers = {}
@@ -569,7 +560,7 @@ do
     api.world = { Slot(1, 2) }
     api.tiers = { { difficulty = 6, numPoints = 1 }, { difficulty = 6, numPoints = 2 } }
     WAT:Refresh("test")
-    checkEqual(TierPoints(Content(WAT)), "6:3", "doppelt gemeldete Stufe wird wie in Blizzards Schleife summiert")
+    checkEqual(TierPoints(Content(WAT)), "", "kein aktiver Tiefenstand")
 
     api.history = {}
     for index = 1, 45 do api.history[index] = Run(2648, index, true, true) end
@@ -635,11 +626,21 @@ do
     local characters = WeeklyAltTrackerDB.characters
     checkEqual(characters["Player-A"].weekly.content, nil, "Secret-Container wird verworfen")
     checkEqual(characters["Player-B"].weekly.content, nil, "fremdes Schema wird verworfen")
-    checkEqual(characters["Player-C"].weekly.content.delves, nil, "ungültige Tiefenstufe verwirft nur die Tiefen")
+    checkEqual(characters["Player-C"].weekly.content.delves, broken.delves, "inaktive Tiefen werden nicht migriert oder ausgewertet")
     check(characters["Player-C"].weekly.content.dungeons ~= nil, "gültige Dungeons bleiben neben kaputten Tiefen")
     check(DeepEqual(characters["Player-D"].weekly.content, ValidContent(4)), "gültiger Snapshot bleibt unverändert")
     checkEqual(characters["Player-E"].weekly.content, nil, "Container ohne gültigen Teil wird verworfen")
     checkEqual(characters["Player-D"].weekly.content.dungeons.runs[1].completed, true, "completed überlebt das Laden")
+
+    local legacy = setmetatable({}, { __index = function() error("inaktiver Tiefenstand darf nicht gelesen werden") end })
+    local WAT = StartAddon("deDE", { settings = { seenIntro = true }, characters = {
+        ["Player-Legacy"] = { guid = "Player-Legacy", weekly = { content = { schemaVersion = 1, delves = legacy } } },
+    } })
+    local offline = WeeklyAltTrackerDB.characters["Player-Legacy"]
+    checkEqual(offline.weekly.content.delves, legacy, "reiner Tiefen-Altbestand bleibt ohne Traversierung identisch")
+    checkEqual(WAT:GetWeeklyContentSnapshot(offline), nil, "reiner Tiefen-Altbestand ist kein sichtbarer Inhalt")
+    WAT:Refresh("test")
+    checkEqual(offline.weekly.content.delves, legacy, "Refresh eines anderen Charakters bereinigt keinen Altbestand")
 end
 
 do
@@ -658,20 +659,20 @@ do
     local altCopy = DeepCopy(WeeklyAltTrackerDB.characters["Player-Alt"])
     onEvent(nil, "PLAYER_LOGIN")
     local content = Content(WAT)
-    checkEqual(TierPoints(content), "11:1", "nach dem Wochenreset zählt nur die neue Woche")
+    checkEqual(TierPoints(content), "", "kein aktiver Tiefenstand")
     checkEqual(content.dungeons.mythicPlus, 1, "M+-Zähler der Vorwoche wird nicht übernommen")
     checkEqual(RunLevels(content), "", "Laufliste der Vorwoche wird nicht übernommen")
     checkEqual(EncounterState(content), "101:14,102:16,103:14,201:0", "Bossstand der Vorwoche wird nicht übernommen")
     check(DeepEqual(WeeklyAltTrackerDB.characters["Player-Alt"], altCopy),
         "Refresh des Hauptcharakters verändert den Offline-Snapshot nicht")
     local main = WeeklyAltTrackerDB.characters["Player-Main"]
-    for _, section in ipairs({ "delves", "dungeons", "raids" }) do
+    for _, section in ipairs({ "dungeons", "raids" }) do
         checkEqual(content[section].weekEnd, main.weekEnd, "neue Woche bindet " .. section .. " an das weekEnd")
     end
 end
 
 -- ---------------------------------------------------------------------------
--- 4b. Unlesbarer Reset-Timer: Periodenbindung der drei Inhalte
+-- 4b. Unlesbarer Reset-Timer: Periodenbindung der beiden Inhalte
 --
 -- Der Wochenreset kann nur über C_DateAndTime.GetSecondsUntilWeeklyReset
 -- erkannt werden. Liefert er über die Resetgrenze hinweg nil, darf kein
@@ -736,7 +737,7 @@ do
     checkEqual(content.dungeons.mythic, 0, "unbekannte Woche: Mythisch 0 nicht aus der Vorwoche")
     checkEqual(content.dungeons.mythicPlus, 0, "unbekannte Woche: M+ nicht aus der Vorwoche")
     checkEqual(RunLevels(content), "2", "unbekannte Woche: Laufliste isoliert")
-    checkEqual(TierPoints(content), "4:1", "unbekannte Woche: Stufen isoliert")
+    checkEqual(TierPoints(content), "", "kein aktiver Tiefenstand")
     checkEqual(EncounterState(content), "101:14,102:0", "unbekannte Woche: Bossstand isoliert")
 
     player.secondsUntilReset = 3600
@@ -744,13 +745,13 @@ do
     checkEqual(WAT:IsStale(main), false, "Timer wieder lesbar: Woche bekannt")
     content = Content(WAT)
     checkEqual(content.dungeons.heroic, 1, "Timer-Erholung: Heroisch der neuen Woche")
-    checkEqual(TierPoints(content), "4:1", "Timer-Erholung: Stufen der neuen Woche")
+    checkEqual(TierPoints(content), "", "kein aktiver Tiefenstand")
     checkEqual(EncounterState(content), "101:14,102:0", "Timer-Erholung: Bosse der neuen Woche")
-    for _, section in ipairs({ "delves", "dungeons", "raids" }) do
+    for _, section in ipairs({ "dungeons", "raids" }) do
         checkEqual(content[section].weekEnd, main.weekEnd, "Timer-Erholung bindet " .. section)
     end
     checkEqual(Cell(WAT, "dungeons", "heroic"), "1", "Reiter zeigt den Heroisch-Zähler der neuen Woche")
-    checkEqual(Cell(WAT, "delves", "delveRuns"), "1", "Reiter zeigt die Tiefen der neuen Woche")
+    checkEqual(WAT.panels.delves, nil, "kein Tiefen-Reiter nach Wochenwechsel")
     checkEqual(Cell(WAT, "raids", "bosses"), "1/2", "Reiter zeigt die Bosse der neuen Woche")
 
     -- Danach gilt wieder das Same-Week-Maximum.
@@ -759,7 +760,7 @@ do
     api.tiers = {}
     WAT:Refresh("test")
     checkEqual(Content(WAT).dungeons.heroic, 1, "bekannte Woche: kleinerer Zähler ersetzt keinen größeren")
-    checkEqual(TierPoints(Content(WAT)), "4:1", "bekannte Woche: leere Stufenliste löscht nichts")
+    checkEqual(TierPoints(Content(WAT)), "", "kein aktiver Tiefenstand")
 end
 
 do
@@ -793,7 +794,7 @@ do
     checkEqual(shown and shown.raids, nil, "ungebundener Altstand erscheint nicht als aktuelle Woche (Bosse)")
     checkEqual(WAT:GetWeeklyRaidEncounters(main), nil, "Raid-Vault-Anzeige sieht keinen ungebundenen Bossstand")
     checkEqual(Cell(WAT, "dungeons", "heroic"), "-", "Reiter: unbekannt statt Vorwochenwert")
-    checkEqual(Cell(WAT, "delves", "delveRuns"), "-", "Reiter Tiefen: unbekannt statt Vorwochenwert")
+    checkEqual(WAT.panels.delves, nil, "kein Tiefen-Reiter bei unbekannter Woche")
     checkEqual(Cell(WAT, "raids", "bosses"), "-", "Reiter Bosse: unbekannt statt Vorwochenwert")
 
     NOW = NOW + 60
@@ -830,7 +831,7 @@ do
     WAT:Refresh("test")
     checkEqual(main.weekEnd, weekEnd, "bekanntes weekEnd bleibt stehen")
     checkEqual(Content(WAT).dungeons.heroic, 5, "bekannte Woche ohne Timer: Maximum bleibt")
-    checkEqual(TierPoints(Content(WAT)), "11:5,1:2", "bekannte Woche ohne Timer: Stufen bleiben")
+    checkEqual(TierPoints(Content(WAT)), "", "kein aktiver Tiefenstand")
     checkEqual(Shown(WAT).dungeons.heroic, 5, "bekannte Woche ohne Timer bleibt sichtbar")
 
     -- Timer wieder lesbar, weekEnd verschiebt sich um Sekunden: dieselbe Woche.
@@ -872,7 +873,9 @@ do
     } }
     local WAT, onEvent = StartAddon("deDE", db)
     local characters = WeeklyAltTrackerDB.characters
-    checkEqual(characters["Alt-Bad"].weekly.content, nil, "ungültige Periodenbindung verwirft den Abschnitt")
+    checkEqual(characters["Alt-Bad"].weekly.content.dungeons, nil, "ungültige Dungeon-Periodenbindung verwirft den Abschnitt")
+    checkEqual(characters["Alt-Bad"].weekly.content.raids, nil, "ungültige Raid-Periodenbindung verwirft den Abschnitt")
+    checkEqual(characters["Alt-Bad"].weekly.content.delves, badTag.delves, "inaktiver Tiefenbestand bleibt unangetastet")
     check(DeepEqual(characters["Alt-Legacy"].weekly.content, ValidContent(2)),
         "ungebundener Altstand bleibt beim Laden physisch erhalten")
     local before = DeepCopy(characters)
@@ -886,7 +889,8 @@ do
     checkEqual(Shown(WAT, "Alt-Other") and Shown(WAT, "Alt-Other").dungeons, nil,
         "Stand einer anderen Woche erscheint nicht")
     checkEqual(Shown(WAT, "Alt-Unknown").dungeons.mythicPlus, 5, "unbekannte Woche zeigt ihren ungebundenen Stand")
-    checkEqual(Shown(WAT, "Alt-Old").delves.tiers[1].points, 7, "Offline-Stand alter Woche bleibt lesbar (grau)")
+    checkEqual(Shown(WAT, "Alt-Old").dungeons.mythicPlus, 5, "Offline-Stand alter Woche bleibt lesbar (grau)")
+    checkEqual(Shown(WAT, "Alt-Old").delves, nil, "inaktive Tiefen bleiben im Renderer unsichtbar")
 end
 
 -- ---------------------------------------------------------------------------
@@ -1089,17 +1093,17 @@ end
 
 local EXPECT = {
     deDE = {
-        resolved = "deDE", tier = "St. 11", tiers = "St. 11: 2, St. 8: 1, St. 1: 4", none = "keine",
-        na = "n. v.", mythic = "Mythisch", stale = "alte Woche", panelDelves = "Tiefen",
-        panelRaids = "Schlachtzüge", worldTip = "Stufe 1 (Weltaktivität oder Tiefe)", delveTip = "Stufe 11 (Tiefe)",
+        resolved = "deDE",
+        na = "n. v.", mythic = "Mythisch", stale = "alte Woche",
+        panelRaids = "Schlachtzüge",
         incomplete = "API: nicht abgeschlossen", completed = "API: abgeschlossen", open = "nicht besiegt",
         fallbackRaid = "Schlachtzug 2", staleTip = "alte Woche - Charakter einloggen",
         notTracked = "nicht erfasst", limits = "Im Spiel noch nicht verifiziert",
     },
     enUS = {
-        resolved = "enUS", tier = "T11", tiers = "T11: 2, T8: 1, T1: 4", none = "none",
-        na = "n/a", mythic = "Mythic", stale = "old week", panelDelves = "Delves",
-        panelRaids = "Raids", worldTip = "Tier 1 (world activity or delve)", delveTip = "Tier 11 (delve)",
+        resolved = "enUS",
+        na = "n/a", mythic = "Mythic", stale = "old week",
+        panelRaids = "Raids",
         incomplete = "API: not completed", completed = "API: completed", open = "not defeated",
         fallbackRaid = "Raid 2", staleTip = "old week - log in this character",
         notTracked = "not tracked", limits = "Not yet verified in game",
@@ -1133,20 +1137,20 @@ local function RunUISuite(locale)
     onEvent(nil, "PLAYER_LOGIN")
     WeeklyAltTrackerDB.settings.characterOrder = { "Player-Main", "Player-Alt", "Player-New" }
 
-    -- Navigation: zwölf Ziele, gerechnete Höhe, Unterkante über dem Fußhinweis.
+    -- Navigation: elf Ziele, gerechnete Höhe, Unterkante über dem Fußhinweis.
     local count = 0
     for _ in pairs(WAT.tabButtons) do count = count + 1 end
-    checkEqual(count, 12, context("zwölf Navigationsziele"))
-    checkEqual(WAT.navButtonHeight, 37, context("Navigationshöhe"))
-    local ORDER = { "overview", "midnight", "weeklies", "professions", "sources", "delves", "dungeons",
+    checkEqual(count, 11, context("elf Navigationsziele"))
+    checkEqual(WAT.navButtonHeight, math.floor((600 - 108 - 44) / 11), context("Navigationshöhe"))
+    local ORDER = { "overview", "midnight", "weeklies", "professions", "sources", "dungeons",
                     "raids", "keystones", "equipment", "statistics", "settings" }
     for index, key in ipairs(ORDER) do
         local button = WAT.tabButtons[key]
-        checkEqual(button and button.points[1][3], -108 - (index - 1) * 37, context("Navigationsposition " .. key))
-        checkEqual(button and button.height, 37, context("Schaltflächenhöhe " .. key))
+        checkEqual(button and button.points[1][3], -108 - (index - 1) * WAT.navButtonHeight, context("Navigationsposition " .. key))
+        checkEqual(button and button.height, WAT.navButtonHeight, context("Schaltflächenhöhe " .. key))
     end
-    check(108 + 12 * 37 <= 600 - 44, context("Navigation endet über dem Fußhinweis"))
-    for _, key in ipairs({ "delves", "dungeons", "raids" }) do
+    check(108 + #ORDER * WAT.navButtonHeight <= 600 - 44, context("Navigation endet über dem Fußhinweis"))
+    for _, key in ipairs({ "dungeons", "raids" }) do
         checkEqual(ColumnTotal(WAT.panels[key].columns), 920, context("Spaltenbreite " .. key))
         for _, column in ipairs(WAT.panels[key].columns) do
             check(type(column.key) == "string" and type(column.label) == "string" and column.width > 0,
@@ -1154,38 +1158,23 @@ local function RunUISuite(locale)
         end
     end
 
-    -- Tiefen (Reiterklicks setzen ein offenes Fenster voraus, #17)
     WAT:ShowUI()
-    WAT.tabButtons.delves.scripts.OnClick()
-    checkEqual(WAT.activeTab, "delves", context("Klick öffnet Tiefen"))
-    checkEqual(WAT.panels.delves.shown, true, context("Tiefen-Panel sichtbar"))
-    checkEqual(WAT.pageTitle.text, expect.panelDelves, context("Seitentitel Tiefen"))
-    local panel = WAT.panels.delves
-    local row = panel.rows[1]
-    check(Contains(row.values.character.text, "Hauptfigur") and Contains(row.values.character.text, "Realm"),
-        context("Charaktername in der Zeile"))
-    check(string.find(row.values.character.text, "|cff3fc6ea", 1, true) ~= nil, context("klassenfarbiger Name"))
-    checkEqual(PlainText(row.values.delveRuns.text), "3", context("Tiefen ab Stufe 2"))
-    checkEqual(PlainText(row.values.highestTier.text), expect.tier, context("höchste Stufe"))
-    checkEqual(PlainText(row.values.worldOrDelve.text), "4", context("Stufe 1 getrennt"))
-    checkEqual(PlainText(row.values.tiers.text), expect.tiers, context("gemeldete Stufen"))
-    local tooltip = Hover(row)
-    check(Contains(tooltip, expect.worldTip), context("Tooltip benennt Stufe 1 als Welt oder Tiefe"))
-    check(Contains(tooltip, expect.delveTip), context("Tooltip benennt Stufe 11 als Tiefe"))
-    check(Contains(tooltip, expect.limits), context("Tooltip nennt die offenen In-Game-Grenzen"))
-    local staleRow = panel.rows[2]
-    checkEqual(PlainText(staleRow.values.delveRuns.text), expect.stale, context("alte Woche statt Wert"))
-    check(string.find(staleRow.values.character.text, "|cff3fc6ea", 1, true) == nil
-        and Contains(staleRow.values.character.text, "Zweitfigur"), context("alte Woche grau statt Klassenfarbe"))
-    check(Contains(Hover(staleRow), expect.staleTip), context("Tooltip kennzeichnet alte Woche"))
-    local newRow = panel.rows[3]
-    checkEqual(PlainText(newRow.values.delveRuns.text), "-", context("unbekannt ist ein Strich, nie 0"))
-    checkEqual(PlainText(newRow.values.updated.text), "-", context("unbekannter Datenstand"))
-    check(Contains(Hover(newRow), expect.notTracked), context("Tooltip: nicht erfasst"))
+    WAT:SetActiveTab("delves")
+    checkEqual(WAT.activeTab, "overview", context("entfernter Reiter fällt auf Übersicht zurück"))
+    checkEqual(WAT.panels.delves, nil, context("kein Tiefen-Reiter"))
+    local row, tooltip, newRow
 
     -- Dungeons
     WAT.tabButtons.dungeons.scripts.OnClick()
     row = WAT.panels.dungeons.rows[1]
+    check(Contains(row.values.character.text, "Hauptfigur") and Contains(row.values.character.text, "Realm"),
+        context("Charaktername in der Zeile"))
+    check(string.find(row.values.character.text, "|cff3fc6ea", 1, true) ~= nil, context("klassenfarbiger Name"))
+    local staleRow = WAT.panels.dungeons.rows[2]
+    checkEqual(PlainText(staleRow.values.heroic.text), expect.stale, context("alte Woche statt Wert"))
+    check(string.find(staleRow.values.character.text, "|cff3fc6ea", 1, true) == nil
+        and Contains(staleRow.values.character.text, "Zweitfigur"), context("alte Woche grau statt Klassenfarbe"))
+    check(Contains(Hover(staleRow), expect.staleTip), context("Tooltip kennzeichnet alte Woche"))
     checkEqual(PlainText(row.values.normal.text), expect.na, context("Normal ausdrücklich nicht verfügbar"))
     checkEqual(PlainText(row.values.heroic.text), "2", context("Heroisch"))
     checkEqual(PlainText(row.values.mythic.text), "1", context("Mythisch 0"))
@@ -1200,6 +1189,9 @@ local function RunUISuite(locale)
     newRow = WAT.panels.dungeons.rows[3]
     checkEqual(PlainText(newRow.values.heroic.text), "-", context("unbekannter Heroisch-Zähler"))
     checkEqual(PlainText(newRow.values.normal.text), expect.na, context("Normal auch ohne Daten n. v."))
+    checkEqual(PlainText(newRow.values.updated.text), "-", context("unbekannter Datenstand"))
+    check(Contains(Hover(newRow), expect.notTracked), context("Tooltip: nicht erfasst"))
+    check(Contains(Hover(row), expect.limits), context("Tooltip nennt offene In-Game-Grenzen"))
 
     -- Schlachtzüge
     WAT.tabButtons.raids.scripts.OnClick()
@@ -1220,8 +1212,20 @@ end
 for _, locale in ipairs({ "deDE", "enUS", "frFR" }) do RunUISuite(locale) end
 
 do
-    -- Ein gespeicherter Reiter der neuen Bereiche überlebt den Neustart.
-    for _, tab in ipairs({ "delves", "dungeons", "raids" }) do
+    -- Ehemals gespeicherte Tiefen-Auswahl faellt auf die Uebersicht zurueck.
+    ResetApi()
+    MainPlayer()
+    local legacy = ValidContent(9)
+    local WAT, onEvent = StartAddon("deDE", { settings = { seenIntro = true, activeTab = "delves" },
+        characters = { ["Player-Main"] = { guid = "Player-Main", weekEnd = NOW + 3600, weekly = { content = legacy } } } })
+    checkEqual(WAT.activeTab, "overview", "alter gespeicherter Tiefen-Reiter: Übersicht")
+    checkEqual(WeeklyAltTrackerDB.settings.activeTab, "overview", "gespeicherter Fallback")
+    onEvent(nil, "PLAYER_LOGIN")
+    checkEqual(Content(WAT).delves, legacy.delves, "Scan erhält inaktive Tiefen ohne Neudatierung")
+    checkEqual(calls.sortedType, nil, "auch mit Altbestand kein Tiefen-API-Aufruf")
+    checkEqual(Shown(WAT).delves, nil, "Altbestand bleibt unsichtbar")
+    -- Ein gespeicherter Reiter der erhaltenen Bereiche überlebt den Neustart.
+    for _, tab in ipairs({ "dungeons", "raids" }) do
         ResetApi()
         MainPlayer()
         local WAT = StartAddon("deDE", { settings = { seenIntro = true, activeTab = tab } })
@@ -1232,7 +1236,7 @@ end
 if failures > 0 then
     error(failures .. " Wocheninhalt-Prüfungen fehlgeschlagen")
 end
-print("LUA WEEKLY CONTENT RUNTIME OK: " .. checks .. " Prüfungen; Tiefen je Stufe ohne Stufe 1 in der Summe,"
+print("LUA WEEKLY CONTENT RUNTIME OK: " .. checks .. " Prüfungen; kein Tiefen-Reiter/-Scan, inaktive Altstände erhalten,"
     .. " Dungeon-Zähler und M+-Liste der Woche mit neutralem completed-Flag, Schlachtzug-Deduplizierung nach"
     .. " Blizzards Rang, atomare Secret-/Fehlerfälle, Same-Week-Maximum, Wochenreset, Offline-Schutz,"
     .. " fail-closed SavedVariables, RequestMapInfo einmal je Sitzung und volle Reiter in deDE/enUS/frFR")

@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.5
+
+Der separate Tiefen-Reiter entfällt, weil seine Schatzkammerdaten keine zuverlässig vollständige Wochenübersicht aller Tiefenabschlüsse und Stufen ergaben. Goldene Truhe, Welt-/Tiefen-Schatzkammer, Dungeons, Schlachtzüge und bestehende Statistiken bleiben erhalten. Die Navigation hat jetzt elf Bereiche. Details im [Changelog zu 2026.10.5](changelog/CHANGELOG-2026.10.5-de.md).
+
 ### Version 2026.10.4
 
 Die Ausrüstungsseite zeigt einen dezenten Klassenhintergrund passend zum ausgewählten Alt und einen kürzeren Erklärungstext. Bei unbekannter Klasse oder fehlendem Client-Atlas bleibt die Fläche neutral. Details im [Changelog zu 2026.10.4](changelog/CHANGELOG-2026.10.4-de.md).
@@ -21,7 +25,7 @@ Bei geschlossenem Fenster zeichnet WeeklyAltTracker keine Seiten mehr neu, bei o
 
 ### Version 2026.10.2
 
-Die Übersicht zeigt jetzt die Große Schatzkammer für Schlachtzüge als Spalte `RAID-VAULT`. Drei neue Bereiche `Tiefen`, `Dungeons` und `Schlachtzüge` zeigen je Charakter den Stand der aktuellen Woche; Raid-Sperren, Kill-Zählung und eine Laufhistorie über die aktuelle Woche hinaus gibt es nicht. Spaltenbreiten lassen sich in allen neun Tabellen ziehen, zurücksetzen und accountweit speichern, breite Tabellen blättern seitlich. `Wochenquests` zeigt Charakternamen in Klassenfarbe. Die Funktionen wurden vor dem Release im Spiel abgenommen; einzelne API-Grenzen rund um Wochenreset und Zählerverhalten sind im Client nicht separat geprüft. Details im [Changelog zu 2026.10.2](changelog/CHANGELOG-2026.10.2-de.md).
+Die Übersicht zeigt jetzt die Große Schatzkammer für Schlachtzüge als Spalte `RAID-VAULT`. Die Bereiche `Dungeons` und `Schlachtzüge` zeigen je Charakter den Stand der aktuellen Woche; Raid-Sperren, Kill-Zählung und eine Laufhistorie über die aktuelle Woche hinaus gibt es nicht. Spaltenbreiten lassen sich in allen acht Tabellen ziehen, zurücksetzen und accountweit speichern, breite Tabellen blättern seitlich. `Wochenquests` zeigt Charakternamen in Klassenfarbe. Die ursprünglichen Funktionen wurden vor dem damaligen Release im Spiel abgenommen. Einzelne API-Grenzen rund um Wochenreset und Zählerverhalten sind im Client nicht separat geprüft. Details im [Changelog zu 2026.10.2](changelog/CHANGELOG-2026.10.2-de.md).
 
 ### Version 2026.10.1
 
@@ -155,11 +159,12 @@ Die Quellenansicht zeigt keine veralteten Saison-1-Belohnungen als aktuelle Nebe
 
 Der Dundun-Bestand liegt bewusst außerhalb des Wochenresets. Ein unlesbarer oder geschützter API-Wert überschreibt keinen bekannten Bestand. Der Tooltip nennt Datenstand und API-Reichweite; accountweite Werte werden nicht über Charaktere summiert.
 
-### Tiefen, Dungeons, Schlachtzüge
+### Dungeons und Schlachtzüge
 
-Drei Bereiche direkt nach den Wappenquellen, je Charakter nur für die **aktuelle Woche**. Es gibt keine Lebenszeit- oder Saisonhistorie, keine Raid-Sperren und keine Kill-Zählung:
+Der dedizierte Tiefen-Reiter entfällt. Goldene Truhe in den Wappenquellen, Welt/Tiefen-Schatzkammer in der Übersicht und die bestehenden Lebenszeit-Statistiken bleiben unverändert. Es entsteht kein neuer Statistik-Tracker.
 
-- `Tiefen` – Tiefen-Abschlüsse je Stufe, wie die Große Schatzkammer sie meldet. Stufe 1 zählt auch Weltaktivitäten und erscheint deshalb getrennt als `Welt/Tiefe`; die Tiefensumme beginnt erst bei Stufe 2. Tiefennamen liefert die API dafür nicht.
+Zwei Bereiche direkt nach den Wappenquellen, je Charakter nur für die **aktuelle Woche**. Es gibt keine Lebenszeit- oder Saisonhistorie, keine Raid-Sperren und keine Kill-Zählung:
+
 - `Dungeons` – heroische, mythische (Mythisch 0) und Mythisch+-Abschlüsse aus dem Wochenzähler der Großen Schatzkammer, dazu die Mythisch+-Läufe dieser Woche. Normale Dungeons meldet das Spiel nicht, die Spalte zeigt ausdrücklich `n. v.`. Das Feld `completed` der Laufliste erscheint nur als neutraler API-Hinweis, nicht als „in der Zeit“.
 - `Schlachtzüge` – in dieser Woche besiegte Bosse je Schlachtzug mit der höchsten gemeldeten Schwierigkeit. Die Reihenfolge folgt Blizzards Rang (Schlachtzugsbrowser < Normal < Heroisch < Mythisch), nie der Zahlen-ID; der Name kommt clientlokalisiert aus `DifficultyUtil`, sonst aus den eigenen Sprachtexten.
 
@@ -232,22 +237,21 @@ Es gibt bewusst keinen Schieberegler: die festen Stufen bleiben exakt im Wertebe
 
 Version 0.3.0 verwendet ein eigenständiges, von EllesmereUI-Prinzipien inspiriertes Midnight-Dark-Layout: eine feste linke Navigation, einen großen Seitenkopf mit Beschreibung, flache Schaltflächen und kompakte Vergleichstabellen. Das Addon kopiert keine EllesmereUI-Assets und benötigt EllesmereUI nicht als Abhängigkeit.
 
-Die linke Navigation besitzt zwölf Bereiche:
+Die linke Navigation besitzt elf Bereiche:
 
 1. `Übersicht`
 2. `Midnight-Woche`
 3. `Wochenquests`
 4. `Berufe`
 5. `Wappenquellen`
-6. `Tiefen`
-7. `Dungeons`
-8. `Schlachtzüge`
-9. `Schlüsselsteine`
-10. `Ausrüstung`
-11. `Statistiken`
-12. `Einstellungen`
+6. `Dungeons`
+7. `Schlachtzüge`
+8. `Schlüsselsteine`
+9. `Ausrüstung`
+10. `Statistiken`
+11. `Einstellungen`
 
-Spaltenbreiten lassen sich in allen Tabellen (einschließlich `Wochenquests` und der drei Inhaltsbereiche) an den Trennlinien im Spaltenkopf ziehen. Doppelklick auf eine Trennlinie setzt diese Spalte zurück, Rechtsklick alle Spalten der Seite. Ist eine Tabelle breiter als das Fenster, blättert ein Balken unter der Tabelle oder das Mausrad über Kopf oder Balken seitlich; Kopf und Zeilen bewegen sich dabei gemeinsam. Die Breiten gelten accountweit und überstehen Neustarts. Klassenfarbige Namen bleiben in `Wochenquests` auch bei einer alten Woche erhalten; dort markieren Status und Datenalter die alte Woche grau.
+Spaltenbreiten lassen sich in allen Tabellen (einschließlich `Wochenquests` und der beiden Inhaltsbereiche) an den Trennlinien im Spaltenkopf ziehen. Doppelklick auf eine Trennlinie setzt diese Spalte zurück, Rechtsklick alle Spalten der Seite. Ist eine Tabelle breiter als das Fenster, blättert ein Balken unter der Tabelle oder das Mausrad über Kopf oder Balken seitlich; Kopf und Zeilen bewegen sich dabei gemeinsam. Die Breiten gelten accountweit und überstehen Neustarts. Klassenfarbige Namen bleiben in `Wochenquests` auch bei einer alten Woche erhalten; dort markieren Status und Datenalter die alte Woche grau.
 
 Statusfarben:
 
@@ -288,14 +292,14 @@ Die Midnight-Questpools wurden aus aktuellen lokalen Addon-Referenzen ermittelt 
 
 Vault-Belohnungs-Itemlevel können von Blizzard abhängig vom UI-/Cachezustand zeitweise nicht geliefert werden. Der letzte sichere Wert bleibt dann erhalten; unbekannt erscheint als `-`.
 
-Die Bereiche `Tiefen`, `Dungeons` und `Schlachtzüge` zeigen nur, was `C_WeeklyRewards` und `C_MythicPlus.GetRunHistory` für die laufende Woche melden. Ungeprüft im Spiel ist unter anderem, ob die Zähler oberhalb der Schatzkammer-Schwellen weiterzählen, was `completed` bei abgebrochenen oder zu späten Schlüsseln bedeutet und ob der Client direkt nach dem Wochenreset kurz noch die Vorwoche meldet. Weil Wochenwerte innerhalb derselben sicher erkannten Woche nur steigen, bliebe ein solcher Vorwochenwert bis zum nächsten Reset stehen. Ist der Resetzeitpunkt nicht lesbar, wird nicht mit älteren Werten gemischt, und ein Stand ohne passende Wochenbindung erscheint nie als aktuelle Woche. Die Raid-Schatzkammer zeigt nur Slots, Schwelle, Schwierigkeit und Belohnungsstufe; Bossdetails stehen im Bereich `Schlachtzüge`.
+Die Bereiche `Dungeons` und `Schlachtzüge` zeigen nur, was `C_WeeklyRewards` und `C_MythicPlus.GetRunHistory` für die laufende Woche melden. Ungeprüft im Spiel ist unter anderem, ob die Zähler oberhalb der Schatzkammer-Schwellen weiterzählen, was `completed` bei abgebrochenen oder zu späten Schlüsseln bedeutet und ob der Client direkt nach dem Wochenreset kurz noch die Vorwoche meldet. Weil Wochenwerte innerhalb derselben sicher erkannten Woche nur steigen, bliebe ein solcher Vorwochenwert bis zum nächsten Reset stehen. Ist der Resetzeitpunkt nicht lesbar, wird nicht mit älteren Werten gemischt, und ein Stand ohne passende Wochenbindung erscheint nie als aktuelle Woche. Die Raid-Schatzkammer zeigt nur Slots, Schwelle, Schwierigkeit und Belohnungsstufe; Bossdetails stehen im Bereich `Schlachtzüge`.
 
 Die Übersicht zeigt `M+10` grün als `Ja`, sobald die Blizzard-Schatzkammer mindestens einen freigeschalteten Slot mit Schlüsselsteinstufe +10 oder höher meldet. Das entspricht in Midnight Saison 2 der 318er Belohnungsstufe (Mythisch 1/6) der Großen Schatzkammer. `Offen` bedeutet sicher noch nicht erreicht; `-` bedeutet unbekannt.
 
 ## Testablauf im Spiel
 
 1. Addon aktivieren und `/reload` ausführen.
-2. `/wat` öffnen und alle zwölf Einträge der linken Navigation anklicken; die letzte Schaltfläche darf den Hinweis am Fuß der Seitenleiste nicht überdecken.
+2. `/wat` öffnen und alle elf Einträge der linken Navigation anklicken; die letzte Schaltfläche darf den Hinweis am Fuß der Seitenleiste nicht überdecken.
 3. Im Bereich `Einstellungen` eine Skalierungsstufe wählen, das Minimap-Symbol aus- und wieder einblenden und die Position zurücksetzen.
 4. Große Schatzkammer öffnen und im Bereich `Einstellungen` auf `Jetzt aktualisieren` klicken.
 5. Vault-Zeile berühren und Itemlevel pro Slot prüfen.
@@ -304,7 +308,7 @@ Die Übersicht zeigt `M+10` grün als `Ja`, sobald die Blizzard-Schatzkammer min
 8. Questlog öffnen beziehungsweise eine Midnight-Aktivität erledigen und den Bereich `Midnight-Woche` prüfen.
 9. Im Bereich `Wochenquests` eine angenommene Wochenquest suchen: Status `Aktiv` mit Fortschritt, nach Erfüllung aller Ziele `Abgabebereit`, nach der Abgabe `Abgegeben`; Charakter-, Kategorie-, Status- und Titelfilter durchschalten, jede Spalte auf- und absteigend sortieren, eine Zeile berühren und Tooltip, Scrollen sowie Beschneidung langer Titel bei 70 %, 100 % und 150 % prüfen. Die Zeile „Die Kammern läutern“ zeigt Streifen und Abzeichen `Held via Karte` (andere Zeilen nicht, alte Wochen grau); die Schaltfläche `Info: Held-Truhe Jagd` überdeckt weder die Eintragszahl noch die Sortierleiste und öffnet beziehungsweise schließt ihren Tooltip beim Berühren und Klicken.
 10. Im Bereich `Berufe` Skill, `Frei / Tasche`, Berufs-Wochenquest und Traktat kontrollieren; die Zeile für Itemdetails berühren.
-11. Im Bereich `Schlüsselsteine` Dungeonname und Stufe eines Charakters mit Mythic+-Schlüsselstein prüfen. Nach einer Tiefe, einem Dungeon und einem Schlachtzugsboss die Bereiche `Tiefen`, `Dungeons` und `Schlachtzüge` samt Tooltip sowie die Übersichtsspalte `RAID-VAULT` kontrollieren. In einer Tabelle eine Spalte breiter ziehen, seitlich blättern, per Doppel- und Rechtsklick zurücksetzen und nach `/reload` die gespeicherte Breite prüfen.
+11. Im Bereich `Schlüsselsteine` Dungeonname und Stufe eines Charakters mit Mythic+-Schlüsselstein prüfen. Nach einem Dungeon und einem Schlachtzugsboss die Bereiche `Dungeons` und `Schlachtzüge` samt Tooltip sowie die Übersichtsspalte `RAID-VAULT` kontrollieren. In einer Tabelle eine Spalte breiter ziehen, seitlich blättern, per Doppel- und Rechtsklick zurücksetzen und nach `/reload` die gespeicherte Breite prüfen.
 12. Im Bereich `Statistiken` prüfen, ob die Werte des eingeloggten Charakters erscheinen und die Accountsumme über mindestens zwei Charaktere tatsächlich addiert. Statistiken werden erst nach dem Nachladen der Erfolgsdaten gefüllt; bis dahin steht dort `-`.
 13. Einen Alt einloggen und prüfen, ob beide Charakter-Snapshots sichtbar sind.
 14. Im Bereich `Einstellungen` den `Übersetzungseditor` öffnen: einen Eintrag ändern und speichern, einen ungültigen Wert (etwa mit `|cff`) ablehnen lassen, `Exportieren` mit Strg+A/Strg+C kopieren, dasselbe Paket über `Importieren`, `Vorschau` und `Anwenden` einspielen und nach `/reload` prüfen, dass die geänderten Beschriftungen überall erscheinen.
@@ -339,7 +343,7 @@ Lua-Runtime-Tests der Harnesses in `tools/*.lua` gegen die echten Addon-Dateien:
 
 `python tools/test_runtime.py`
 
-Registriert sind zwölf Harnesses: `test_localization_runtime.lua`, `test_core_runtime.lua`, `test_vault_runtime.lua`, `test_profession_runtime.lua`, `test_profession_lure_runtime.lua`, `test_statistics_runtime.lua`, `test_equipment_runtime.lua`, `test_ui_runtime.lua`, `test_weekly_catalog_runtime.lua`, `test_translations_runtime.lua`, `test_column_widths_runtime.lua` und `test_weekly_content_runtime.lua`. Der Spaltenbreiten-Harness prüft alle neun Tabellen und führt Raid-Schatzkammer, die drei Inhaltsbereiche, Ziehen/Zurücksetzen/seitliches Blättern und die Klassenfarben in einer gemeinsamen Sitzung aus.
+Registriert sind dreizehn Harnesses: `test_localization_runtime.lua`, `test_core_runtime.lua`, `test_vault_runtime.lua`, `test_profession_runtime.lua`, `test_profession_lure_runtime.lua`, `test_statistics_runtime.lua`, `test_equipment_runtime.lua`, `test_ui_runtime.lua`, `test_weekly_catalog_runtime.lua`, `test_translations_runtime.lua`, `test_column_widths_runtime.lua`, `test_weekly_content_runtime.lua` und `test_performance_runtime.lua`. Der Spaltenbreiten-Harness prüft alle acht Tabellen und führt Raid-Schatzkammer, die beiden Inhaltsbereiche, Ziehen/Zurücksetzen/seitliches Blättern und die Klassenfarben in einer gemeinsamen Sitzung aus.
 
 Der Übersetzungs-Harness `tools/test_translations_runtime.lua` prüft gegen die echten Addon-Dateien den Sprachpaket-Parser und -Export, die Wertprüfung, die Nachschlagereihenfolge mit Overrides, die fail-closed-Normalisierung von `WeeklyAltTrackerDB.translations` in `Core.lua` sowie die Rückrufe des Übersetzungseditors in `UI.lua`.
 

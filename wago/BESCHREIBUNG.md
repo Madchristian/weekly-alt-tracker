@@ -9,7 +9,7 @@ WeeklyAltTracker ist ein eigenständiges Addon für World of Warcraft Retail. Es
 - Wochenaktivitäten und accountweiter Charaktervergleich
 - recherchierte Wochenquests der aktiven Saison für PvE und Berufe mit Status je Charakter
 - Große Schatzkammer für Mythic+, Tiefen/Welt und Schlachtzüge
-- Tiefen, Dungeons und besiegte Schlachtzugsbosse der aktuellen Woche je Charakter
+- Dungeons und besiegte Schlachtzugsbosse der aktuellen Woche je Charakter
 - ziehbare Spaltenbreiten in allen Tabellen, accountweit gespeichert
 - saisonale Währungen und ihre unterstützten Quellen
 - Berufe, Wissenspunkte, Wochenquests und Traktate
@@ -17,24 +17,23 @@ WeeklyAltTracker ist ein eigenständiges Addon für World of Warcraft Retail. Es
 - lebenslange Charakterstatistiken und Accountsumme
 - Einstellungen für Aktualisierung, Skalierung, Fenster und Minimap-Symbol
 
-Die Raid-Schatzkammer erscheint als Wochenstand in der Übersicht. Tiefen, Dungeons und Schlachtzüge zeigen nur die aktuelle Woche: Tiefen-Abschlüsse je Stufe laut Großer Schatzkammer (Stufe 1 zählt auch Weltaktivitäten), heroische/mythische/Mythisch+-Dungeons aus dem Wochenzähler mit den M+-Läufen der Woche (normale Dungeons meldet das Spiel nicht) und besiegte Schlachtzugsbosse mit der höchsten gemeldeten Schwierigkeit. Keine Raid-Sperren, keine Kill-Historie und keine Lebenszeitwerte.
+Die Raid-Schatzkammer erscheint als Wochenstand in der Übersicht. Dungeons und Schlachtzüge zeigen nur die aktuelle Woche: heroische/mythische/Mythisch+-Dungeons aus dem Wochenzähler mit den M+-Läufen der Woche (normale Dungeons meldet das Spiel nicht) und besiegte Schlachtzugsbosse mit der höchsten gemeldeten Schwierigkeit. Keine Raid-Sperren, keine Kill-Historie und keine Lebenszeitwerte.
 
-## Zwölf kompakte Ansichten
+## Elf kompakte Ansichten
 
-Das Addon bündelt seinen Funktionsumfang in zwölf kompakte Ansichten:
+Das Addon bündelt seinen Funktionsumfang in elf kompakte Ansichten:
 
 1. Übersicht
 2. Midnight-Woche
 3. Wochenquests
 4. Berufe
 5. Wappenquellen
-6. Tiefen
-7. Dungeons
-8. Schlachtzüge
-9. Schlüsselsteine
-10. Ausrüstung
-11. Statistiken
-12. Einstellungen
+6. Dungeons
+7. Schlachtzüge
+8. Schlüsselsteine
+9. Ausrüstung
+10. Statistiken
+11. Einstellungen
 
 Ausrüstung zeigt zuletzt angelegte Gegenstände mit Icons, Qualitätsrahmen, tatsächlichem Itemlevel, angelegtem Durchschnitt und Zeitstempeln im Charakterfenster-Stil. Jeden Alt zuerst einloggen; danach reine Offline-Snapshots ohne Wochenreset. Unbekannt, leer und nachladend bleiben getrennt. Gespeicherte Itemlinks liefern Tooltips; keine Taschen-/Bankansicht oder Beratung.
 

@@ -251,7 +251,7 @@ local MAGE_COLOR = "|cff3fc6ea"
 local ROGUE_COLOR = "|cfffff468"
 local NEUTRAL_COLOR = "|cffd8e0e7"
 local STALE_COLOR = "|cff6d7580"
--- Die neun Tabellenseiten dieser Version mit ihren stabilen Spaltenschlüsseln
+-- Die acht Tabellenseiten dieser Version mit ihren stabilen Spaltenschlüsseln
 -- (gespeichert in settings.columnWidths). Die Schleife über ALLE Panels prüft
 -- zusätzlich, dass keine weitere Seite mit Spalten ohne Mechanik entsteht.
 local TABLE_COLUMNS = {
@@ -262,13 +262,12 @@ local TABLE_COLUMNS = {
         "profession2", "skill2", "knowledge2", "weekly2", "treatise2" },
     sources = { "character", "dundun", "gilded", "mythicPlusKey", "crestAdventurer", "crestVeteran",
         "crestChampion", "crestHero", "crestMyth" },
-    delves = { "character", "delveRuns", "highestTier", "worldOrDelve", "tiers", "updated" },
     dungeons = { "character", "normal", "heroic", "mythic", "mythicPlus", "runs", "updated" },
     raids = { "character", "bosses", "highest", "instances", "updated" },
     keystones = { "character", "dungeon", "keystoneLevel", "updated" },
 }
 local KNOWN_TABLES = { "overview", "midnight", "weeklies", "professions", "sources",
-    "delves", "dungeons", "raids", "keystones" }
+    "dungeons", "raids", "keystones" }
 local NON_TABLES = { "equipment", "statistics", "settings" }
 
 local function StartAddon(locale, db)
@@ -858,10 +857,8 @@ local function RunCrossFeatureSuite(locale)
     mageRow.scripts.OnLeave(mageRow)
 
     -- Neue Inhaltsreiter: Werte, Klassenfarbe aktueller Woche, gedimmte alte Woche.
-    WAT:SetActiveTab("delves")
-    local delves = WAT.panels.delves
-    checkEqual(PlainText(delves.rows[1].values.delveRuns.text), "2", context("Tiefen ab Stufe 2"))
-    checkEqual(PlainText(delves.rows[1].values.worldOrDelve.text), "3", context("Stufe 1 getrennt"))
+    checkEqual(WAT.panels.delves, nil, context("kein Tiefen-Reiter"))
+    WeeklyAltTrackerDB.settings.columnWidths.delves = { delveRuns = 177 }
     WAT:SetActiveTab("dungeons")
     local dungeons = WAT.panels.dungeons
     checkEqual(PlainText(dungeons.rows[1].values.mythicPlus.text), "3", context("M+-Wochenzähler"))
@@ -872,8 +869,8 @@ local function RunCrossFeatureSuite(locale)
     checkEqual(PlainText(raidRow.values.highest.text), "MYTHISCH-CLIENT",
         context("höchste Schwierigkeit nach Rang und mit Client-Namen"))
     -- Erste datentragende Spalte je Reiter; Normal-Dungeons sind immer "n. v.".
-    local valueKeys = { delves = "delveRuns", dungeons = "heroic", raids = "bosses" }
-    for _, key in ipairs({ "delves", "dungeons", "raids" }) do
+    local valueKeys = { dungeons = "heroic", raids = "bosses" }
+    for _, key in ipairs({ "dungeons", "raids" }) do
         local rows = WAT.panels[key].rows
         local valueKey = valueKeys[key]
         check(string.find(rows[1].values.character.text, MAGE_COLOR .. "Magierin-Realm|r", 1, true) == 1,
@@ -897,7 +894,6 @@ local function RunCrossFeatureSuite(locale)
     -- Spaltenmechanik in der Übersicht (neue Raid-Spalte) und allen neuen Reitern.
     local kept = {}
     kept.overview = ExerciseResize(WAT, "overview", "raid", context)
-    kept.delves = ExerciseResize(WAT, "delves", "delveRuns", context)
     kept.dungeons = ExerciseResize(WAT, "dungeons", "heroic", context)
     kept.raids = ExerciseResize(WAT, "raids", "highest", context)
     checkEqual(PlainText(raidRow.values.highest.text), expect.mythic, context("Werte überleben das Relayout"))
@@ -915,7 +911,7 @@ local function RunCrossFeatureSuite(locale)
     local restarted = StartAddon(locale, DeepCopy(WeeklyAltTrackerDB))
     restarted:RefreshUI()
     checkEqual(restarted:GetColumnWidth("overview", "raid"), kept.overview, context("Raid-Spalte nach Neustart"))
-    checkEqual(restarted:GetColumnWidth("delves", "delveRuns"), kept.delves, context("Tiefen nach Neustart"))
+    checkEqual(WeeklyAltTrackerDB.settings.columnWidths.delves.delveRuns, 177, context("inaktive Tiefen-Spaltenbreite bleibt nach Neustart erhalten"))
     checkEqual(restarted:GetColumnWidth("dungeons", "heroic"), kept.dungeons, context("Dungeons nach Neustart"))
     checkEqual(restarted:GetColumnWidth("raids", "highest"), kept.raids, context("Schlachtzüge nach Neustart"))
     checkEqual(restarted.panels.raids.tableWidth, CONTENT_WIDTH + 25, context("Schlachtzüge mit Überbreite"))
@@ -924,7 +920,7 @@ end
 -- ---------------------------------------------------------------------------
 -- Trennlinien an der rechten Tabellenkante: jede Trennlinie liegt mit voller
 -- Hitzone und sichtbarer Linie innerhalb der effektiven Tabellenbreite und
--- damit innerhalb des hart abschneidenden Kopfes - in allen neun Tabellen,
+-- damit innerhalb des hart abschneidenden Kopfes - in allen acht Tabellen,
 -- bei Minimal-, Standard- und Maximalbreiten und bei Versatz 0 und Maximum.
 -- ---------------------------------------------------------------------------
 
@@ -1021,5 +1017,5 @@ end
 print("LUA COLUMN WIDTHS RUNTIME OK: " .. checks .. " Prüfungen - Normalisierung, Trennlinien je"
     .. " Tabellenseite, Goldene-Truhe-Standard, Ziehen/Skala/Klemmen/Persistenz/Reset,"
     .. " synchrones waagerechtes Blättern, Katalog-Sortierung und Rebinding, Klassenfarben"
-    .. " der Wochenquests, featureübergreifend Raid-Vault + Tiefen/Dungeons/Schlachtzüge"
+    .. " der Wochenquests, featureübergreifend Raid-Vault + Dungeons/Schlachtzüge"
     .. " mit Resize/Reset/Blättern/Neustart in deDE/enUS/frFR")
