@@ -22,6 +22,15 @@ installierten Client vorhandene Symbol. Liefert der Client keine brauchbare
 `iconFileID`, zeigt die Oberfläche unverändert den bisherigen Text
 (`C` / `H` / `M`). Es wird keine Symbol-ID in den SavedVariables gespeichert.
 
+### Klassenhintergrund im Ausrüstungsreiter
+
+Der statische Klassenhintergrund referenziert zur Laufzeit den Blizzard-Atlas
+`dressingroom-background-<CLASS>` passend zur gespeicherten Klasse des
+ausgewählten Charakters. `C_Texture.GetAtlasInfo` prüft die Verfügbarkeit;
+fehlende oder unlesbare Angaben ergeben eine neutrale Fläche. Es werden keine
+Blizzard-Bilddateien extrahiert, kopiert oder mitgeliefert. Die Grafik ist
+keine Darstellung des individuellen Charakters oder seiner Transmogrifikation.
+
 ### Logo und Minimap-Symbol
 
 Das Logo von WeeklyAltTracker ist eine **eigenständige Original-Vektorgrafik

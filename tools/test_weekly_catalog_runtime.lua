@@ -167,8 +167,16 @@ function Widget:SetVerticalScroll(value)
     for _, hook in ipairs(self.hooks.OnVerticalScroll or {}) do hook(self, value) end
 end
 function Widget:GetVerticalScroll() return self.verticalScroll or 0 end
-function Widget:CreateTexture()
+function Widget:CreateTexture(_, layer)
     local child = NewWidget("Texture", self)
+    child.layer = layer
+    function child:SetTexture(value) self.texture = { value }; self.atlas = nil end
+    -- SimpleTexture-Methoden nur auf Texturen, nicht auf generischen Frames.
+    function child:SetAtlas(atlas, useAtlasSize)
+        assert(type(atlas) == "string" and useAtlasSize == false)
+        self.atlas = atlas
+    end
+    function child:SetDesaturation(value) self.desaturation = value end
     self.children[#self.children + 1] = child
     return child
 end
@@ -2721,6 +2729,105 @@ local function RunEquipmentSuite(locale)
             if tile.characterKey == key then tile.scripts.OnClick(tile); return end
         end
         error("gear tile not visible: " .. key)
+    end
+    -- GetAtlasInfo liefert AtlasInfo (keine Mehrfachrueckgabe); file/filename
+    -- sind optional. Masse sind Testdaten, keine Behauptung ueber Clientbilder.
+    do
+        local savedTexture = C_Texture
+        local atlasCalls = 0
+        C_Texture = { GetAtlasInfo = function(atlas)
+            atlasCalls = atlasCalls + 1
+            assert(atlas == "dressingroom-background-MAGE" or atlas == "dressingroom-background-ROGUE")
+            return { elementName = atlas, width = 512, height = 1024,
+                rawSize = {}, leftTexCoord = 0, rightTexCoord = 1,
+                topTexCoord = 0, bottomTexCoord = 1,
+                tilesHorizontally = false, tilesVertically = false }
+        end }
+        WAT:RefreshUI()
+        local background = panel.classBackground
+        assert(background, "equipment class background texture missing")
+        checkEqual(background.atlas, "dressingroom-background-MAGE", "current saved class atlas")
+        check(background.shown, "available class background visible")
+        checkEqual(background.layer, "BACKGROUND", "class art behind text")
+        checkEqual(background.parent, panel, "class art owned by equipment panel")
+        check(background.alpha >= 0.15 and background.alpha <= 0.22, "class art subdued")
+        check(background.desaturation > 0, "class art desaturated")
+        check(background.width <= 300 and background.height <= 280, "art fits between slots")
+        checkEqual(background.width / background.height, 0.5, "atlas aspect preserved")
+        checkEqual(background.points[1][1], "CENTER", "class art anchored by centre")
+        checkEqual(background.points[1][2], panel, "class art anchor owns panel")
+        checkEqual(background.points[1][3], "TOPLEFT", "class art anchor origin")
+        checkEqual(background.points[1][4], 460, "class art horizontal slot gap centre")
+        checkEqual(background.points[1][5], -216, "class art vertical slot gap centre")
+        local beforeDB, beforeWidgets = DeepCopy(WAT.db), widgetCount
+        SelectGear("Player-Alt")
+        checkEqual(background.atlas, "dressingroom-background-ROGUE", "offline alt not live player class")
+        SelectGear("Player-Main")
+        checkEqual(background.atlas, "dressingroom-background-MAGE", "switch clears previous class")
+        checkEqual(widgetCount, beforeWidgets, "class changes reuse texture pool")
+        check(DeepEqual(beforeDB, WAT.db), "class rendering never mutates database")
+        check(atlasCalls >= 3, "verified atlas API path executed")
+        local validAPI, main = C_Texture, WAT.db.characters["Player-Main"]
+        local function Neutral(message)
+            WAT:RefreshUI()
+            check(not background.shown, message .. ": hidden")
+            checkEqual(background.texture[1], nil, message .. ": cleared")
+        end
+        local function Restore()
+            C_Texture = validAPI
+            main.classFile = "MAGE"
+            WAT:RefreshUI()
+            check(background.shown, "positive control before rejection")
+        end
+        for _, bad in ipairs({ "", "UNKNOWN", "mage", "../MAGE", false, 17, SECRET_VALUE }) do
+            Restore()
+            local beforeCalls = atlasCalls
+            main.classFile = bad
+            Neutral("invalid saved class")
+            checkEqual(atlasCalls, beforeCalls, "invalid class rejected before API")
+        end
+        Restore(); main.classFile = nil; Neutral("missing class")
+        for _, bad in ipairs({ false, SECRET_VALUE, {}, { GetAtlasInfo = SECRET_VALUE },
+            { GetAtlasInfo = function() error("atlas unavailable") end },
+            { GetAtlasInfo = function() return nil end },
+            { GetAtlasInfo = function() return SECRET_VALUE end },
+            { GetAtlasInfo = function() return 512, 1024 end },
+            { GetAtlasInfo = function() return {} end } }) do
+            Restore(); C_Texture = bad; Neutral("unavailable atlas API/info")
+        end
+        Restore(); C_Texture = nil; Neutral("missing atlas namespace")
+        for _, field in ipairs({ "width", "height" }) do
+            for _, bad in ipairs({ SECRET_VALUE, "512", false, 0, -1, math.huge, 0 / 0 }) do
+                Restore()
+                C_Texture = { GetAtlasInfo = function()
+                    local info = { width = 512, height = 1024 }; info[field] = bad; return info
+                end }
+                Neutral("invalid atlas dimension")
+            end
+            Restore()
+            C_Texture = { GetAtlasInfo = function()
+                local info = { width = 512, height = 1024 }; info[field] = nil; return info
+            end }
+            Neutral("missing atlas dimension")
+        end
+        Restore()
+        local setAtlas = background.SetAtlas
+        background.SetAtlas = function() error("texture atlas failed") end
+        Neutral("SetAtlas error")
+        background.SetAtlas = false; Neutral("SetAtlas missing")
+        background.SetAtlas = setAtlas
+        Restore()
+        WAT:RefreshEquipmentPanel(panel, {}, {})
+        check(not background.shown and background.texture[1] == nil, "empty list clears class art")
+        Restore()
+        local beforeHidden = atlasCalls
+        WAT.frame:Hide(); WAT:RefreshUI()
+        checkEqual(atlasCalls, beforeHidden, "hidden UI skips atlas work")
+        WAT.frame:Show(); WAT:RefreshUI()
+        checkEqual(widgetCount, beforeWidgets, "failure/recovery loops keep texture pool constant")
+        check(DeepEqual(beforeDB, WAT.db), "failure/recovery never mutates database")
+        C_Texture = savedTexture
+        print("EQUIPMENT CLASS BACKGROUND OK: " .. locale .. ", offline switch, fail-closed, aspect, pool, DB, hidden UI")
     end
     checkEqual(panel.characterKey, "Player-Main", "gear defaults to current GUID")
     check(string.find(panel.identity.text, "|r - Arms - ", 1, true) ~= nil,

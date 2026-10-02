@@ -11,6 +11,10 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.4
+
+The equipment page shows a subtle class background matching the selected alt and a shorter explanation. Unknown classes or unavailable client atlases leave the area neutral. See the [2026.10.4 changelog](changelog/CHANGELOG-2026.10.4-en.md).
+
 ### Version 2026.10.3
 
 With the window closed, WeeklyAltTracker no longer redraws any pages; with it open, it redraws only the visible page. Background data collection is unchanged, and opening the window shows the current data right away. Whether this removes the reported profiler spikes has not been measured in game yet. See the [2026.10.3 changelog](changelog/CHANGELOG-2026.10.3-en.md).
@@ -173,11 +177,13 @@ The dungeon name is resolved at display time from the map ID via the WoW API. If
 
 ### Equipment
 
+A subtle static Blizzard class background follows the selected character’s saved class, including offline alts. Unknown classes or unavailable client atlases leave the area neutral. This is not a depiction of the character or their transmog.
+
 The dedicated character-window view has eight slots on the left, eight on the right and main/off hand at the bottom, including shirt and tabard. Each item has an icon, quality border and captured actual item level. The centre shows WoW's **equipped average**, not the bag maximum or a locally calculated slot average. Choose a character from six tiles showing class-colored names and realms. The side arrows move the bar by six places, stopping at the last full window. Browsing leaves the displayed equipment unchanged until you click a tile. The header shows the name, last active specialization, an unambiguously equipped set and realm where recorded. Selection and the bar use stable character keys; the counter labels the visible range and total. Long names remain single-line, with full identity in slot tooltips.
 
 **Log in on each alt with the addon enabled first.** This is last equipped gear, never a live query of logged-out characters. `Unknown` means never or not safely captured, `Empty` a confirmed empty slot, and `Pending` missing item details. The centre shows capture time and a separate average timestamp; tooltips show slot capture time. A later partial scan may retain older safe slots. Offline is not automatically outdated; weekly resets do not clear equipment.
 
-Item tooltips open the selected alt's stored link, not the current player's inventory slot. Blizzard may render tooltip details in the current client context; the slot value is the captured actual item level. Sockets, enchants and upgrade ranks are not evaluated as separate completeness checks. No bags, bank, set management, advice, simulation or attributes. **No 3D model:** exact offline appearance, body customizations and transmog are not available through a small verified implementation.
+Item tooltips open the selected alt's stored link, not the current player's inventory slot. Blizzard may render tooltip details in the current client context; the slot value is the captured actual item level. Sockets, enchants and upgrade ranks are not evaluated as separate completeness checks. No bags, bank, set management, advice, simulation or attributes.
 
 After separate installation approval, two real characters, gear changes/removal/loading, reload and in-game screenshots at 70/100/150% still need acceptance. Local runtime tests do not replace this check.
 

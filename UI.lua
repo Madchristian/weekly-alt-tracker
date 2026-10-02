@@ -4858,6 +4858,47 @@ local GEAR_QUALITY = {
     [6] = { 0.9, 0.8, 0.5 }, [7] = { 0, 0.8, 1 }, [8] = { 0, 0.8, 1 },
 }
 
+local GEAR_CLASSES = {
+    WARRIOR = true, PALADIN = true, HUNTER = true, ROGUE = true, PRIEST = true,
+    DEATHKNIGHT = true, SHAMAN = true, MAGE = true, WARLOCK = true, MONK = true,
+    DRUID = true, DEMONHUNTER = true, EVOKER = true,
+}
+
+local function RefreshGearBackground(panel, character)
+    local texture = panel.classBackground
+    -- Zuerst neutralisieren: auch ein fehlender Atlas darf nie den Alt davor zeigen.
+    texture:Hide()
+    texture:SetTexture(nil)
+    local function Apply()
+        local class = character and character.classFile
+        if (issecretvalue and issecretvalue(class)) or type(class) ~= "string" or not GEAR_CLASSES[class] then return end
+        if (issecretvalue and issecretvalue(C_Texture)) or type(C_Texture) ~= "table" then return end
+        local getter = C_Texture.GetAtlasInfo
+        if (issecretvalue and issecretvalue(getter)) or type(getter) ~= "function" then return end
+        local atlas = "dressingroom-background-" .. class
+        -- Blizzard TextureUtilsDocumentation: eine AtlasInfo-Tabelle, file/filename optional.
+        local info = getter(atlas)
+        if (issecretvalue and issecretvalue(info)) or type(info) ~= "table" then return end
+        local width, height = info.width, info.height
+        for index = 1, 2 do
+            local value = width
+            if index == 2 then value = height end
+            if (issecretvalue and issecretvalue(value)) or type(value) ~= "number"
+                or value ~= value or value <= 0 or value == math.huge then return end
+        end
+        -- Freiraum x=310..610, y=76..356: Seiten- und Waffenslots bleiben frei.
+        local scale = math.min(300 / width, 280 / height)
+        texture:SetSize(width * scale, height * scale)
+        texture:SetAtlas(atlas, false)
+        texture:SetDesaturation(0.65)
+        texture:SetAlpha(0.18)
+        texture:Show()
+    end
+    -- API, Atlas und Texturmethoden koennen beim Clientwechsel fehlen/werfen.
+    local ok = pcall(Apply)
+    if not ok then texture:Hide(); texture:SetTexture(nil) end
+end
+
 local function GearPlainText(value)
     -- Eigene Setnamen sind Text, niemals WoW-Markup (Farben/Links/Textures).
     return (string.gsub(string.gsub(value or "-", "[%c]", " "), "|", "||"))
@@ -4926,6 +4967,9 @@ function CreateEquipmentPanel(parent)
     panel:SetClipsChildren(true)
     panel.isEquipment, panel.key, panel.rows, panel.slots = true, "equipment", {}, {}
     panel.characterTiles, panel.tabOffset = {}, 0
+    panel.classBackground = panel:CreateTexture(nil, "BACKGROUND")
+    panel.classBackground:SetPoint("CENTER", panel, "TOPLEFT", 460, -216)
+    panel.classBackground:Hide()
     for i = 1, 6 do
         local tile = CreateFrame("Button", nil, panel, "BackdropTemplate")
         tile:SetPoint("TOPLEFT", 36 + (i - 1) * 142, 0)
@@ -5058,6 +5102,7 @@ function WAT:RefreshEquipmentPanel(panel, characters, characterKeys)
         tile:SetShown(entry ~= nil)
     end
     local character = characters[selected]
+    RefreshGearBackground(panel, character)
     local snapshot = self.GetEquipmentSnapshot and self:GetEquipmentSnapshot(character)
     local identity = GearIdentity(character, snapshot)
     panel.identity:SetText(identity)

@@ -68,6 +68,7 @@ local de = LoadWith(Constant("deDE"))
 local en = LoadWith(Constant("enUS"))
 
 local VALUE_CASES = {
+    { key = "GEAR_HINT", de = "Zeigt die zuletzt bekannte Ausrüstung. Offline-Daten können noch aktuell sein; fehlende Details bleiben unbekannt.", en = "Shows the last known gear. Offline gear may still be current; missing details stay unknown." },
     { key = "PANEL_KEYSTONES_DESC", de = "Gespeicherter Mythic+-Schlüsselstein je Charakter, auch offline einsehbar.", en = "Each character's saved Mythic+ keystone, also available offline." },
     { key = "TR_ERR_SIZE", de = "Das Sprachpaket ist zu groß.", en = "The language pack is too large." },
     { key = "PANEL_OVERVIEW", de = "Übersicht", en = "Overview" },

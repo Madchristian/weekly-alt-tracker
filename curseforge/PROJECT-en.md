@@ -50,7 +50,7 @@ The raid vault appears as the current week's state in the overview. Delves, Dung
 11. Statistics
 12. Settings
 
-Equipment shows last equipped items with icons, quality borders, actual item levels, equipped average and timestamps in a character-window layout. Log in on each alt first; then read offline snapshots that survive weekly resets. Unknown, empty and pending remain distinct. Stored item links provide tooltips; no 3D model, transmog, bag/bank view or advice.
+Equipment shows last equipped items with icons, quality borders, actual item levels, equipped average and timestamps in a character-window layout. Log in on each alt first; then read offline snapshots that survive weekly resets. Unknown, empty and pending remain distinct. Stored item links provide tooltips; no bag/bank view or advice.
 
 Weekly Quests lists the researched and verified weekly quests of the active season as a compact table with quest, area, character, status, progress and last update, plus filters for character, category, status and title and sorting by any column, ascending or descending. The status reads Open, Active, Ready to turn in, Turned in or Unknown. Location, quest giver, requirement, reward, rotation and quest ID live in the row tooltip; rotating offers and uncertain details are marked as such, and there is no invented overall counter.
 

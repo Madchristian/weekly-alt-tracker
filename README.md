@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.4
+
+Die Ausrüstungsseite zeigt einen dezenten Klassenhintergrund passend zum ausgewählten Alt und einen kürzeren Erklärungstext. Bei unbekannter Klasse oder fehlendem Client-Atlas bleibt die Fläche neutral. Details im [Changelog zu 2026.10.4](changelog/CHANGELOG-2026.10.4-de.md).
+
 ### Version 2026.10.3
 
 Bei geschlossenem Fenster zeichnet WeeklyAltTracker keine Seiten mehr neu, bei offenem Fenster nur die sichtbare Seite. Die Datenerfassung im Hintergrund bleibt unverändert, und beim Öffnen erscheint sofort der aktuelle Stand. Ob damit die gemeldeten Profiler-Spitzen verschwinden, ist im Spiel noch nicht gemessen. Details im [Changelog zu 2026.10.3](changelog/CHANGELOG-2026.10.3-de.md).
@@ -171,11 +175,13 @@ Gespeichert werden nur IDs und Zahlen; Dungeon-, Boss- und Schlachtzugsnamen wer
 
 ### Ausrüstung
 
+Ein dezenter statischer Blizzard-Klassenhintergrund folgt der gespeicherten Klasse des ausgewählten Charakters, auch offline. Bei unbekannter Klasse oder fehlendem Client-Atlas bleibt die Fläche neutral. Das ist kein Abbild des Charakters oder seiner Transmogrifikation.
+
 Die eigene Charakterfenster-Ansicht zeigt acht Slots links, acht rechts und Waffenhand/Schildhand unten, einschließlich Hemd und Wappenrock. Pro Gegenstand stehen Icon, Qualitätsrahmen und die zuletzt erfasste tatsächliche Gegenstandsstufe; in der Mitte der von WoW gelieferte **angelegte Durchschnitt** (kein Maximum aus Taschen und kein selbst berechneter Slotdurchschnitt). Oben wählst du einen Charakter über eine von sechs Kacheln mit klassenfarbigem Namen und Realm. Die seitlichen Pfeile blättern um sechs Plätze; am Ende bleibt das letzte volle Fenster stehen. Beim Blättern bleibt die angezeigte Ausrüstung unverändert, bis du eine Kachel anklickst. Die Kopfzeile zeigt Name, zuletzt aktive Spezialisierung, ein eindeutig angelegtes Ausrüstungsset und Realm, soweit erfasst. Auswahl und Leiste folgen stabilen Charakterschlüsseln; die Anzeige nennt den sichtbaren Bereich und die Gesamtzahl. Lange Namen bleiben einzeilig; im Slot-Tooltip steht die volle Identität.
 
 **Jeden Alt zunächst mit aktiviertem Addon einloggen.** Angezeigt wird zuletzt getragene Ausrüstung, keine Live-Abfrage ausgeloggter Charaktere. `Unbekannt` bedeutet nie oder nicht sicher erfasst, `Leer` einen sicher leeren Slot, `Lädt` noch fehlende Itemdetails. Erfassungszeit und eigener Zeitstempel des Durchschnitts stehen in der Mitte; der Tooltip nennt den Slot-Zeitpunkt. Ein später Teilscan kann ältere sichere Slots erhalten. Offline ist nicht automatisch veraltet; der Wochenreset löscht Ausrüstung nicht.
 
-Item-Tooltips öffnen den gespeicherten Link des ausgewählten Alts, nicht den aktuellen Spieler-Slot. Blizzard kann Tooltipdetails im aktuellen Clientkontext darstellen; maßgeblich für das erfasste tatsächliche Itemlevel ist der Wert am Slot. Sockel, Verzauberungen und Aufwertungsstufen werden nicht als eigene Vollständigkeitsprüfung ausgewertet. Keine Taschen, Bank, Setverwaltung, Empfehlungen, Simulation oder Attribute. **Kein 3D-Modell:** eine exakte Offline-Darstellung samt Körpermerkmalen und Transmog ist nicht mit kleinem belegtem Aufwand verfügbar.
+Item-Tooltips öffnen den gespeicherten Link des ausgewählten Alts, nicht den aktuellen Spieler-Slot. Blizzard kann Tooltipdetails im aktuellen Clientkontext darstellen; maßgeblich für das erfasste tatsächliche Itemlevel ist der Wert am Slot. Sockel, Verzauberungen und Aufwertungsstufen werden nicht als eigene Vollständigkeitsprüfung ausgewertet. Keine Taschen, Bank, Setverwaltung, Empfehlungen, Simulation oder Attribute.
 
 Nach separater Installationsfreigabe bleiben zwei echte Charaktere, Wechsel/Ablegen/Nachladen, Reload und Screenshots bei 70/100/150 % im Spiel abzunehmen. Lokale Runtime-Tests ersetzen diese Abnahme nicht.
 
