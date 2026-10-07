@@ -7,10 +7,11 @@ enable-nolib-creation: no
 # zweisprachigen Paaren changelog/CHANGELOG-<version>-en.md und -de.md
 # erzeugt (je Version einmal, zuerst Englisch, dann Deutsch) und nie von Hand
 # bearbeitet; tools/check.py und die Release-Workflows pruefen das fail-closed.
-# Die skalare Form ist die gemeinsame Schnittmenge des BigWigs-Packagers und
-# des CurseForge-Repository-Packagers; die verschachtelte BigWigs-Form wird von
-# CurseForge ignoriert.
-manual-changelog: CHANGELOG.md
+# Den Markup-Typ fuer CurseForge und BigWigs explizit angeben; die skalare
+# Form mit nur dem Dateinamen behandelt CurseForge als unformatierten Text.
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
 
 ignore:
   - .github
