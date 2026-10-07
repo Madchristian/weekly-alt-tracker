@@ -285,11 +285,14 @@ def check_icon_wiring() -> None:
         pkgmeta_text = pkgmeta.read_text(encoding="utf-8")
         lines = pkgmeta_text.splitlines()
         manual_changelog_lines = [line for line in lines if line.startswith("manual-changelog:")]
-        if manual_changelog_lines != ["manual-changelog: CHANGELOG.md"]:
+        expected_changelog = "manual-changelog:\n  filename: CHANGELOG.md\n  markup-type: markdown"
+        if manual_changelog_lines != ["manual-changelog:"] or not re.search(
+            rf"(?m)^{re.escape(expected_changelog)}\n(?=\n|\S|\Z)", pkgmeta_text
+        ):
             error(
-                ".pkgmeta muss den hostuebergreifend kompatiblen skalaren Eintrag "
-                "'manual-changelog: CHANGELOG.md' exakt einmal verwenden; die verschachtelte "
-                "BigWigs-Form wird vom CurseForge-Repository-Packager ignoriert"
+                ".pkgmeta muss 'manual-changelog' exakt einmal mit "
+                "'filename: CHANGELOG.md' und 'markup-type: markdown' verwenden; "
+                "ohne Markup-Typ zeigt CurseForge den Changelog als unformatierten Text"
             )
         entries = set()
         in_ignore = False
