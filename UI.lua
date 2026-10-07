@@ -454,7 +454,8 @@ local CREST_DISPLAY = {
     myth = { short = "M", color = "|cffe0b6ff" },
 }
 
--- Wappensymbol des laufenden Clients. Die iconFileID wird ausschliesslich zur
+-- Waehrungssymbol des laufenden Clients (Wappen und Waehrungsseite).
+-- Die iconFileID wird ausschliesslich zur
 -- Laufzeit referenziert und nie gespeichert. Nur eine sichere, positive
 -- Ganzzahl ergibt Markup; jeder andere Fall liefert "" und damit den
 -- Buchstaben-Fallback. Die Ganzzahlprüfung ist nötig, weil %d einen Bruchwert
@@ -611,10 +612,11 @@ function CURRENCY_VIEW.Snapshot(resources, key)
     return snapshot
 end
 
-function CURRENCY_VIEW.CellText(resources, key, stale)
-    local snapshot = CURRENCY_VIEW.Snapshot(resources, key)
-    if not snapshot then return COLORS.unknown .. "-|r" end
-    return (stale and COLORS.stale or "|cffd8e0e7") .. CURRENCY_VIEW.ValueText(snapshot) .. "|r"
+function CURRENCY_VIEW.CellText(resources, definition, stale)
+    local snapshot = CURRENCY_VIEW.Snapshot(resources, definition.key)
+    local icon = CrestIcon(definition.currencyID)
+    if not snapshot then return icon .. COLORS.unknown .. "-|r" end
+    return icon .. (stale and COLORS.stale or "|cffd8e0e7") .. CURRENCY_VIEW.ValueText(snapshot) .. "|r"
 end
 
 -- Der volle, clientlokalisierte Name kommt zur Renderzeit aus C_CurrencyInfo,
@@ -991,7 +993,7 @@ function CURRENCY_VIEW.Tooltip(character, stale)
     local newest
     for _, definition in ipairs(CURRENCY_VIEW.Definitions()) do
         local snapshot = CURRENCY_VIEW.Snapshot(resources, definition.key)
-        AddTooltipLine(CURRENCY_VIEW.Name(definition),
+        AddTooltipLine(CrestIcon(definition.currencyID) .. CURRENCY_VIEW.Name(definition),
             snapshot and CURRENCY_VIEW.TooltipValue(snapshot, stale) or L("STATUS_UNKNOWN"))
         if snapshot and type(snapshot.updated) == "number" and (not newest or snapshot.updated > newest) then
             newest = snapshot.updated
@@ -5431,7 +5433,7 @@ end
 function CURRENCY_VIEW.Fill(row, character, stale)
     row.values.character:SetText(ClassColoredName(character, stale))
     for _, definition in ipairs(CURRENCY_VIEW.Definitions()) do
-        row.values[definition.key]:SetText(CURRENCY_VIEW.CellText(character.resources, definition.key, stale))
+        row.values[definition.key]:SetText(CURRENCY_VIEW.CellText(character.resources, definition, stale))
     end
 end
 

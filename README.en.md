@@ -11,6 +11,10 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.7-2
+
+All eleven currencies now show their Blizzard icons before balances and in the tooltip. New CurseForge releases also format the changelog as Markdown. See the [2026.10.7-2 changelog](changelog/CHANGELOG-2026.10.7-2-en.md) for details.
+
 ### Version 2026.10.7
 
 The new **Currencies** page shows eleven Midnight currencies per character, first and foremost Nebulous Voidcores for bonus rolls and the Voidforge, plus Dundun, Coffer Keys, Mana-Crystals, Voidlight Marl and further warband currencies. Shards of Dundun moved there from Crest Sources; navigation now has twelve sections. See the [2026.10.7 changelog](changelog/CHANGELOG-2026.10.7-en.md) for details.
