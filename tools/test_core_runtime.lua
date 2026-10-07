@@ -935,7 +935,10 @@ do
     local WAT = Load("deDE")
     -- Im echten TOC liegt Data.lua beim ADDON_LOADED/InitializeDatabase bereits
     -- vor. Dieser isolierte Core-Harness bildet die relevante Invariante nach.
-    WAT.Data = { DUNDUN_CURRENCY_ID = 3376 }
+    WAT.Data = { DUNDUN_CURRENCY_ID = 3376, CURRENCIES = {
+        { key = "voidcore", currencyID = 3513 },
+        { key = "dundun", currencyID = 3376 },
+    } }
     WeeklyAltTrackerDB = {
         version = 1,
         characters = {
@@ -975,6 +978,22 @@ do
                 resources = { dundun = {
                     currencyID = 3376, quantity = SECRET_VALUE, maxQuantity = 8, updated = 500,
                 } },
+                weekly = {},
+            },
+            -- Waehrungsseite: ein Saison-2-Leerenkern lebt weiter, ein
+            -- Saison-1-Leerenkern (3418) unter demselben Schluessel und ein
+            -- Schluessel ohne Definition fallen fail-closed heraus.
+            voidcores = {
+                guid = "Player-1084-0BADBAD3", name = "Leerenkern", realm = "Antonidas",
+                resources = {
+                    voidcore = { currencyID = 3513, quantity = 3, maxQuantity = 6, updated = 500 },
+                    orphan = { currencyID = 1234, quantity = 9, updated = 500 },
+                },
+                weekly = {},
+            },
+            seasonOneVoidcore = {
+                guid = "Player-1084-0BADBAD4", name = "Altkern", realm = "Antonidas",
+                resources = { voidcore = { currencyID = 3418, quantity = 4, updated = 500 } },
                 weekly = {},
             },
             wrongCurrency = {
@@ -1048,6 +1067,24 @@ do
         checkEqual(wrongCurrency.resources.dundun, nil,
             "ein Dundun-Snapshot mit fremder Currency-ID muss vollstaendig verworfen werden")
     end
+
+    local voidcores = WeeklyAltTrackerDB.characters["Player-1084-0BADBAD3"]
+    check(voidcores ~= nil, "Datensatz mit Leerenkern-Snapshot ging verloren")
+    if voidcores then
+        check(type(voidcores.resources.voidcore) == "table"
+                and voidcores.resources.voidcore.quantity == 3
+                and voidcores.resources.voidcore.maxQuantity == 6,
+            "ein gueltiger Saison-2-Leerenkern-Snapshot muss die Migration ueberleben")
+        checkEqual(voidcores.resources.orphan, nil,
+            "ein Ressourcenschluessel ohne Data.CURRENCIES-Definition muss verworfen werden")
+    end
+
+    local seasonOne = WeeklyAltTrackerDB.characters["Player-1084-0BADBAD4"]
+    check(seasonOne ~= nil, "Datensatz mit Saison-1-Leerenkern ging komplett verloren")
+    if seasonOne then
+        checkEqual(seasonOne.resources.voidcore, nil,
+            "ein Saison-1-Leerenkern (3418) darf nie als Saison-2-Bestand weiterleben")
+    end
 end
 
 -- Entfernen ist auf genau einen Offline-Datensatz begrenzt.
@@ -1082,4 +1119,5 @@ print("LUA CORE RUNTIME OK: " .. #LOCALE_CASES .. " Locale-Szenarien, Initialize
     .. " globale Charakterreihenfolge (Normalisierung, Anhaengen, Verschieben),"
     .. " sicher erfasste UnitRace-Metadaten mit Secret-Erhalt, Dundun-Ressourcen-Snapshot"
     .. " als Wochenreset-Ueberlebender und additive Migration von Rasse/resources"
-    .. " (leer, echte Daten, Secret/Fremdtyp verworfen ohne Erfindung)")
+    .. " (leer, echte Daten, Secret/Fremdtyp verworfen ohne Erfindung), Waehrungsseite mit"
+    .. " Saison-2-Leerenkern und verworfenem Saison-1-Kern/verwaistem Schluessel")

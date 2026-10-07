@@ -11,9 +11,9 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
-### Version 2026.10.5
+### Version 2026.10.7
 
-Der separate Tiefen-Reiter entfällt, weil seine Schatzkammerdaten keine zuverlässig vollständige Wochenübersicht aller Tiefenabschlüsse und Stufen ergaben. Goldene Truhe, Welt-/Tiefen-Schatzkammer, Dungeons, Schlachtzüge und bestehende Statistiken bleiben erhalten. Die Navigation hat jetzt elf Bereiche. Details im [Changelog zu 2026.10.5](changelog/CHANGELOG-2026.10.5-de.md).
+Die neue Seite **Währungen** zeigt elf Midnight-Währungen pro Charakter, allen voran die Nebulösen Leerenkerne für Bonuswürfe und die Leerenschmiede, dazu Dundun, Kastenschlüssel, Manakristalle, Leerenlichtmergel und weitere Kriegsmeuten-Währungen. Der Splitter von Dundun ist dafür aus den Wappenquellen umgezogen; die Navigation hat jetzt zwölf Bereiche. Details im [Changelog zu 2026.10.7](changelog/CHANGELOG-2026.10.7-de.md).
 
 ### Version 2026.10.4
 
@@ -150,14 +150,23 @@ Danach normal ausloggen oder `/reload`: WoW schreibt `WTF/Account/<Account>/Save
 
 ### Wappenquellen
 
-- Splitter von Dundun pro Charakter als Offline-Ressourcen-Snapshot, mit dynamischem Maximum wie `5/8`
 - Bestände aller fünf Saison-2-Nebelwappen pro Charakter
 - Goldene Truhe: wöchentlich, vier Abschlüsse mit je 7 Mythischen Nebelwappen
 - Mythisch+ ab +9 als wiederholbare Quelle Mythischer Nebelwappen; angezeigt wird nur die höchste sicher abgeschlossene Stufe
 
 Die Quellenansicht zeigt keine veralteten Saison-1-Belohnungen als aktuelle Nebelwappen an. Ein alter Dämmerwappen-Snapshot wird nur übernommen, wenn seine Währungs-ID exakt zur aktuellen Definition passt; andernfalls bleibt der neue Wert unbekannt.
 
-Der Dundun-Bestand liegt bewusst außerhalb des Wochenresets. Ein unlesbarer oder geschützter API-Wert überschreibt keinen bekannten Bestand. Der Tooltip nennt Datenstand und API-Reichweite; accountweite Werte werden nicht über Charaktere summiert.
+### Währungen
+
+Elf Midnight-Währungen pro Charakter als Offline-Ressourcen-Snapshot, jeweils mit dynamischem Maximum wie `5/8`, sofern die API eines liefert:
+
+- **Nebulöse Leerenkerne** (Saison 2, Währungs-ID 3513) für Bonuswürfe und die Leerenschmiede
+- Splitter von Dundun (3376)
+- Restaurierte Kastenschlüssel (3028) und Kastenschlüsselsplitter (3310)
+- Unbesudelte Manakristalle (3356), Gifthauchmanaflux (3465) und Gezeitenfunkenstaub (3509)
+- Leerenlichtmergel (3316), Lorenmünzen (2803), Korrosive Münzen (3448) und Gewundenes Filament (3546)
+
+Die Bestände liegen bewusst außerhalb des Wochenresets. Ein unlesbarer oder geschützter API-Wert überschreibt keinen bekannten Bestand, und ein Snapshot einer fremden Währungs-ID (etwa der Saison-1-Leerenkern 3418) wird verworfen statt umgedeutet. Der Tooltip nennt alle Bestände mit clientlokalisiertem Namen, den Wochenfortschritt der aktuellen Woche, accountweite oder kriegsmeutenübertragbare Währungen laut API sowie den Datenstand; accountweite Werte werden nicht über Charaktere summiert.
 
 ### Dungeons und Schlachtzüge
 
@@ -237,19 +246,20 @@ Es gibt bewusst keinen Schieberegler: die festen Stufen bleiben exakt im Wertebe
 
 Version 0.3.0 verwendet ein eigenständiges, von EllesmereUI-Prinzipien inspiriertes Midnight-Dark-Layout: eine feste linke Navigation, einen großen Seitenkopf mit Beschreibung, flache Schaltflächen und kompakte Vergleichstabellen. Das Addon kopiert keine EllesmereUI-Assets und benötigt EllesmereUI nicht als Abhängigkeit.
 
-Die linke Navigation besitzt elf Bereiche:
+Die linke Navigation besitzt zwölf Bereiche:
 
 1. `Übersicht`
 2. `Midnight-Woche`
 3. `Wochenquests`
 4. `Berufe`
 5. `Wappenquellen`
-6. `Dungeons`
-7. `Schlachtzüge`
-8. `Schlüsselsteine`
-9. `Ausrüstung`
-10. `Statistiken`
-11. `Einstellungen`
+6. `Währungen`
+7. `Dungeons`
+8. `Schlachtzüge`
+9. `Schlüsselsteine`
+10. `Ausrüstung`
+11. `Statistiken`
+12. `Einstellungen`
 
 Spaltenbreiten lassen sich in allen Tabellen (einschließlich `Wochenquests` und der beiden Inhaltsbereiche) an den Trennlinien im Spaltenkopf ziehen. Doppelklick auf eine Trennlinie setzt diese Spalte zurück, Rechtsklick alle Spalten der Seite. Ist eine Tabelle breiter als das Fenster, blättert ein Balken unter der Tabelle oder das Mausrad über Kopf oder Balken seitlich; Kopf und Zeilen bewegen sich dabei gemeinsam. Die Breiten gelten accountweit und überstehen Neustarts. Klassenfarbige Namen bleiben in `Wochenquests` auch bei einer alten Woche erhalten; dort markieren Status und Datenalter die alte Woche grau.
 

@@ -2,7 +2,7 @@ local ADDON_NAME, WAT = ...
 
 _G.WeeklyAltTracker = WAT
 WAT.name = ADDON_NAME
-WAT.version = "2026.10.5"
+WAT.version = "2026.10.7"
 WAT.events = CreateFrame("Frame")
 
 local function Print(message)
@@ -76,28 +76,21 @@ end
 -- SavedVariables koennen aus einer aelteren Preview, einer manuellen Aenderung
 -- oder einem frueheren Secret-Value-Fehler stammen. Der innere Snapshot wird
 -- deshalb genauso defensiv normalisiert wie der Charakter selbst. Eine nicht
--- sicher lesbare Menge entwertet den gesamten Snapshot; optionale Felder werden
--- einzeln verworfen, ohne die bekannte Menge zu verlieren.
-local function NormalizeDundunSnapshot(resources)
-    local snapshot = SafeTable(resources.dundun)
+-- sicher lesbare Menge oder eine fremde currencyID entwertet den gesamten
+-- Snapshot; optionale Felder werden einzeln verworfen, ohne die bekannte
+-- Menge zu verlieren.
+local function NormalizeCurrencySnapshot(raw, expectedID)
+    local snapshot = SafeTable(raw)
     local quantity = snapshot and SafeNumber(snapshot.quantity)
-    if quantity == nil then
-        resources.dundun = nil
-        return
-    end
-
-    local expectedID = WAT.Data and SafeNumber(WAT.Data.DUNDUN_CURRENCY_ID)
+    if quantity == nil then return nil end
     local currencyID = SafeNumber(snapshot.currencyID)
-    if expectedID ~= nil and currencyID ~= expectedID then
-        resources.dundun = nil
-        return
-    end
+    if currencyID ~= expectedID then return nil end
     local maximum = SafeNumber(snapshot.maxQuantity)
     if maximum ~= nil and maximum <= 0 then maximum = nil end
     local weeklyMaximum = SafeNumber(snapshot.maxWeeklyQuantity)
     if weeklyMaximum ~= nil and weeklyMaximum <= 0 then weeklyMaximum = nil end
 
-    resources.dundun = {
+    return {
         currencyID = currencyID,
         quantity = quantity,
         maxQuantity = maximum,
@@ -108,6 +101,24 @@ local function NormalizeDundunSnapshot(resources)
         weekEnd = SafeNumber(snapshot.weekEnd),
         updated = SafeNumber(snapshot.updated),
     }
+end
+
+-- Der Ressourcen-Container wird aus Data.CURRENCIES neu aufgebaut: nur
+-- definierte Schluessel mit exakt passender currencyID ueberleben. Ein
+-- Schluessel ohne Definition (z.B. eine spaeter entfernte Waehrung) faellt
+-- fail-closed heraus, statt als verwaister Snapshot weiterzuleben.
+local function NormalizeResources(resources)
+    local definitions = WAT.Data and SafeTable(WAT.Data.CURRENCIES)
+    local result = {}
+    if not definitions then return result end
+    for _, definition in ipairs(definitions) do
+        local key = type(definition) == "table" and SafeString(definition.key) or nil
+        local expectedID = type(definition) == "table" and SafeNumber(definition.currencyID) or nil
+        if key and expectedID then
+            result[key] = NormalizeCurrencySnapshot(resources[key], expectedID)
+        end
+    end
+    return result
 end
 
 -- Ein brauchbarer Eintrag fuer settings.characterOrder: ein nicht-leerer,
@@ -241,11 +252,11 @@ local function NormalizeCharacter(record, oldKey)
     -- Additiv: eine 0.2.6-Datenbank kennt noch keine Statistiken. Der Container
     -- wird nur ergaenzt, das Schema bleibt deshalb bei Version 2.
     record.statistics = SafeTable(record.statistics) or {}
-    -- Additiv: Offline-Ressourcen-Snapshots (z.B. Dundun-Splitter) sind kein
-    -- Wochenwert und liegen deshalb neben weekly. Ein Secret- oder Fremdtyp-
-    -- Container wird verworfen, nie mit erfundenem Inhalt gefuellt.
-    record.resources = SafeTable(record.resources) or {}
-    NormalizeDundunSnapshot(record.resources)
+    -- Additiv: Offline-Ressourcen-Snapshots (Waehrungsseite, z.B. Leerenkerne
+    -- und Dundun-Splitter) sind kein Wochenwert und liegen deshalb neben
+    -- weekly. Ein Secret- oder Fremdtyp-Container wird verworfen, nie mit
+    -- erfundenem Inhalt gefuellt.
+    record.resources = NormalizeResources(SafeTable(record.resources) or {})
     -- Additiv wie resources/statistics: character.professionLures ueberlebt
     -- den Wochenreset und wird nie erfunden, nur fail-closed geprueft.
     NormalizeProfessionLures(record)
@@ -355,7 +366,7 @@ end
 
 -- Liefert die normalisierte, persistierte Charakterreihenfolge und schreibt
 -- sie gleich zurueck nach db.settings.characterOrder. Sie ist die EINE Quelle
--- der Wahrheit fuer die Sortierung aller fuenf Tabellenseiten und der
+-- der Wahrheit fuer die Sortierung aller sechs Tabellenseiten und der
 -- Statistik-Charakterreiter:
 --   1. bekannte, eindeutige Schluessel bleiben in der gespeicherten Reihenfolge
 --   2. verwaiste, doppelte, nicht-String- oder Secret-Eintraege verschwinden

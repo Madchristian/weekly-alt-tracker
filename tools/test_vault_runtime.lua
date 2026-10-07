@@ -2,7 +2,7 @@
 -- Läuft außerhalb von WoW mit Fengari und echten Scanner.lua-Funktionen.
 
 local WAT = {
-    Data = { CRESTS = {}, DUNDUN_CURRENCY_ID = 3376 },
+    Data = { CRESTS = {}, DUNDUN_CURRENCY_ID = 3376, CURRENCIES = { { key = "dundun", currencyID = 3376 } } },
 }
 
 function time() return 123456 end
@@ -432,7 +432,7 @@ local dundunCharacter = { weekly = {} }
 
 -- 1. Bekannte Menge plus bekanntes Maximum, alle optionalen Felder lesbar.
 C_CurrencyInfo.GetCurrencyInfo = function(currencyID)
-    assert(currencyID == 3376, "ReadDundun fragt die falsche Currency-ID ab")
+    assert(currencyID == 3376, "der Waehrungsscan fragt die falsche Currency-ID ab")
     return {
         quantity = 5, maxQuantity = 8,
         quantityEarnedThisWeek = 2, maxWeeklyQuantity = 4,
@@ -599,6 +599,40 @@ assert(freshCharacter.resources == nil or freshCharacter.resources.dundun == nil
     "ohne jede API darf niemals eine erfundene Dundun-Menge entstehen")
 C_CurrencyInfo = savedCurrencyInfo
 
+-- Waehrungsseite: mehrere Definitionen werden unabhaengig je Schluessel
+-- gescannt. Ein Vorwert mit fremder currencyID (Saison-1-Leerenkern 3418)
+-- ueberlebt weder einen API-Ausfall noch liefert er optionale Felder.
+WAT.Data.CURRENCIES = {
+    { key = "voidcore", currencyID = 3513 },
+    { key = "dundun", currencyID = 3376 },
+}
+C_CurrencyInfo = { GetCurrencyInfo = function(currencyID)
+    if currencyID == 3513 then return { quantity = 2, maxQuantity = 7 } end
+    if currencyID == 3376 then return { quantity = 6 } end
+    return nil
+end }
+local multiCharacter = { weekly = {}, resources = {
+    voidcore = { currencyID = 3418, quantity = 9, isAccountWide = true },
+} }
+WAT:ScanCharacter(multiCharacter, "runtime-test")
+assert(multiCharacter.resources.voidcore.quantity == 2 and multiCharacter.resources.voidcore.maxQuantity == 7
+        and multiCharacter.resources.voidcore.currencyID == 3513,
+    "der Saison-2-Leerenkern muss unabhaengig von Dundun gescannt werden")
+assert(multiCharacter.resources.voidcore.isAccountWide == nil,
+    "ein Saison-1-Vorwert darf keine optionalen Felder an den Saison-2-Kern vererben")
+assert(multiCharacter.resources.dundun.quantity == 6, "Dundun muss neben dem Leerenkern erhalten bleiben")
+
+C_CurrencyInfo = { GetCurrencyInfo = function() return nil end }
+local legacyVoidcore = { weekly = {}, resources = { voidcore = { currencyID = 3418, quantity = 9 } } }
+WAT:ScanCharacter(legacyVoidcore, "runtime-test")
+assert(legacyVoidcore.resources.voidcore == nil,
+    "ein Saison-1-Leerenkern darf bei API-Ausfall nicht als Saison-2-Bestand erhalten bleiben")
+local keptVoidcore = { currencyID = 3513, quantity = 4 }
+local keptCharacter = { weekly = {}, resources = { voidcore = keptVoidcore } }
+WAT:ScanCharacter(keptCharacter, "runtime-test")
+assert(keptCharacter.resources.voidcore == keptVoidcore,
+    "ein passender Leerenkern-Snapshot muss einen API-Ausfall unveraendert ueberleben")
+
 -- Saisonwechsel: Ein API-Ausfall darf alte Dämmerwappen mit denselben
 -- Speicherschlüsseln niemals als neue Nebelwappen ausgeben. Nur ein Vorwert mit
 -- exakt passender Currency-ID darf erhalten bleiben.
@@ -630,5 +664,6 @@ print("LUA RUNTIME OK: Vault, Raid-Schatzkammer mit Schwierigkeits-ID/Secret-Erh
     .. " Dundun-Splitter (3376) als Offline-Ressourcen-Snapshot: bekannte Menge+Maximum,"
     .. " echte Null, unbekanntes Maximum, API-Ausfall/nil/Secret-Container/Secret-Menge"
     .. " erhalten den Vorwert, optionale Secret-Felder entwerten die Menge nicht,"
-    .. " keine erfundene Menge ganz ohne API, Saisonwechsel verwirft alte 3343/3345/3347"
+    .. " keine erfundene Menge ganz ohne API, Leerenkern 3513 unabhaengig gescannt und"
+    .. " Saison-1-Kern 3418 verworfen, Saisonwechsel verwirft alte 3343/3345/3347"
     .. " und erhält nur exakt passende Nebelwappen-Currency-IDs")

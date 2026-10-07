@@ -115,27 +115,34 @@ local function ReadCrests(previous)
     return result
 end
 
--- Dundun-Splitter (Currency 3376): ein Offline-Ressourcen-Snapshot, kein
--- Wochenwert. Anders als ReadCrest darf ein API-Ausfall NICHT einfach nil
+-- Waehrungsseite (Data.CURRENCIES, z.B. Leerenkern 3513 und Dundun-Splitter
+-- 3376): je Waehrung ein Offline-Ressourcen-Snapshot, kein Wochenwert.
+-- Anders als ReadCrest darf ein API-Ausfall NICHT einfach nil
 -- liefern - das wuerde ScanCharacter dazu bringen, gar nichts zu schreiben,
 -- was fuer einen bereits vorhandenen Snapshot richtig waere, einen frischen
 -- Charakter aber niemals veraendert (kein Unterschied noetig). Stattdessen
--- gibt ReadDundun bei jedem Fehlerfall explizit den Vorwert zurueck: so bleibt
+-- gibt ReadCurrencySnapshot bei jedem Fehlerfall explizit den Vorwert zurueck: so bleibt
 -- ein vorhandener sicherer Snapshot unveraendert erhalten, ohne dass der
 -- Aufrufer selbst zwischen "nichts Neues" und "loeschen" unterscheiden muss.
 -- Ein sicher gelesenes Maximum <= 0 entfernt einen alten Deckel bewusst. Ein
 -- fehlendes/geschuetztes optionales Feld behaelt dagegen den sicheren Vorwert.
 -- Wochenfelder duerfen nur innerhalb desselben weekEnd nachgetragen werden.
-local function ReadDundun(previous, weekEnd)
+-- Ein Vorwert mit fremder currencyID (z.B. der Saison-1-Leerenkern 3418) ist
+-- nie "derselbe" Snapshot: er wird weder erhalten noch als Quelle fuer
+-- optionale Felder benutzt.
+local function ReadCurrencySnapshot(id, previous, weekEnd)
+    if not IsSafeValue(previous) or type(previous) ~= "table"
+            or CopyNumber(previous.currencyID) ~= id then
+        previous = nil
+    end
     local getter = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
-    local id = WAT.Data and CopyNumber(WAT.Data.DUNDUN_CURRENCY_ID)
-    if not getter or not id then return previous end
+    if not getter then return previous end
     local ok, info = pcall(getter, id)
     if not ok or not IsSafeValue(info) or type(info) ~= "table" then return previous end
     local quantity = CopyNumber(info.quantity)
     if quantity == nil then return previous end
 
-    local old = IsSafeValue(previous) and type(previous) == "table" and previous or {}
+    local old = previous or {}
     local currentWeekEnd = CopyNumber(weekEnd)
     local sameWeek = currentWeekEnd ~= nil and CopyNumber(old.weekEnd) == currentWeekEnd
 
@@ -167,6 +174,21 @@ local function ReadDundun(previous, weekEnd)
         weekEnd = currentWeekEnd,
         updated = time(),
     }
+end
+
+-- Schreibt je definierter Waehrung den frischen oder den erhaltenen
+-- currencyID-kompatiblen Vorwert. nil entfernt einen unbrauchbaren Vorwert
+-- bewusst. Ohne Definitionsvertrag bleibt der Container unangetastet.
+local function ReadCurrencies(resources, weekEnd)
+    local definitions = WAT.Data and WAT.Data.CURRENCIES
+    if type(definitions) ~= "table" then return end
+    for _, definition in ipairs(definitions) do
+        local key = type(definition) == "table" and CopyString(definition.key) or nil
+        local id = type(definition) == "table" and CopyNumber(definition.currencyID) or nil
+        if key and id then
+            resources[key] = ReadCurrencySnapshot(id, resources[key], weekEnd)
+        end
+    end
 end
 
 local function ReadOwnedKeystone(previous, allowClear)
@@ -543,8 +565,7 @@ function WAT:ScanCharacter(character, reason)
     -- weekly statt darunter, und niemals vom Wochenreset geleert.
     character.resources = type(character.resources) == "table" and character.resources or {}
     local resources = character.resources
-    local dundun = ReadDundun(resources.dundun, character.weekEnd)
-    if dundun then resources.dundun = dundun end
+    ReadCurrencies(resources, character.weekEnd)
 
     local current, maximum, widgetID = ReadGildedStash()
     if current and maximum then

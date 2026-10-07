@@ -56,6 +56,31 @@ Data.MYTHIC_PLUS_MYTH_MIN_LEVEL = 9
 -- (character.resources.dundun), nicht in character.weekly.
 Data.DUNDUN_CURRENCY_ID = 3376
 
+-- Währungsseite: Offline-Ressourcen-Snapshots je Charakter unter
+-- character.resources[key]. Die Reihenfolge ist die Spaltenreihenfolge.
+-- key ist der sprachneutrale, stabile Speicherschlüssel; "dundun" bleibt
+-- dabei der Schlüssel aus 0.6.0, damit bestehende Snapshots weiterleben.
+-- Namen kommen zur Renderzeit aus C_CurrencyInfo; nameKey ist nur der eigene
+-- Ersatztext, labelKey der kurze Spaltenkopf.
+--
+-- Die IDs sind gegen die Wowhead-Tooltip-API (Livebuild 12.1, deDE/enUS)
+-- belegt. Der Nebulöse Leerenkern hat in Saison 2 eine NEUE Currency-ID
+-- (3513; Saison 1 war 3418) - ein Snapshot der alten ID wird über die
+-- currencyID-Prüfung in Core.lua/Scanner.lua verworfen, nie umgedeutet.
+Data.CURRENCIES = {
+    { key = "voidcore", currencyID = 3513, labelKey = "COL_CUR_VOIDCORE", nameKey = "CUR_NAME_VOIDCORE" },
+    { key = "dundun", currencyID = Data.DUNDUN_CURRENCY_ID, labelKey = "COL_DUNDUN", nameKey = "DUNDUN_NAME_FALLBACK" },
+    { key = "cofferKey", currencyID = 3028, labelKey = "COL_CUR_COFFER_KEY", nameKey = "CUR_NAME_COFFER_KEY" },
+    { key = "cofferKeyShards", currencyID = 3310, labelKey = "COL_CUR_COFFER_SHARDS", nameKey = "CUR_NAME_COFFER_SHARDS" },
+    { key = "manaCrystals", currencyID = 3356, labelKey = "COL_CUR_MANA_CRYSTALS", nameKey = "CUR_NAME_MANA_CRYSTALS" },
+    { key = "manaflux", currencyID = 3465, labelKey = "COL_CUR_MANAFLUX", nameKey = "CUR_NAME_MANAFLUX" },
+    { key = "sparkDust", currencyID = 3509, labelKey = "COL_CUR_SPARK_DUST", nameKey = "CUR_NAME_SPARK_DUST" },
+    { key = "voidlightMarl", currencyID = 3316, labelKey = "COL_CUR_MARL", nameKey = "CUR_NAME_MARL" },
+    { key = "undercoin", currencyID = 2803, labelKey = "COL_CUR_UNDERCOIN", nameKey = "CUR_NAME_UNDERCOIN" },
+    { key = "corrosiveCoin", currencyID = 3448, labelKey = "COL_CUR_CORROSIVE_COIN", nameKey = "CUR_NAME_CORROSIVE_COIN" },
+    { key = "coiledFilament", currencyID = 3546, labelKey = "COL_CUR_FILAMENT", nameKey = "CUR_NAME_FILAMENT" },
+}
+
 -- Midnight-Meta-Weekly: Erkennungspool der Seite "Midnight-Woche". Der Pool
 -- enthält auch die Raid-Variante 93912 (und die PvP-Variante 94457), damit das
 -- Addon eine vom Spieler gewählte Weekly erkennen kann. Der Wochenquest-

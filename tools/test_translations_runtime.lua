@@ -886,7 +886,7 @@ do
     checkEqual(WAT.panels.professions.lureToggle.label.text, "顯示誘餌", "Köder-Steuerung nutzt gespeicherten Override")
     local navigationCount = 0
     for _ in pairs(WAT.tabButtons) do navigationCount = navigationCount + 1 end
-    checkEqual(navigationCount, 11, "Editor, Gear und Wocheninhalte ergeben elf Navigationsziele")
+    checkEqual(navigationCount, 12, "Editor, Gear, Wocheninhalte und Waehrungen ergeben zwoelf Navigationsziele")
 end
 
 -- ---------------------------------------------------------------------------
