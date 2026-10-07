@@ -65,6 +65,9 @@ local enUS = {
     PANEL_SOURCES = "Crest Sources",
     PANEL_SOURCES_SHORT = "CREST SOURCES",
     PANEL_SOURCES_DESC = "Season 2 Mistcrest balances and confirmed sources outside raids.",
+    PANEL_CURRENCIES = "Currencies",
+    PANEL_CURRENCIES_SHORT = "CURRENCIES",
+    PANEL_CURRENCIES_DESC = "Voidcores, Dundun and other Midnight currencies as an offline snapshot per character.",
     PANEL_KEYSTONES = "Keystones",
     PANEL_KEYSTONES_SHORT = "KEYSTONES",
     PANEL_KEYSTONES_DESC = "Each character's saved Mythic+ keystone, also available offline.",
@@ -110,6 +113,16 @@ local enUS = {
     COLUMN_RESIZE_SCROLL = "Mouse wheel over the header or the bar below: scroll sideways",
 
     COL_DUNDUN = "DUNDUN",
+    COL_CUR_VOIDCORE = "VOID-\nCORES",
+    COL_CUR_COFFER_KEY = "COFFER\nKEYS",
+    COL_CUR_COFFER_SHARDS = "KEY\nSHARDS",
+    COL_CUR_MANA_CRYSTALS = "MANA\nCRYSTALS",
+    COL_CUR_MANAFLUX = "MANA-\nFLUX",
+    COL_CUR_SPARK_DUST = "SPARK\nDUST",
+    COL_CUR_MARL = "VOID-\nMARL",
+    COL_CUR_UNDERCOIN = "UNDER-\nCOIN",
+    COL_CUR_CORROSIVE_COIN = "CORROS.\nCOIN",
+    COL_CUR_FILAMENT = "COILED\nFILAMENT",
     COL_DUNGEON = "DUNGEON",
     COL_KEYSTONE_LEVEL = "LEVEL",
 
@@ -315,12 +328,22 @@ local enUS = {
     SRC_MYTHIC_GENERIC = "Myth Mistcrests from +%d / no safe completion recorded",
 
     SRC_FOOTNOTE = "Repeatable sources are not a retroactive weekly counter. Only safely observable data is shown.",
-    -- Dundun-Splitter: ein Offline-Ressourcen-Snapshot, kein Wochenwert.
+    -- Waehrungsseite: Offline-Ressourcen-Snapshots, kein Wochenwert. Die
+    -- Namen sind nur Ersatztexte; bevorzugt kommt der Clientname aus der API.
     DUNDUN_NAME_FALLBACK = "Shard of Dundun",
-    DUNDUN_SCOPE = "Scope",
-    DUNDUN_SCOPE_ACCOUNT = "account-wide",
-    DUNDUN_SCOPE_CHARACTER = "character-specific",
-    DUNDUN_OFFLINE_NOTE = "Saved resource balance, not a completed weekly source.",
+    CUR_NAME_VOIDCORE = "Nebulous Voidcore",
+    CUR_NAME_COFFER_KEY = "Restored Coffer Key",
+    CUR_NAME_COFFER_SHARDS = "Coffer Key Shards",
+    CUR_NAME_MANA_CRYSTALS = "Untainted Mana-Crystals",
+    CUR_NAME_MANAFLUX = "Venomblight Manaflux",
+    CUR_NAME_SPARK_DUST = "Tidal Spark Dust",
+    CUR_NAME_MARL = "Voidlight Marl",
+    CUR_NAME_UNDERCOIN = "Undercoin",
+    CUR_NAME_CORROSIVE_COIN = "Corrosive Coin",
+    CUR_NAME_FILAMENT = "Coiled Filament",
+    CUR_SCOPE_ACCOUNT = "account-wide",
+    CUR_SCOPE_TRANSFERABLE = "warband-transferable",
+    CUR_OFFLINE_NOTE = "Saved resource balance, not a completed weekly source.",
     EASTER_EGG_DUNDUN = "Panra holds the line, Cataline keeps him in the Light - Dundun doesn't stand a chance.",
 
 
@@ -791,6 +814,9 @@ local deDE = {
     PANEL_SOURCES = "Wappenquellen",
     PANEL_SOURCES_SHORT = "WAPPENQUELLEN",
     PANEL_SOURCES_DESC = "Nebelwappenbestände aus Saison 2 und bestätigte Quellen außerhalb von Raids.",
+    PANEL_CURRENCIES = "Währungen",
+    PANEL_CURRENCIES_SHORT = "WÄHRUNGEN",
+    PANEL_CURRENCIES_DESC = "Leerenkerne, Dundun und weitere Midnight-Währungen als Offline-Snapshot pro Charakter.",
     PANEL_KEYSTONES = "Schlüsselsteine",
     PANEL_KEYSTONES_SHORT = "SCHLÜSSELSTEINE",
     PANEL_KEYSTONES_DESC = "Gespeicherter Mythic+-Schlüsselstein je Charakter, auch offline einsehbar.",
@@ -836,6 +862,16 @@ local deDE = {
     COLUMN_RESIZE_SCROLL = "Mausrad über dem Kopf oder dem Balken darunter: seitlich blättern",
 
     COL_DUNDUN = "DUNDUN",
+    COL_CUR_VOIDCORE = "LEEREN-\nKERNE",
+    COL_CUR_COFFER_KEY = "KASTEN-\nSCHL.",
+    COL_CUR_COFFER_SHARDS = "SCHL.-\nSPLITTER",
+    COL_CUR_MANA_CRYSTALS = "MANA-\nKRISTALLE",
+    COL_CUR_MANAFLUX = "MANA-\nFLUX",
+    COL_CUR_SPARK_DUST = "FUNKEN-\nSTAUB",
+    COL_CUR_MARL = "LEEREN-\nMERGEL",
+    COL_CUR_UNDERCOIN = "LOREN-\nMÜNZE",
+    COL_CUR_CORROSIVE_COIN = "KORROS.\nMÜNZE",
+    COL_CUR_FILAMENT = "GEWUND.\nFILAMENT",
     COL_DUNGEON = "DUNGEON",
     COL_KEYSTONE_LEVEL = "STUFE",
 
@@ -1038,12 +1074,22 @@ local deDE = {
     SRC_MYTHIC_GENERIC = "Mythische Nebelwappen ab +%d / kein sicherer Abschluss erfasst",
 
     SRC_FOOTNOTE = "Wiederholbare Quellen sind kein rückwirkender Wochenzähler. Angezeigt werden nur sicher beobachtbare Daten.",
-    -- Dundun-Splitter: ein Offline-Ressourcen-Snapshot, kein Wochenwert.
+    -- Waehrungsseite: Offline-Ressourcen-Snapshots, kein Wochenwert. Die
+    -- Namen sind nur Ersatztexte; bevorzugt kommt der Clientname aus der API.
     DUNDUN_NAME_FALLBACK = "Splitter von Dundun",
-    DUNDUN_SCOPE = "Reichweite",
-    DUNDUN_SCOPE_ACCOUNT = "accountweit",
-    DUNDUN_SCOPE_CHARACTER = "charakterbezogen",
-    DUNDUN_OFFLINE_NOTE = "Gespeicherter Ressourcenbestand, keine abgeschlossene Wochenquelle.",
+    CUR_NAME_VOIDCORE = "Nebulöser Leerenkern",
+    CUR_NAME_COFFER_KEY = "Restaurierter Kastenschlüssel",
+    CUR_NAME_COFFER_SHARDS = "Kastenschlüsselsplitter",
+    CUR_NAME_MANA_CRYSTALS = "Unbesudelte Manakristalle",
+    CUR_NAME_MANAFLUX = "Gifthauchmanaflux",
+    CUR_NAME_SPARK_DUST = "Gezeitenfunkenstaub",
+    CUR_NAME_MARL = "Leerenlichtmergel",
+    CUR_NAME_UNDERCOIN = "Lorenmünze",
+    CUR_NAME_CORROSIVE_COIN = "Korrosive Münze",
+    CUR_NAME_FILAMENT = "Gewundenes Filament",
+    CUR_SCOPE_ACCOUNT = "accountweit",
+    CUR_SCOPE_TRANSFERABLE = "kriegsmeutenübertragbar",
+    CUR_OFFLINE_NOTE = "Gespeicherter Ressourcenbestand, keine abgeschlossene Wochenquelle.",
     EASTER_EGG_DUNDUN = "Panra hält die Front, Cataline hält ihn im Licht - Dundun hat keine Chance.",
 
 

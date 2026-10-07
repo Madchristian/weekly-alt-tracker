@@ -19,23 +19,26 @@ WeeklyAltTracker ist ein eigenständiges Addon für World of Warcraft Retail. Es
 
 Die Raid-Schatzkammer erscheint als Wochenstand in der Übersicht. Dungeons und Schlachtzüge zeigen nur die aktuelle Woche: heroische/mythische/Mythisch+-Dungeons aus dem Wochenzähler mit den M+-Läufen der Woche (normale Dungeons meldet das Spiel nicht) und besiegte Schlachtzugsbosse mit der höchsten gemeldeten Schwierigkeit. Keine Raid-Sperren, keine Kill-Historie und keine Lebenszeitwerte.
 
-## Elf kompakte Ansichten
+## Zwölf kompakte Ansichten
 
-Das Addon bündelt seinen Funktionsumfang in elf kompakte Ansichten:
+Das Addon bündelt seinen Funktionsumfang in zwölf kompakte Ansichten:
 
 1. Übersicht
 2. Midnight-Woche
 3. Wochenquests
 4. Berufe
 5. Wappenquellen
-6. Dungeons
-7. Schlachtzüge
-8. Schlüsselsteine
-9. Ausrüstung
-10. Statistiken
-11. Einstellungen
+6. Währungen
+7. Dungeons
+8. Schlachtzüge
+9. Schlüsselsteine
+10. Ausrüstung
+11. Statistiken
+12. Einstellungen
 
 Ausrüstung zeigt zuletzt angelegte Gegenstände mit Icons, Qualitätsrahmen, tatsächlichem Itemlevel, angelegtem Durchschnitt und Zeitstempeln im Charakterfenster-Stil. Jeden Alt zuerst einloggen; danach reine Offline-Snapshots ohne Wochenreset. Unbekannt, leer und nachladend bleiben getrennt. Gespeicherte Itemlinks liefern Tooltips; keine Taschen-/Bankansicht oder Beratung.
+
+Währungen zeigt elf Midnight-Währungen pro Charakter als Offline-Snapshot, allen voran die Nebulösen Leerenkerne für Bonuswürfe, dazu Splitter von Dundun, Kastenschlüssel, Manakristalle, Leerenlichtmergel und weitere Kriegsmeuten-Währungen; der Tooltip nennt Wochenfortschritt und accountweite oder übertragbare Währungen.
 
 Die Ansicht Wochenquests zeigt die recherchierten und belegten Wochenquests der aktiven Saison als kompakte Tabelle mit Quest, Bereich, Charakter, Status, Fortschritt und Stand, dazu Filter für Charakter, Kategorie, Status und Titel sowie eine Sortierung nach jeder Spalte, auf- oder absteigend. Details wie Ort, Questgeber, Voraussetzung, Belohnung, Rotation und Quest-ID stehen im Zeilen-Tooltip; unsichere Angaben sind als solche gekennzeichnet, einen erfundenen Gesamtzähler gibt es nicht.
 

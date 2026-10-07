@@ -593,10 +593,10 @@ local function RunSuite(locale, expect)
     assert(math.abs(WAT.db.settings.minimapAngle) < 0.01,
         context("gezogene Minimap-Position wurde nicht als Winkel gespeichert"))
 
-    -- Elf Ziele; die Schaltflaechenhoehe ist gegen die Seitenleiste
-    -- gerechnet: floor((600 - 108 - 44) / 11) = 40px, Unterkante 548.
+    -- Zwoelf Ziele; die Schaltflaechenhoehe ist gegen die Seitenleiste
+    -- gerechnet: floor((600 - 108 - 44) / 12) = 37px, Unterkante 552.
     local order = { "overview", "midnight", "weeklies", "professions", "sources",
-                    "dungeons", "raids", "keystones",
+                    "currencies", "dungeons", "raids", "keystones",
                     "equipment", "statistics", "settings" }
     assert(WAT.navButtonHeight == math.floor((600 - 108 - 44) / #order), context("Navigationshoehe muss der berechneten Höhe entsprechen, ist "
         .. tostring(WAT.navButtonHeight)))
@@ -607,7 +607,7 @@ local function RunSuite(locale, expect)
     assert(WAT.activeTab == "overview", context("alter Tiefen-Reiter braucht Übersicht-Fallback"))
     local buttonCount = 0
     for _ in pairs(WAT.tabButtons) do buttonCount = buttonCount + 1 end
-    assert(buttonCount == #order, context("es muss genau elf Navigationsziele geben, gefunden " .. buttonCount))
+    assert(buttonCount == #order, context("es muss genau zwoelf Navigationsziele geben, gefunden " .. buttonCount))
     for index, key in ipairs(order) do
         local button = WAT.tabButtons[key]
         assert(button and type(button.scripts.OnClick) == "function", context("Klickziel fehlt: " .. key))
@@ -2143,7 +2143,7 @@ local function RunCharacterOrderSuite()
         assert(panel.rows[2].character == WAT.db.characters.test,
             "[order] Panel " .. panelKey .. ": Zeile 2 folgt nicht der gespeicherten Reihenfolge (erwartet test)")
     end
-    for _, panelKey in ipairs({ "overview", "midnight", "professions", "sources", "keystones" }) do
+    for _, panelKey in ipairs({ "overview", "midnight", "professions", "sources", "currencies", "keystones" }) do
         AssertPanelOrder(panelKey)
     end
 
@@ -2350,7 +2350,7 @@ local function RunDragReorderSuite()
     -- aber, dass spaetere Pool-Aenderungen versehentlich auf veraltete Ziele zeigen.
     WAT.db.characters.alt = nil
     RenderAllPanels(WAT)
-    for _, panelKey in ipairs({ "overview", "midnight", "professions", "sources", "keystones" }) do
+    for _, panelKey in ipairs({ "overview", "midnight", "professions", "sources", "currencies", "keystones" }) do
         local recycled = WAT.panels[panelKey].rows[2]
         assert(recycled and recycled.dragCharacterKey == nil and recycled.character == nil,
             "[drag] ausgeblendete Zeile behaelt alten Charakterschluessel: " .. panelKey)
@@ -2503,21 +2503,28 @@ local function RunDundunSuite()
     LoadInto(WAT, "UI.lua")
     WAT:CreateUI()
     WAT.frame:Show() -- offenes Fenster: nur sichtbare Seiten werden gebunden (#17)
-    WAT:SetActiveTab("sources")
+    WAT:SetActiveTab("currencies")
     RenderAllPanels(WAT)
 
-    -- Neue Spalte, Gesamtbreite bleibt innerhalb von CONTENT_WIDTH (920).
-    local columns = WAT.panels.sources.columns
-    local dundunColumn
-    for _, column in ipairs(columns) do
-        if column.key == "dundun" then dundunColumn = column end
-    end
-    assert(dundunColumn ~= nil, "[dundun] Spalte fehlt im Wappenquellen-Panel")
+    -- Die Waehrungsseite bildet ihre Spalten 1:1 aus Data.CURRENCIES und
+    -- fuellt CONTENT_WIDTH (920) exakt. Dundun steht nicht mehr doppelt in
+    -- den Wappenquellen.
+    local columns = WAT.panels.currencies.columns
     local total = 0
     for _, column in ipairs(columns) do total = total + column.width end
-    assert(total <= 920, "[dundun] Spaltenbreiten ueberschreiten CONTENT_WIDTH: " .. total)
+    assert(total == 920, "[currencies] Spaltenbreiten muessen exakt CONTENT_WIDTH fuellen: " .. total)
+    assert(#columns == 1 + #WAT.Data.CURRENCIES and columns[1].key == "character",
+        "[currencies] Spalten folgen nicht Data.CURRENCIES")
+    for index, definition in ipairs(WAT.Data.CURRENCIES) do
+        assert(columns[index + 1].key == definition.key,
+            "[currencies] Spalte " .. index .. " folgt nicht Data.CURRENCIES: " .. tostring(columns[index + 1].key))
+    end
+    assert(columns[2].key == "voidcore", "[currencies] die Leerenkerne muessen die erste Waehrungsspalte sein")
+    for _, column in ipairs(WAT.panels.sources.columns) do
+        assert(column.key ~= "dundun", "[currencies] Dundun darf nicht mehr in den Wappenquellen stehen")
+    end
 
-    local rows = WAT.panels.sources.rows
+    local rows = WAT.panels.currencies.rows
     assert(string.find(rows[1].values.dundun.text or "", "5/8", 1, true),
         "[dundun] bekannte Menge+Maximum wird nicht als Bruch angezeigt, erhalten: "
             .. tostring(rows[1].values.dundun.text))
@@ -2547,13 +2554,41 @@ local function RunDundunSuite()
 
     rows[2].scripts.OnEnter(rows[2])
     local tooltipUnknownMax = GameTooltip:TooltipText()
-    assert(string.find(tooltipUnknownMax, "character-specific", 1, true),
-        "[dundun] Tooltip nennt nicht charakterbezogen: " .. tooltipUnknownMax)
+    assert(not string.find(tooltipUnknownMax, "account-wide", 1, true),
+        "[dundun] ein sicher charakterbezogener Bestand darf nicht als accountweit erscheinen: "
+            .. tooltipUnknownMax)
 
     rows[3].scripts.OnEnter(rows[3])
     local tooltipNone = GameTooltip:TooltipText()
     assert(string.find(tooltipNone, "unknown", 1, true),
         "[dundun] Tooltip ohne Snapshot nennt nicht unbekannt: " .. tooltipNone)
+
+    -- Leerenkern: Zelle, Fallbackname, Wochenfortschritt und Kriegsmeuten-Hinweis.
+    WAT.db.characters.dundunKnown.resources.voidcore = {
+        currencyID = 3513, quantity = 3, maxQuantity = 6,
+        quantityEarnedThisWeek = 1, maxWeeklyQuantity = 2,
+        isAccountTransferable = true, updated = 990,
+    }
+    WAT:RefreshUI()
+    assert(string.find(rows[1].values.voidcore.text or "", "3/6", 1, true),
+        "[currencies] Leerenkern-Zelle zeigt nicht Menge/Maximum: " .. tostring(rows[1].values.voidcore.text))
+    assert(string.find(rows[2].values.voidcore.text or "", "%-"),
+        "[currencies] fehlender Leerenkern-Snapshot muss '-' anzeigen")
+    rows[1].scripts.OnEnter(rows[1])
+    local tooltipVoidcore = GameTooltip:TooltipText()
+    for _, expected in ipairs({ "Nebulous Voidcore", "3/6 / week 1/2", "warband-transferable",
+                                "Voidlight Marl", "Coiled Filament" }) do
+        assert(string.find(tooltipVoidcore, expected, 1, true),
+            "[currencies] Tooltip fehlt '" .. expected .. "': " .. tooltipVoidcore)
+    end
+    -- Ein alter Wochenstand zeigt den Bestand weiter, aber keinen Wochenfortschritt.
+    local savedIsStale = WAT.IsStale
+    WAT.IsStale = function() return true end
+    rows[1].scripts.OnEnter(rows[1])
+    local staleTooltip = GameTooltip:TooltipText()
+    assert(string.find(staleTooltip, "3/6", 1, true) and not string.find(staleTooltip, "week 1/2", 1, true),
+        "[currencies] alter Wochenstand darf keinen Wochenfortschritt zeigen: " .. staleTooltip)
+    WAT.IsStale = savedIsStale
 
     -- Ohne lesbaren API-Namen faellt der Tooltip auf den eigenen Ersatztext zurueck.
     C_CurrencyInfo.GetCurrencyInfo = function() return nil end
@@ -2747,9 +2782,9 @@ local function RunDundunLocaleSuite(locale, expected)
     LoadInto(WAT, "UI.lua")
     WAT:CreateUI()
     WAT.frame:Show() -- offenes Fenster: nur sichtbare Seiten werden gebunden (#17)
-    WAT:SetActiveTab("sources")
+    WAT:SetActiveTab("currencies")
     RenderAllPanels(WAT)
-    local row = WAT.panels.sources.rows[1]
+    local row = WAT.panels.currencies.rows[1]
     row.scripts.OnEnter(row)
     local tooltip = GameTooltip:TooltipText()
     for _, text in ipairs(expected) do
@@ -2781,7 +2816,7 @@ local function RunEasterEggSuite()
 
     local function TooltipForCharacter(WAT, key)
         WAT.db.settings.characterOrder = nil
-        WAT:SetActiveTab("sources")
+        WAT:SetActiveTab("currencies")
         RenderAllPanels(WAT)
         local order = WAT:NormalizeCharacterOrder()
         local index
@@ -2789,7 +2824,7 @@ local function RunEasterEggSuite()
             if characterKey == key then index = position end
         end
         assert(index, "[easter-egg] Charakter " .. key .. " nicht in der Reihenfolge")
-        local row = WAT.panels.sources.rows[index]
+        local row = WAT.panels.currencies.rows[index]
         row.scripts.OnEnter(row)
         return GameTooltip:TooltipText()
     end
@@ -2837,7 +2872,7 @@ local function RunEasterEggSuite()
     overviewRow.scripts.OnEnter(overviewRow)
     local overviewTooltip = GameTooltip:TooltipText()
     assert(not string.find(overviewTooltip, "Cataline", 1, true),
-        "[easter-egg] Zeile erscheint faelschlich ausserhalb des Wappenquellen-Tooltips: " .. overviewTooltip)
+        "[easter-egg] Zeile erscheint faelschlich ausserhalb des Waehrungs-Tooltips: " .. overviewTooltip)
 
     -- b) nur Panra vorhanden: keine Zeile.
     local onlyPanraWAT = FreshWAT()
@@ -2915,7 +2950,7 @@ RunDundunLocaleSuite("frFR", {
 })
 RunEasterEggSuite()
 
-print("LUA UI RUNTIME OK: 11/11 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10/318,"
+print("LUA UI RUNTIME OK: 12/12 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10/318,"
     .. " entlastete Übersicht ohne Wappen-/Truhenduplikate, Ritual-Verweis statt Doppelzählung,"
     .. " Saison-2-Wappenquellen mit M+ ab +9 und fünf Nebelwappenbeständen,"
     .. " offene Berufs-Wochenquest und Wappensymbole in den Wappenquellen"
@@ -2936,7 +2971,8 @@ print("LUA UI RUNTIME OK: 11/11 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, 
     .. " mit geblaettertem Reiter-Ausschnitt, Pfeilgrenzen und Sichtbarmachen der"
     .. " Auswahl, Einstellungsformular mit 6 Skalierungsstufen,"
     .. " Minimap-Sichtbarkeit und Positions-Reset - je einmal in deDE, enUS und frFR,"
-    .. " Dundun-Splitter-Spalte (bekannt+Maximum, nur Menge, '-'), lokalisierter"
-    .. " Tooltip mit Client-Name/Reichweite/Offline-Hinweis, objektfreier Mehrfach-"
-    .. " Refresh sowie das Panra/Cataline-Easter-Egg (nur bei beiden passenden"
-    .. " Charakteren, nur im eigenen Wappenquellen-Tooltip, jeder Negativfall geprüft)")
+    .. " Waehrungsseite aus Data.CURRENCIES (920px, Leerenkern zuerst, Dundun nicht"
+    .. " mehr in den Wappenquellen; bekannt+Maximum, nur Menge, '-'), lokalisierter"
+    .. " Tooltip mit Client-Name/Ersatzname/Wochenfortschritt/Reichweite/Offline-Hinweis,"
+    .. " objektfreier Mehrfach-Refresh sowie das Panra/Cataline-Easter-Egg (nur bei"
+    .. " beiden passenden Charakteren, nur im eigenen Waehrungs-Tooltip, jeder Negativfall geprüft)")

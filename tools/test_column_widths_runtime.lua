@@ -260,14 +260,16 @@ local TABLE_COLUMNS = {
     weeklies = { "quest", "area", "character", "status", "progress", "updated" },
     professions = { "character", "profession1", "skill1", "knowledge1", "weekly1", "treatise1",
         "profession2", "skill2", "knowledge2", "weekly2", "treatise2" },
-    sources = { "character", "dundun", "gilded", "mythicPlusKey", "crestAdventurer", "crestVeteran",
+    sources = { "character", "gilded", "mythicPlusKey", "crestAdventurer", "crestVeteran",
         "crestChampion", "crestHero", "crestMyth" },
+    currencies = { "character", "voidcore", "dundun", "cofferKey", "cofferKeyShards", "manaCrystals",
+        "manaflux", "sparkDust", "voidlightMarl", "undercoin", "corrosiveCoin", "coiledFilament" },
     dungeons = { "character", "normal", "heroic", "mythic", "mythicPlus", "runs", "updated" },
     raids = { "character", "bosses", "highest", "instances", "updated" },
     keystones = { "character", "dungeon", "keystoneLevel", "updated" },
 }
 local KNOWN_TABLES = { "overview", "midnight", "weeklies", "professions", "sources",
-    "dungeons", "raids", "keystones" }
+    "currencies", "dungeons", "raids", "keystones" }
 local NON_TABLES = { "equipment", "statistics", "settings" }
 
 local function StartAddon(locale, db)
@@ -551,10 +553,10 @@ local function RunGeometrySuite(locale)
     checkEqual(gilded.width, 140, context("Doppelklick setzt die Spalte zurück"))
     checkEqual(WeeklyAltTrackerDB.settings.columnWidths.sources.gilded, nil, context("Spaltenreset entfernt den Wert"))
     checkEqual(WeeklyAltTrackerDB.settings.columnWidths.sources.crestMyth, 140, context("andere Spalte bleibt"))
-    checkEqual(sources.columnOffset, 47, context("Versatz nach Spaltenreset neu geklemmt"))
+    checkEqual(sources.columnOffset, 38, context("Versatz nach Spaltenreset neu geklemmt"))
     divider.scripts.OnMouseUp(divider, "RightButton")
     checkEqual(WeeklyAltTrackerDB.settings.columnWidths.sources, nil, context("Bereichsreset entfernt den Bereich"))
-    checkEqual(ColumnByKey(sources, "crestMyth").width, 93, context("Bereichsreset setzt alle Spalten"))
+    checkEqual(ColumnByKey(sources, "crestMyth").width, 102, context("Bereichsreset setzt alle Spalten"))
     checkEqual(sources.tableWidth, CONTENT_WIDTH, context("Bereichsreset ohne Überbreite"))
     checkEqual(sources.columnOffset, 0, context("Bereichsreset ohne Versatz"))
     checkEqual(bar.shown, false, context("Bereichsreset blendet den Balken aus"))

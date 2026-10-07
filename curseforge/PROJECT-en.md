@@ -35,21 +35,24 @@ WeeklyAltTracker collects progress from your WoW Retail characters and shows it 
 
 The raid vault appears as the current week's state in the overview. Dungeons and Raids show the current week only: Heroic/Mythic/Mythic+ dungeons from the weekly counter with this week's Mythic+ runs (the game does not report Normal dungeons) and raid bosses defeated with the highest reported difficulty. No raid lockouts, no kill history and no lifetime values.
 
-### Eleven views
+### Twelve views
 
 1. Overview
 2. Midnight Week
 3. Weekly Quests
 4. Professions
 5. Crest Sources
-6. Dungeons
-7. Raids
-8. Keystones
-9. Equipment
-10. Statistics
-11. Settings
+6. Currencies
+7. Dungeons
+8. Raids
+9. Keystones
+10. Equipment
+11. Statistics
+12. Settings
 
 Equipment shows last equipped items with icons, quality borders, actual item levels, equipped average and timestamps in a character-window layout. Log in on each alt first; then read offline snapshots that survive weekly resets. Unknown, empty and pending remain distinct. Stored item links provide tooltips; no bag/bank view or advice.
+
+Currencies shows eleven Midnight currencies per character as an offline snapshot, first and foremost Nebulous Voidcores for bonus rolls, plus Shards of Dundun, Coffer Keys, Mana-Crystals, Voidlight Marl and further warband currencies; the tooltip shows weekly progress and account-wide or transferable currencies.
 
 Weekly Quests lists the researched and verified weekly quests of the active season as a compact table with quest, area, character, status, progress and last update, plus filters for character, category, status and title and sorting by any column, ascending or descending. The status reads Open, Active, Ready to turn in, Turned in or Unknown. Location, quest giver, requirement, reward, rotation and quest ID live in the row tooltip; rotating offers and uncertain details are marked as such, and there is no invented overall counter.
 

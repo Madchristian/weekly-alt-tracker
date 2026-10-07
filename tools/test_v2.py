@@ -136,8 +136,24 @@ def main() -> int:
     require("CopyNumber(previousEntry.currencyID) == currencyID" in scanner,
             "Same-Week-Wappenvorwerte dürfen nur bei exakt passender currencyID erhalten bleiben")
     require("DUNDUN_CURRENCY_ID = 3376" in data, "Dundun-Splitter-Currency-ID 3376 fehlt")
-    require("ReadDundun" in scanner and "resources.dundun" in scanner,
-            "Dundun-Splitter-Scan fehlt in Scanner.lua")
+    require("ReadCurrencySnapshot" in scanner and "ReadCurrencies(resources" in scanner,
+            "Waehrungs-Scan (inklusive Dundun-Splitter) fehlt in Scanner.lua")
+    # Waehrungsseite: jede Currency-ID ist belegt (Wowhead-Tooltip-API, 12.1);
+    # der Saison-2-Leerenkern 3513 darf nie durch den Saison-1-Wert 3418
+    # ersetzt werden. "dundun" bleibt der Speicherschluessel aus 0.6.0.
+    currency_body = nested_table_body(data, "Data.CURRENCIES")
+    currency_entries = re.findall(r'\{ key = "([A-Za-z]+)", currencyID = ([A-Za-z_.]+|\d+),', currency_body)
+    require([key for key, _ in currency_entries] == [
+        "voidcore", "dundun", "cofferKey", "cofferKeyShards", "manaCrystals", "manaflux",
+        "sparkDust", "voidlightMarl", "undercoin", "corrosiveCoin", "coiledFilament"],
+            f"Data.CURRENCIES hat nicht die erwartete Spaltenreihenfolge: {currency_entries}")
+    require(dict(currency_entries) == {
+        "voidcore": "3513", "dundun": "Data.DUNDUN_CURRENCY_ID", "cofferKey": "3028",
+        "cofferKeyShards": "3310", "manaCrystals": "3356", "manaflux": "3465", "sparkDust": "3509",
+        "voidlightMarl": "3316", "undercoin": "2803", "corrosiveCoin": "3448", "coiledFilament": "3546"},
+            f"Data.CURRENCIES nutzt unbelegte Currency-IDs: {currency_entries}")
+    require("3418" not in re.sub(r"--[^\n]*", "", data),
+            "der Saison-1-Leerenkern 3418 darf nicht als Waehrung gefuehrt werden")
     require("weekly.dundun" not in scanner and "weekly.resources" not in scanner,
             "der Dundun-Splitter ist kein Wochenwert und darf nicht unter weekly liegen")
     require("record.resources" in core,
@@ -603,7 +619,15 @@ def main() -> int:
         require(key in de_keys, f"Data.lua: labelKey {key!r} fehlt im deDE-Wörterbuch")
 
     # Statische Absicherung der dynamischen Quelle Data.STATISTICS[...].nameKey.
-    statistic_name_keys = re.findall(r'nameKey\s*=\s*"([A-Za-z_][A-Za-z0-9_]*)"', strip_comments(data))
+    currency_name_keys = re.findall(r'nameKey\s*=\s*"([A-Za-z_][A-Za-z0-9_]*)"',
+                                    nested_table_body(data, "Data.CURRENCIES"))
+    require(len(currency_name_keys) == 11,
+            f"Data.CURRENCIES muss fuer jede der 11 Waehrungen einen nameKey fuehren, gefunden: {len(currency_name_keys)}")
+    for key in currency_name_keys:
+        require(key in en_keys, f"Data.lua: Waehrungs-nameKey {key!r} fehlt im enUS-Wörterbuch")
+        require(key in de_keys, f"Data.lua: Waehrungs-nameKey {key!r} fehlt im deDE-Wörterbuch")
+    statistic_name_keys = [key for key in re.findall(r'nameKey\s*=\s*"([A-Za-z_][A-Za-z0-9_]*)"', strip_comments(data))
+                           if key not in currency_name_keys]
     require(len(statistic_name_keys) == 13,
             f"Data.lua muss fuer jeden der 13 angezeigten Werte einen nameKey fuehren "
             f"(11 direkte plus 2 abgeleitete), gefunden: {len(statistic_name_keys)}")
@@ -706,7 +730,7 @@ def main() -> int:
     require(scanner.count('return "-"') >= 3,
             "GetVaultSummary muss unbekannt weiterhin als sprachneutrales '-' liefern")
 
-    panel_order = ("overview", "midnight", "weeklies", "professions", "sources", "dungeons",
+    panel_order = ("overview", "midnight", "weeklies", "professions", "sources", "currencies", "dungeons",
                    "raids", "keystones", "statistics", "settings")
     require('label = L("PANEL_WEEKLIES")' in ui and "CreateWeeklyCatalogPanel" in ui,
             "Wochenquest-Seite fehlt oder ist nicht lokalisiert")
@@ -714,12 +738,12 @@ def main() -> int:
             "Titel der Wochenquest-Seite fehlt in einem der beiden Wörterbücher")
     require('"overview", "midnight", "weeklies", "professions"' in ui,
             "die Wochenquest-Seite muss in der Navigation zwischen Midnight und Berufe stehen")
-    # Wocheninhalte (Issues #12/#13/#14): zwei Reiter direkt nach den
-    # Wappenquellen, elf Navigationsziele, Höhe gegen die Seitenleiste
-    # gerechnet statt fest 42px.
+    # Wocheninhalte (Issues #12/#13/#14) und Waehrungen (#18): drei Reiter
+    # direkt nach den Wappenquellen, zwoelf Navigationsziele, Höhe gegen die
+    # Seitenleiste gerechnet statt fest 42px.
     require('"overview", "midnight", "weeklies", "professions", "sources",\n'
-            '                       "dungeons", "raids", "keystones",' in ui,
-            "Dungeons und Schlachtzüge müssen in der Navigation direkt nach den Wappenquellen stehen")
+            '                       "currencies", "dungeons", "raids", "keystones",' in ui,
+            "Währungen, Dungeons und Schlachtzüge müssen in der Navigation direkt nach den Wappenquellen stehen")
     require("math.floor((FRAME_HEIGHT - navTop - 44) / #tabOrder)" in ui,
             "die Höhe der Navigationsschaltflächen muss gegen die Seitenleiste gerechnet werden")
     for key, de_label, en_label in (("PANEL_DUNGEONS", "Dungeons", "Dungeons"),
@@ -894,30 +918,30 @@ def main() -> int:
         "Anleitung.html": text("Anleitung.html"),
         "Guide.en.html": text("Guide.en.html"),
     }
-    require("Elf Ansichten. Ein Wochenbild." in html_guides["Anleitung.html"],
-            "Deutsche HTML-Anleitung nennt nicht elf Ansichten")
-    require("Eleven views. One weekly picture." in html_guides["Guide.en.html"],
-            "Englische HTML-Anleitung nennt nicht elf Ansichten")
+    require("Zwölf Ansichten. Ein Wochenbild." in html_guides["Anleitung.html"],
+            "Deutsche HTML-Anleitung nennt nicht zwölf Ansichten")
+    require("Twelve views. One weekly picture." in html_guides["Guide.en.html"],
+            "Englische HTML-Anleitung nennt nicht zwölf Ansichten")
     for name, body in html_guides.items():
-        require(len(re.findall(r'<article class="feature">', body)) == 11,
-                f"HTML-Anleitung {name} muss genau elf Bereiche beschreiben")
+        require(len(re.findall(r'<article class="feature">', body)) == 12,
+                f"HTML-Anleitung {name} muss genau zwölf Bereiche beschreiben")
         require("<h3>Tiefen</h3>" not in body and "<h3>Delves</h3>" not in body,
                 f"HTML-Anleitung {name} bewirbt den entfernten Tiefen-Reiter")
         for stale in ("Fünf Ansichten", "Five views", "Sieben Ansichten", "Seven views",
-                      "Neun Ansichten", "Nine views", "Zwölf Ansichten", "Twelve views"):
+                      "Neun Ansichten", "Nine views", "Elf Ansichten", "Eleven views"):
             require(stale not in body, f"HTML-Anleitung {name} nennt noch veraltet: {stale}")
     require("Wochenquests" in html_guides["Anleitung.html"] and "Weekly Quests" in html_guides["Guide.en.html"],
             "HTML-Anleitungen beschreiben die Wochenquest-Seite nicht")
-    require("Elf Ansichten" in platform_docs["curseforge/PROJECT-de.md"],
-            "Deutsche CurseForge-Beschreibung nennt nicht elf Ansichten")
-    require("Eleven views" in platform_docs["curseforge/PROJECT-en.md"],
-            "Englische CurseForge-Beschreibung nennt nicht elf Ansichten")
-    require("elf kompakte Ansichten" in platform_docs["wago/BESCHREIBUNG.md"],
-            "Wago-Beschreibung nennt nicht elf Ansichten")
+    require("Zwölf Ansichten" in platform_docs["curseforge/PROJECT-de.md"],
+            "Deutsche CurseForge-Beschreibung nennt nicht zwölf Ansichten")
+    require("Twelve views" in platform_docs["curseforge/PROJECT-en.md"],
+            "Englische CurseForge-Beschreibung nennt nicht zwölf Ansichten")
+    require("zwölf kompakte Ansichten" in platform_docs["wago/BESCHREIBUNG.md"],
+            "Wago-Beschreibung nennt nicht zwölf Ansichten")
     for name, body in platform_docs.items():
         for stale in ("Sieben Ansichten", "Seven views", "sieben kompakte Ansichten",
                       "Neun Ansichten", "Nine views", "neun kompakte Ansichten",
-                      "Zwölf Ansichten", "Twelve views", "zwölf kompakte Ansichten"):
+                      "Elf Ansichten", "Eleven views", "elf kompakte Ansichten"):
             require(stale.casefold() not in body.casefold(), f"Plattformtext {name} nennt noch veraltet: {stale}")
         require("Wochenquests" in body or "Weekly Quests" in body,
                 f"Plattformtext {name} beschreibt die Wochenquest-Seite nicht")
@@ -1076,6 +1100,14 @@ def main() -> int:
             if panel == "overview":
                 require('key = "gilded"' not in body and 'key = "crests"' not in body,
                         "die Übersicht darf Wappen und Goldene Truhe nicht mehr doppelt zur Wappenquellen-Seite führen")
+            if panel == "sources":
+                require('key = "dundun"' not in body,
+                        "Dundun lebt auf der Waehrungsseite und darf nicht doppelt in den Wappenquellen stehen")
+            if panel == "currencies":
+                width = re.search(r"local CURRENCY_VIEW = \{ columnWidth = (\d+) \}", ui)
+                require("columns = CURRENCY_VIEW.Columns()" in body and width is not None
+                        and 150 + 11 * int(width.group(1)) == 920,
+                        "die Waehrungsseite muss ihre 11 Spalten aus Data.CURRENCIES mit exakt 920px bilden")
             if panel == "weeklies":
                 keys = re.findall(r'key = "([a-z]+)"', body)
                 require(keys == ["quest", "area", "character", "status", "progress", "updated"] and total == 920,

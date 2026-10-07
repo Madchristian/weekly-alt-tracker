@@ -930,7 +930,9 @@ end
 local function SeedLifetime(main)
     main.professions = { { skillLine = 2906, skill = 50 } }
     main.statistics = { scanned = NOW, [1] = { value = 7, updated = NOW } }
-    main.resources.dundun = { quantity = 12, updated = NOW }
+    -- Ein echter Snapshot traegt immer seine currencyID; ohne sie verwirft
+    -- die Waehrungsseite ihn fail-closed.
+    main.resources.dundun = { currencyID = 3376, quantity = 12, updated = NOW }
     main.season = { crestSources = { brokenKeystone = true } }
     return DeepCopy({ main.professions, main.statistics, main.resources.dundun, main.season })
 end
@@ -1137,12 +1139,12 @@ local function RunUISuite(locale)
     onEvent(nil, "PLAYER_LOGIN")
     WeeklyAltTrackerDB.settings.characterOrder = { "Player-Main", "Player-Alt", "Player-New" }
 
-    -- Navigation: elf Ziele, gerechnete Höhe, Unterkante über dem Fußhinweis.
+    -- Navigation: zwoelf Ziele, gerechnete Höhe, Unterkante über dem Fußhinweis.
     local count = 0
     for _ in pairs(WAT.tabButtons) do count = count + 1 end
-    checkEqual(count, 11, context("elf Navigationsziele"))
-    checkEqual(WAT.navButtonHeight, math.floor((600 - 108 - 44) / 11), context("Navigationshöhe"))
-    local ORDER = { "overview", "midnight", "weeklies", "professions", "sources", "dungeons",
+    checkEqual(count, 12, context("zwoelf Navigationsziele"))
+    checkEqual(WAT.navButtonHeight, math.floor((600 - 108 - 44) / 12), context("Navigationshöhe"))
+    local ORDER = { "overview", "midnight", "weeklies", "professions", "sources", "currencies", "dungeons",
                     "raids", "keystones", "equipment", "statistics", "settings" }
     for index, key in ipairs(ORDER) do
         local button = WAT.tabButtons[key]

@@ -1269,9 +1269,9 @@ local function RunVerticalSuite(locale)
     check(DeepEqual(WeeklyAltTrackerDB.characters["Player-Alt"], offlineCopy),
         context("Refresh des Hauptcharakters darf den Offline-Snapshot nicht umschreiben"))
 
-    -- Elf Navigationsziele in fester Reihenfolge, Wochenquests nach
-    -- Midnight, Dungeons/Schlachtzuege nach den Wappenquellen.
-    local ORDER = { "overview", "midnight", "weeklies", "professions", "sources", "dungeons",
+    -- Zwoelf Navigationsziele in fester Reihenfolge, Wochenquests nach
+    -- Midnight, Waehrungen/Dungeons/Schlachtzuege nach den Wappenquellen.
+    local ORDER = { "overview", "midnight", "weeklies", "professions", "sources", "currencies", "dungeons",
                     "raids", "keystones", "equipment", "statistics", "settings" }
     local count = 0
     for _ in pairs(WAT.tabButtons) do count = count + 1 end
@@ -3102,7 +3102,7 @@ print("LUA WEEKLY CATALOG RUNTIME OK: " .. EXPECTED_ENTRY_COUNT .. " freigegeben
     .. " Mehrziel/IsComplete/Abbruch/Variantenwechsel, Secret-Container und -Callables, API-Cache pro Scan,"
     .. " S2/S3-Grenzen, Definitionsversion, fehlender Katalog, Offline unverändert, Wochenreset,"
     .. " Berufszugehörigkeit, fail-closed SavedVariables und voller Refresh bis in die Katalogzelle"
-    .. " mit Filtern, Scrollklemme, Pooling und elf Navigationszielen in deDE, enUS und frFR,"
+    .. " mit Filtern, Scrollklemme, Pooling und zwoelf Navigationszielen in deDE, enUS und frFR,"
     .. " globale Fortschrittsleisten-API mit Same-Week-Erhalt, Tooltip-Refresh bei offenem Hover,"
     .. " UTF-8-Titelsuche und Sortierung per Klick (sechs Spalten auf/ab, Gleichstände in"
     .. " Katalogreihenfolge, unbekannt/alte Woche am Ende, Filter/Scroll/Tooltip-Pooling, nur Sitzung)"

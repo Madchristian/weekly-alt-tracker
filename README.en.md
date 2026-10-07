@@ -11,9 +11,9 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
-### Version 2026.10.5
+### Version 2026.10.7
 
-The separate Delves page has been removed because its Great Vault data could not reliably provide a complete weekly overview of all delve completions and tiers. Gilded Stash, the Delves/World Vault, Dungeons, Raids and existing statistics remain available. Navigation now has eleven sections. See the [2026.10.5 changelog](changelog/CHANGELOG-2026.10.5-en.md).
+The new **Currencies** page shows eleven Midnight currencies per character, first and foremost Nebulous Voidcores for bonus rolls and the Voidforge, plus Dundun, Coffer Keys, Mana-Crystals, Voidlight Marl and further warband currencies. Shards of Dundun moved there from Crest Sources; navigation now has twelve sections. See the [2026.10.7 changelog](changelog/CHANGELOG-2026.10.7-en.md) for details.
 
 ### Version 2026.10.4
 
@@ -150,14 +150,23 @@ Then log out normally or `/reload`: WoW writes `WTF/Account/<Account>/SavedVaria
 
 ### Crest Sources
 
-- Shards of Dundun per character as an offline resource snapshot, with a dynamic maximum such as `5/8`
 - Balances of all five Season 2 Mistcrests per character
 - Gilded Stash: weekly, four completions with 7 Myth Mistcrests each
 - Mythic+ from +9 as a repeatable source of Myth Mistcrests; only the highest safely completed level is shown
 
 The source view never presents obsolete Season 1 rewards as current Mistcrests. An old Dawncrest snapshot is retained only when its currency ID exactly matches the current definition; otherwise the new value remains unknown.
 
-The Dundun balance deliberately lives outside the weekly reset. An unreadable or protected API value never overwrites a known balance. The tooltip states data age and API scope; account-wide values are never summed across characters.
+### Currencies
+
+Eleven Midnight currencies per character as an offline resource snapshot, each with a dynamic maximum such as `5/8` whenever the API provides one:
+
+- **Nebulous Voidcores** (Season 2, currency ID 3513) for bonus rolls and the Voidforge
+- Shards of Dundun (3376)
+- Restored Coffer Keys (3028) and Coffer Key Shards (3310)
+- Untainted Mana-Crystals (3356), Venomblight Manaflux (3465) and Tidal Spark Dust (3509)
+- Voidlight Marl (3316), Undercoins (2803), Corrosive Coins (3448) and Coiled Filament (3546)
+
+The balances deliberately live outside the weekly reset. An unreadable or protected API value never overwrites a known balance, and a snapshot of a different currency ID (such as the Season 1 Voidcore 3418) is discarded instead of reinterpreted. The tooltip lists every balance with its client-localized name, the current week's progress, account-wide or warband-transferable currencies as reported by the API, and the data age; account-wide values are never summed across characters.
 
 ### Dungeons and Raids
 
@@ -239,19 +248,20 @@ There is deliberately no slider: the fixed steps stay exactly inside the range t
 
 Version 0.3.0 uses a standalone Midnight-dark layout inspired by EllesmereUI principles: a fixed left navigation, a large page header with description, flat buttons and compact comparison tables. The addon copies no EllesmereUI assets and does not require EllesmereUI as a dependency.
 
-The left navigation has eleven sections:
+The left navigation has twelve sections:
 
 1. `Overview`
 2. `Midnight Week`
 3. `Weekly Quests`
 4. `Professions`
 5. `Crest Sources`
-6. `Dungeons`
-7. `Raids`
-8. `Keystones`
-9. `Equipment`
-10. `Statistics`
-11. `Settings`
+6. `Currencies`
+7. `Dungeons`
+8. `Raids`
+9. `Keystones`
+10. `Equipment`
+11. `Statistics`
+12. `Settings`
 
 Column widths can be dragged at the dividers in the column header of every table (including `Weekly Quests` and the two content sections). Double-clicking a divider resets that column, right-clicking resets every column of the page. When a table is wider than the window, a bar below the table or the mouse wheel over the header or bar scrolls sideways; header and rows move together. Widths apply account-wide and survive restarts. Class-coloured names stay coloured in `Weekly Quests` even for an old week; there, status and data age mark the old week in grey.
 

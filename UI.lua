@@ -76,6 +76,25 @@ local COLORS = {
 -- englischen Labels sind so gewaehlt, dass sie in dieselben Spalten passen.
 local L = WAT.L
 
+-- Waehrungsseite: die Spalten entstehen aus Data.CURRENCIES, damit es fuer
+-- Reihenfolge und Schluessel keine zweite Wahrheit gibt. 150 + 11 * 70 ergibt
+-- exakt CONTENT_WIDTH (920). Alle Helfer der Seite liegen gebuendelt in
+-- CURRENCY_VIEW: UI.lua steht nahe an Luas Grenze von 200 aktiven Locals.
+local CURRENCY_VIEW = { columnWidth = 70 }
+
+function CURRENCY_VIEW.Definitions()
+    local definitions = WAT.Data and WAT.Data.CURRENCIES
+    return type(definitions) == "table" and definitions or {}
+end
+
+function CURRENCY_VIEW.Columns()
+    local columns = { { key = "character", label = L("COL_CHARACTER"), width = 150, left = true } }
+    for _, definition in ipairs(CURRENCY_VIEW.Definitions()) do
+        columns[#columns + 1] = { key = definition.key, label = L(definition.labelKey), width = CURRENCY_VIEW.columnWidth }
+    end
+    return columns
+end
+
 local PANELS = nil
 
 -- Baut die Paneldefinitionen beim ersten Zugriff, also fruehestens in
@@ -157,24 +176,29 @@ local function PanelDefinitions()
         description = L("PANEL_SOURCES_DESC"),
         columns = {
             { key = "character", label = L("COL_CHARACTER"), width = 150, left = true },
-            -- Dundun ist ein Ressourcen-Snapshot; der M+-Schlüssel und die fünf
-            -- Wappenbestände sind echte Wochenwerte. Die Standardbreiten
-            -- ergeben zusammen exakt CONTENT_WIDTH (920px): ohne eigene
-            -- Breiten ragt kein Kopf in Nachbarspalten und es entsteht kein
-            -- horizontaler Balken.
+            -- Nur echte Wochenwerte; Dundun lebt als Ressourcen-Snapshot auf
+            -- der Waehrungsseite. Die Standardbreiten ergeben zusammen exakt
+            -- CONTENT_WIDTH (920px): ohne eigene Breiten ragt kein Kopf in
+            -- Nachbarspalten und es entsteht kein horizontaler Balken.
             -- Die Truhenspalte zeigt bis zu "4/4 / 28/28 M" und braucht dafuer
             -- auch in breiten Clientschriften (zhTW/koKR) Platz: der gemeldete
-            -- zhTW-Screenshot schnitt bei 85px nach acht Zeichen ab. Die
-            -- Wappenspalten tragen nur Symbol und Menge und geben je 11px ab.
-            { key = "dundun", label = L("COL_DUNDUN"), width = 70 },
+            -- zhTW-Screenshot schnitt bei 85px nach acht Zeichen ab. Die frei
+            -- gewordenen 70px der Dundun-Spalte gehen an M+ (+25) und die
+            -- fuenf Wappenspalten (je +9).
             { key = "gilded", label = L("COL_GILDED_WEEKLY"), width = 140 },
-            { key = "mythicPlusKey", label = L("COL_MYTHIC_KEY"), width = 95 },
-            { key = "crestAdventurer", label = L("COL_CREST_ADVENTURER"), width = 93 },
-            { key = "crestVeteran", label = L("COL_CREST_VETERAN"), width = 93 },
-            { key = "crestChampion", label = L("COL_CREST_CHAMPION"), width = 93 },
-            { key = "crestHero", label = L("COL_CREST_HERO"), width = 93 },
-            { key = "crestMyth", label = L("COL_CREST_MYTH"), width = 93 },
+            { key = "mythicPlusKey", label = L("COL_MYTHIC_KEY"), width = 120 },
+            { key = "crestAdventurer", label = L("COL_CREST_ADVENTURER"), width = 102 },
+            { key = "crestVeteran", label = L("COL_CREST_VETERAN"), width = 102 },
+            { key = "crestChampion", label = L("COL_CREST_CHAMPION"), width = 102 },
+            { key = "crestHero", label = L("COL_CREST_HERO"), width = 102 },
+            { key = "crestMyth", label = L("COL_CREST_MYTH"), width = 102 },
         },
+    },
+    currencies = {
+        label = L("PANEL_CURRENCIES"),
+        shortLabel = L("PANEL_CURRENCIES_SHORT"),
+        description = L("PANEL_CURRENCIES_DESC"),
+        columns = CURRENCY_VIEW.Columns(),
     },
     -- Wocheninhalte der aktuellen Woche. Jede Tabelle ergibt exakt
     -- CONTENT_WIDTH (920); Details stehen im Zeilen-Tooltip.
@@ -569,74 +593,56 @@ local function GildedSourceText(weekly, stale)
         gilded.current * perStash, gilded.maximum * perStash)
 end
 
--- Dundun-Splitter (character.resources.dundun): ein Offline-Ressourcen-Snapshot,
--- kein Wochenwert - deshalb ohne stale-Textersatz wie StatusFraction, nur
--- gedimmt wie die Spalte "Letztes Update". maxQuantity <= 0 wird bereits im
--- Scanner als nil gespeichert und bedeutet hier "kein darstellbares Maximum".
-local function DundunCellText(resources, stale)
-    local dundun = type(resources) == "table" and resources.dundun or nil
-    if type(dundun) ~= "table" or type(dundun.quantity) ~= "number" then
-        return COLORS.unknown .. "-|r"
+-- Waehrungsbestand (character.resources[key]): ein Offline-Ressourcen-
+-- Snapshot, kein Wochenwert - deshalb ohne stale-Textersatz wie
+-- StatusFraction, nur gedimmt wie die Spalte "Letztes Update". maxQuantity
+-- <= 0 wird bereits im Scanner als nil gespeichert und bedeutet hier "kein
+-- darstellbares Maximum".
+function CURRENCY_VIEW.ValueText(snapshot)
+    if type(snapshot.maxQuantity) == "number" and snapshot.maxQuantity > 0 then
+        return string.format("%d/%d", snapshot.quantity, snapshot.maxQuantity)
     end
-    local color = stale and COLORS.stale or "|cffd8e0e7"
-    if type(dundun.maxQuantity) == "number" and dundun.maxQuantity > 0 then
-        return string.format("%s%d/%d|r", color, dundun.quantity, dundun.maxQuantity)
-    end
-    return color .. tostring(dundun.quantity) .. "|r"
+    return tostring(snapshot.quantity)
+end
+
+function CURRENCY_VIEW.Snapshot(resources, key)
+    local snapshot = type(resources) == "table" and resources[key] or nil
+    if type(snapshot) ~= "table" or type(snapshot.quantity) ~= "number" then return nil end
+    return snapshot
+end
+
+function CURRENCY_VIEW.CellText(resources, key, stale)
+    local snapshot = CURRENCY_VIEW.Snapshot(resources, key)
+    if not snapshot then return COLORS.unknown .. "-|r" end
+    return (stale and COLORS.stale or "|cffd8e0e7") .. CURRENCY_VIEW.ValueText(snapshot) .. "|r"
 end
 
 -- Der volle, clientlokalisierte Name kommt zur Renderzeit aus C_CurrencyInfo,
 -- wie schon CrestIcon oben - nie aus dem gespeicherten Snapshot, dessen
 -- Sprache aus dem letzten Scan stammen kann. Ohne lesbaren Namen greift der
--- eigene, uebersetzte Ersatztext DUNDUN_NAME_FALLBACK.
-local function DundunCurrencyName(currencyID)
-    if type(currencyID) ~= "number" then return nil end
+-- eigene, uebersetzte Ersatztext der Definition (nameKey).
+function CURRENCY_VIEW.Name(definition)
     local getter = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
-    if not getter then return nil end
-    local ok, info = pcall(getter, currencyID)
-    if not ok or (issecretvalue and issecretvalue(info)) or type(info) ~= "table" then return nil end
-    local name = info.name
-    if (issecretvalue and issecretvalue(name)) or type(name) ~= "string" or name == "" then return nil end
-    return name
+    if getter and type(definition.currencyID) == "number" then
+        local ok, info = pcall(getter, definition.currencyID)
+        if ok and not (issecretvalue and issecretvalue(info)) and type(info) == "table" then
+            local name = info.name
+            if not (issecretvalue and issecretvalue(name)) and type(name) == "string" and name ~= "" then
+                return name
+            end
+        end
+    end
+    return L(definition.nameKey)
 end
 
 local function AddTooltipLine(label, value)
     GameTooltip:AddDoubleLine(label, value, 0.65, 0.7, 0.78, 0.93, 0.95, 0.97)
 end
 
--- Offline-Ressourcen-Snapshot im Wappenquellen-Tooltip: lokalisierter Name,
--- Wert (mit bekanntem Maximum als Bruch), Reichweite laut API (nie erfunden,
--- wenn isAccountWide unlesbar ist), Erfassungsalter und der ausdrueckliche
--- Hinweis, dass dies kein abgeschlossener Wochenwert ist.
-local function ShowDundunTooltip(character)
-    local resources = type(character.resources) == "table" and character.resources or {}
-    local dundun = type(resources.dundun) == "table" and resources.dundun or nil
-    local currencyID = (type(dundun) == "table" and type(dundun.currencyID) == "number" and dundun.currencyID)
-        or (WAT.Data and WAT.Data.DUNDUN_CURRENCY_ID)
-    local name = DundunCurrencyName(currencyID) or L("DUNDUN_NAME_FALLBACK")
-    if type(dundun) ~= "table" or type(dundun.quantity) ~= "number" then
-        AddTooltipLine(name, L("STATUS_UNKNOWN"))
-        return
-    end
-    local valueText = (type(dundun.maxQuantity) == "number" and dundun.maxQuantity > 0)
-        and string.format("%d/%d", dundun.quantity, dundun.maxQuantity)
-        or tostring(dundun.quantity)
-    AddTooltipLine(name, valueText)
-    local scopeText = L("STATUS_UNKNOWN")
-    if dundun.isAccountWide == true then
-        scopeText = L("DUNDUN_SCOPE_ACCOUNT")
-    elseif dundun.isAccountWide == false then
-        scopeText = L("DUNDUN_SCOPE_CHARACTER")
-    end
-    AddTooltipLine(L("DUNDUN_SCOPE"), scopeText)
-    AddTooltipLine(L("KEY_RECORDED"), FormatAge(dundun.updated))
-    GameTooltip:AddLine(L("DUNDUN_OFFLINE_NOTE"), 0.56, 0.6, 0.66, true)
-end
-
 -- Panra/Cataline: ein rein kosmetisches Easter Egg. Es liest ausschliesslich
 -- bereits vorhandene Charakterdaten, schreibt nie in die Datenbank und
 -- aendert weder Layout noch Popup/Chat - nur eine einzelne zusaetzliche
--- Tooltipzeile im Wappenquellen-Tooltip, wenn BEIDE Bedingungen zugleich
+-- Tooltipzeile im Waehrungs-Tooltip (bei Dundun), wenn BEIDE Bedingungen zugleich
 -- erfuellt sind. Spezialisierung/Rolle werden nirgends gelesen.
 local function LowerSafe(value)
     if (issecretvalue and issecretvalue(value)) or type(value) ~= "string" then return nil end
@@ -959,14 +965,45 @@ local function ShowSourcesTooltip(character, weekly, stale)
     AddTooltipLine(L("SRC_MYTHIC"), type(highest) == "number"
         and L("SRC_MYTHIC_COMPLETED", highest, minimum) or L("SRC_MYTHIC_GENERIC", minimum))
     GameTooltip:AddLine(" ")
-    ShowDundunTooltip(character)
+    GameTooltip:AddLine(L("SRC_FOOTNOTE"), 0.56, 0.6, 0.66, true)
+end
+
+-- Waehrungs-Tooltip: je Waehrung der lokalisierte Name und der Bestand (mit
+-- bekanntem Maximum als Bruch). Der Wochenfortschritt erscheint nur fuer die
+-- aktuelle Woche; die Reichweite nur, wenn die API sie sicher geliefert hat -
+-- ein unlesbares Flag wird nie zu "charakterbezogen" umgedeutet.
+function CURRENCY_VIEW.TooltipValue(snapshot, stale)
+    local value = CURRENCY_VIEW.ValueText(snapshot)
+    if not stale and type(snapshot.quantityEarnedThisWeek) == "number"
+            and type(snapshot.maxWeeklyQuantity) == "number" and snapshot.maxWeeklyQuantity > 0 then
+        value = value .. L("CREST_WEEK_SUFFIX", snapshot.quantityEarnedThisWeek, snapshot.maxWeeklyQuantity)
+    end
+    if snapshot.isAccountWide == true then
+        value = value .. " / " .. L("CUR_SCOPE_ACCOUNT")
+    elseif snapshot.isAccountTransferable == true then
+        value = value .. " / " .. L("CUR_SCOPE_TRANSFERABLE")
+    end
+    return value
+end
+
+function CURRENCY_VIEW.Tooltip(character, stale)
+    local resources = type(character.resources) == "table" and character.resources or {}
+    local newest
+    for _, definition in ipairs(CURRENCY_VIEW.Definitions()) do
+        local snapshot = CURRENCY_VIEW.Snapshot(resources, definition.key)
+        AddTooltipLine(CURRENCY_VIEW.Name(definition),
+            snapshot and CURRENCY_VIEW.TooltipValue(snapshot, stale) or L("STATUS_UNKNOWN"))
+        if snapshot and type(snapshot.updated) == "number" and (not newest or snapshot.updated > newest) then
+            newest = snapshot.updated
+        end
+    end
+    AddTooltipLine(L("KEY_RECORDED"), FormatAge(newest))
+    GameTooltip:AddLine(L("CUR_OFFLINE_NOTE"), 0.56, 0.6, 0.66, true)
     local easterEgg = EasterEggLine(character)
     if easterEgg then
         GameTooltip:AddLine(" ")
         GameTooltip:AddLine(easterEgg, 0.62, 0.82, 0.7, true)
     end
-    GameTooltip:AddLine(" ")
-    GameTooltip:AddLine(L("SRC_FOOTNOTE"), 0.56, 0.6, 0.66, true)
 end
 
 -- Dungeonname zur Renderzeit aus C_ChallengeMode.GetMapUIInfo. Bewusst OHNE
@@ -1454,6 +1491,8 @@ function WAT:ShowCharacterTooltip(row)
         ShowProfessionTooltip(character, weekly)
     elseif row.panelKey == "sources" then
         ShowSourcesTooltip(character, weekly, stale)
+    elseif row.panelKey == "currencies" then
+        CURRENCY_VIEW.Tooltip(character, stale)
     elseif row.panelKey == "keystones" then
         ShowKeystoneTooltip(weekly, stale)
     elseif CONTENT_VIEW.Tooltip[row.panelKey] then
@@ -5150,15 +5189,15 @@ function WAT:CreateUI()
 
     self.tabButtons = {}
     self.panels = {}
-    -- Elf Navigationsziele; Dungeons und Schlachtzuege stehen direkt
-    -- nach den Wappenquellen. Die Schaltflaechenhoehe wird gegen die Seiten-
-    -- leiste gerechnet statt geschaetzt: zwischen Navigationsbeginn (108) und
-    -- dem Fusshinweis (unten 18 + Zeile + Abstand = 44) bleiben 600 - 108 - 44
-    -- = 448px. Elf Ziele ergeben floor(448 / 11) = 40px und bleiben ueber
-    -- der Mindesthoehe von 32px fuer eine einzeilige kleine Beschriftung.
-    -- Die letzte Schaltflaeche endet bei 108 + 11 * 40 = 548.
+    -- Zwoelf Navigationsziele; Waehrungen, Dungeons und Schlachtzuege stehen
+    -- direkt nach den Wappenquellen. Die Schaltflaechenhoehe wird gegen die
+    -- Seitenleiste gerechnet statt geschaetzt: zwischen Navigationsbeginn (108)
+    -- und dem Fusshinweis (unten 18 + Zeile + Abstand = 44) bleiben 600 - 108
+    -- - 44 = 448px. Zwoelf Ziele ergeben floor(448 / 12) = 37px und bleiben
+    -- ueber der Mindesthoehe von 32px fuer eine einzeilige kleine Beschriftung.
+    -- Die letzte Schaltflaeche endet bei 108 + 12 * 37 = 552.
     local tabOrder = { "overview", "midnight", "weeklies", "professions", "sources",
-                       "dungeons", "raids", "keystones",
+                       "currencies", "dungeons", "raids", "keystones",
                        "equipment", "statistics", "settings" }
     -- Ein weiteres Ziel darf die Schaltflaechen nicht still unter 32px
     -- quetschen: die Runtime-Harnesses pruefen Mindesthoehe und Unterkante.
@@ -5285,7 +5324,7 @@ end
 
 -- Liefert die Charaktere UND ihre stabilen Datenbankschluessel in derselben
 -- Reihenfolge. WAT:NormalizeCharacterOrder() in Core.lua ist die EINE Quelle
--- der Wahrheit fuer diese Reihenfolge - sie treibt alle fuenf Tabellenseiten
+-- der Wahrheit fuer diese Reihenfolge - sie treibt alle sechs Tabellenseiten
 -- UND die Statistik-Charakterreiter. Die Statistikseite haengt ihre Auswahl
 -- zusaetzlich an den stabilen Schluessel (die GUID), nicht an einer Position:
 -- eine Position verschiebt sich, sobald ein Charakter dazukommt oder per
@@ -5366,7 +5405,6 @@ end
 
 local function FillSources(row, character, weekly, stale)
     row.values.character:SetText(ClassColoredName(character, stale))
-    row.values.dundun:SetText(DundunCellText(character.resources, stale))
     row.values.gilded:SetText(GildedSourceText(weekly, stale))
     local sources = type(weekly.crestSources) == "table" and weekly.crestSources or {}
     local mythicPlus = sources.mythicPlus
@@ -5387,6 +5425,13 @@ local function FillSources(row, character, weekly, stale)
     }
     for _, key in ipairs(CREST_ORDER) do
         row.values[cellKeys[key]]:SetText(CrestCellText(crests, definitions, key, stale))
+    end
+end
+
+function CURRENCY_VIEW.Fill(row, character, stale)
+    row.values.character:SetText(ClassColoredName(character, stale))
+    for _, definition in ipairs(CURRENCY_VIEW.Definitions()) do
+        row.values[definition.key]:SetText(CURRENCY_VIEW.CellText(character.resources, definition.key, stale))
     end
 end
 
@@ -5490,6 +5535,8 @@ function WAT:RefreshUI()
                     end
                 elseif panelKey == "sources" then
                     FillSources(row, character, weekly, stale)
+                elseif panelKey == "currencies" then
+                    CURRENCY_VIEW.Fill(row, character, stale)
                 elseif panelKey == "keystones" then
                     FillKeystones(row, character, weekly, stale)
                 elseif CONTENT_VIEW.Fill[panelKey] then
