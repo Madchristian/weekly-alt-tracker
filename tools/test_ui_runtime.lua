@@ -2590,6 +2590,40 @@ local function RunDundunSuite()
         "[currencies] alter Wochenstand darf keinen Wochenfortschritt zeigen: " .. staleTooltip)
     WAT.IsStale = savedIsStale
 
+    -- Alle elf Symbole stammen aus der jeweiligen Currency-ID des Clients.
+    -- Auch unbekannte Bestaende bleiben zuordenbar; Mengen/Maxima und die
+    -- gespeicherten Snapshots werden durch die Darstellung nicht veraendert.
+    local plainCurrencyCells = {}
+    WAT:RefreshUI()
+    for _, definition in ipairs(WAT.Data.CURRENCIES) do
+        plainCurrencyCells[definition.key] = rows[1].values[definition.key].text
+    end
+    C_CurrencyInfo.GetCurrencyInfo = function(currencyID)
+        return { iconFileID = 900000 + currencyID }
+    end
+    WAT:RefreshUI()
+    rows[1].scripts.OnEnter(rows[1])
+    local iconTooltip = GameTooltip:TooltipText()
+    for _, definition in ipairs(WAT.Data.CURRENCIES) do
+        local prefix = string.format("|T%d:12:12:0:0|t ", 900000 + definition.currencyID)
+        assert(rows[1].values[definition.key].text == prefix .. plainCurrencyCells[definition.key],
+            "[currencies] falsches Symbol oder veraenderter Bestand: " .. definition.key)
+        assert(string.find(iconTooltip, prefix .. WAT.L(definition.nameKey), 1, true),
+            "[currencies] Symbol fehlt neben dem Tooltipnamen: " .. definition.key)
+        local snapshot = WAT.db.characters.dundunKnown.resources[definition.key]
+        assert(not snapshot or snapshot.iconFileID == nil,
+            "[currencies] Symbol darf nicht im Snapshot gespeichert werden")
+    end
+    -- Unlesbare Symbole duerfen weder Texturmarkup noch einen UI-Fehler erzeugen.
+    for _, badIcon in ipairs({ SECRET_VALUE, "ungueltig", 0, -1, 1.5, math.huge }) do
+        C_CurrencyInfo.GetCurrencyInfo = function() return { iconFileID = badIcon } end
+        WAT:RefreshUI()
+        for _, definition in ipairs(WAT.Data.CURRENCIES) do
+            assert(rows[1].values[definition.key].text == plainCurrencyCells[definition.key],
+                "[currencies] Symbol-Fallback veraendert den Bestand: " .. definition.key)
+        end
+    end
+
     -- Ohne lesbaren API-Namen faellt der Tooltip auf den eigenen Ersatztext zurueck.
     C_CurrencyInfo.GetCurrencyInfo = function() return nil end
     rows[1].scripts.OnEnter(rows[1])

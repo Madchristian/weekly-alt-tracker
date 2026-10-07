@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.7-2
+
+Alle elf Währungen zeigen jetzt ihre Blizzard-Symbole vor den Beständen und im Tooltip. Außerdem wird der Changelog bei neuen CurseForge-Veröffentlichungen als Markdown formatiert. Details im [Changelog zu 2026.10.7-2](changelog/CHANGELOG-2026.10.7-2-de.md).
+
 ### Version 2026.10.7
 
 Die neue Seite **Währungen** zeigt elf Midnight-Währungen pro Charakter, allen voran die Nebulösen Leerenkerne für Bonuswürfe und die Leerenschmiede, dazu Dundun, Kastenschlüssel, Manakristalle, Leerenlichtmergel und weitere Kriegsmeuten-Währungen. Der Splitter von Dundun ist dafür aus den Wappenquellen umgezogen; die Navigation hat jetzt zwölf Bereiche. Details im [Changelog zu 2026.10.7](changelog/CHANGELOG-2026.10.7-de.md).
