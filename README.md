@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.14
+
+Kompatibilitätsupdate für WoW Retail 12.1.5 (Interface `120105`): Das Addon wird im Addon-Menü nicht mehr als veraltet angezeigt. Funktionen und gespeicherte Daten bleiben unverändert. Details im [Changelog zu 2026.10.14](changelog/CHANGELOG-2026.10.14-de.md).
+
 ### Version 2026.10.7-2
 
 Alle elf Währungen zeigen jetzt ihre Blizzard-Symbole vor den Beständen und im Tooltip. Außerdem wird der Changelog bei neuen CurseForge-Veröffentlichungen als Markdown formatiert. Details im [Changelog zu 2026.10.7-2](changelog/CHANGELOG-2026.10.7-2-de.md).
