@@ -4,6 +4,32 @@ This file contains the complete public release history. Every version is listed 
 
 Diese Datei enthält die vollständige öffentliche Release-Historie. Jede Version steht genau einmal, zuerst Englisch, danach der deutsche Text. Frühere Einträge beschreiben den Stand der jeweils genannten Version und werden bei späteren Änderungen nicht rückwirkend umgeschrieben.
 
+## 2026.10.14
+
+### English
+
+#### Ready for patch 12.1.5
+
+- WeeklyAltTracker now reports interface version `120105` for WoW Retail 12.1.5 "The Promise of Tomorrow" and is no longer shown as out of date in the AddOns menu.
+- Features and saved data are unchanged; no migration is needed.
+
+#### Limits
+
+The 12.1.5 API changes were checked against the code: the addon uses none of the removed or changed functions. New patch content such as the Labyrinth delves or the new raid is not tracked separately in this version yet. An in-game client test is still pending.
+
+### Deutsch
+
+#### Bereit für Patch 12.1.5
+
+- WeeklyAltTracker meldet sich jetzt mit der Interface-Version `120105` für WoW Retail 12.1.5 „The Promise of Tomorrow“ und wird im Addon-Menü nicht mehr als veraltet angezeigt.
+- Funktionen und gespeicherte Daten bleiben unverändert; eine Migration ist nicht nötig.
+
+#### Grenzen
+
+Die API-Änderungen von 12.1.5 wurden gegen den Code abgeglichen: Keine der entfernten oder geänderten Funktionen wird vom Addon genutzt. Neue Inhalte des Patches, etwa die Labyrinth-Tiefen oder der neue Schlachtzug, werden mit dieser Version noch nicht gesondert erfasst. Ein Test im Spielclient steht noch aus.
+
+---
+
 ## 2026.10.7-2
 
 ### English
