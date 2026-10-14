@@ -396,6 +396,23 @@ Der versionierte Original-Master des Logos liegt als Vektorgrafik unter `artwork
 
 Das GitHub-Release wird mit dem automatisch bereitgestellten `GITHUB_TOKEN` erstellt; ein eigenes Secret ist dafür nicht nötig.
 
+#### Veröffentlichungsweg im Überblick
+
+Ein Release braucht genau einen Schritt von Hand: den Tag. Alles danach läuft über GitHub Actions und zwei Repository-Webhooks.
+
+1. Release-PR nach `main` mergen (Version, Notizen und Inventare wie unten beschrieben).
+2. Annotierten Tag `v<version>` auf den Merge-Commit setzen und pushen.
+3. `.github/workflows/release.yml` erstellt das GitHub-Release mit `WeeklyAltTracker-v<version>.zip`.
+4. **CurseForge:** Der Repository-Webhook (Ereignis `push`) meldet den Tag an CurseForge Automatic Packaging (Projekt `1616769`); CurseForge baut und veröffentlicht die Datei selbst.
+5. **Wago:** Der Repository-Webhook (Ereignis `release`) an `addons.wago.io/api/github/webhook` lässt Wago das GitHub-Release-ZIP importieren.
+
+Es gibt keinen manuellen Upload. Danach prüfen:
+
+- Zustellung der Webhooks: `gh api repos/Madchristian/weekly-alt-tracker/hooks` listet die Hook-IDs, `gh api repos/Madchristian/weekly-alt-tracker/hooks/<id>/deliveries` muss für den Tag Status `200` zeigen.
+- Öffentliche Dateien auf [CurseForge](https://www.curseforge.com/wow/addons/weeklyalttracker/files/all) und [Wago](https://addons.wago.io/addons/weekly-alt-tracker/versions) mit neuer Version und passender Spielversion. Drittanbieter-Widgets wie `api.cfwidget.com` können stundenlang gecacht sein und taugen nicht als Beleg.
+
+Erst wenn eine Plattform die Datei nachweislich nicht veröffentlicht, kommen der manuelle CurseForge-Fallback (siehe unten) beziehungsweise ein manueller Wago-Upload in Frage.
+
 ### Wago-Veröffentlichung
 
 Das Addon ist auf Wago Addons veröffentlicht: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). Die Projekt-ID `ZKxZJkNk` steht als `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` und ist auch auf der Projektseite sichtbar.

@@ -398,6 +398,23 @@ The versioned original master of the logo is a vector graphic at `artwork/Weekly
 
 The GitHub release is created with the automatically provided `GITHUB_TOKEN`; no separate secret is needed for that.
 
+#### Publishing route at a glance
+
+A release needs exactly one manual step: the tag. Everything after it runs through GitHub Actions and two repository webhooks.
+
+1. Merge the release PR into `main` (version, notes and inventories as described below).
+2. Create an annotated tag `v<version>` on the merge commit and push it.
+3. `.github/workflows/release.yml` creates the GitHub release with `WeeklyAltTracker-v<version>.zip`.
+4. **CurseForge:** the repository webhook (event `push`) reports the tag to CurseForge Automatic Packaging (project `1616769`); CurseForge builds and publishes the file itself.
+5. **Wago:** the repository webhook (event `release`) to `addons.wago.io/api/github/webhook` makes Wago import the GitHub release ZIP.
+
+There is no manual upload. Verify afterwards:
+
+- Webhook delivery: `gh api repos/Madchristian/weekly-alt-tracker/hooks` lists the hook IDs, and `gh api repos/Madchristian/weekly-alt-tracker/hooks/<id>/deliveries` must show status `200` for the tag.
+- Public files on [CurseForge](https://www.curseforge.com/wow/addons/weeklyalttracker/files/all) and [Wago](https://addons.wago.io/addons/weekly-alt-tracker/versions) with the new version and the matching game version. Third-party widgets such as `api.cfwidget.com` can be cached for hours and are not valid evidence.
+
+Only if a platform demonstrably fails to publish the file do the manual CurseForge fallback (see below) or a manual Wago upload come into play.
+
 ### Wago publication
 
 The addon is published on Wago Addons: [addons.wago.io/addons/weekly-alt-tracker](https://addons.wago.io/addons/weekly-alt-tracker). The project ID `ZKxZJkNk` is declared as `## X-Wago-ID: ZKxZJkNk` in `WeeklyAltTracker.toc` and is also visible on the project page.
