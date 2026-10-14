@@ -16,3 +16,7 @@ Kein Clienttest durch diesen Vorbereitungslauf. Offen für die In-Game-Abnahme: 
 
 - `python tools/generate_changelog.py`: kumulative Historie aus 27 Releases erzeugt.
 - `python tools/check.py`: erfolgreich, einschließlich aller 13 registrierten Lua-Runtime-Harnesses.
+
+## Veröffentlichung
+
+Der Tag `v2026.10.14` (Merge-Commit von PR #22) hat den Release-Workflow erfolgreich durchlaufen; das GitHub-Release trägt `WeeklyAltTracker-v2026.10.14.zip` und `release.json`. Der CurseForge-Webhook (`push`) und der Wago-Webhook (`release`: `created`, `released`, `edited`) wurden am 14.10.2026 gegen 05:37–05:38 UTC jeweils mit Status 200 zugestellt. Beide Plattformen führen 2026.10.14 öffentlich mit Spielversion 12.1.5. Kein manueller Upload.
