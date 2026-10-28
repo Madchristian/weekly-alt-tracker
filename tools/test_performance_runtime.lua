@@ -558,6 +558,98 @@ do
     checkEqual(PanelList(), "keystones", "erstes Öffnen bindet den gespeicherten Reiter")
 end
 
+-- ---------------------------------------------------------------------------
+-- 5. Waehrungen (#25/#26): Gegenstaende laufen ueber das vorhandene,
+-- gedrosselte Taschenereignis BAG_UPDATE_DELAYED (Blizzard feuert es einmal
+-- nach allen BAG_UPDATE einer Aktion). Es kommt kein weiteres Ereignis dazu.
+-- Abgewaehlte Eintraege kosten nichts: kein API-Aufruf, kein Scan; eine
+-- geaenderte Auswahl liest nur die Waehrungen, nie den ganzen Charakter.
+-- ---------------------------------------------------------------------------
+
+do
+    local itemCalls = 0
+    local itemCounts = { [280562] = 12, [285801] = 0, [285065] = 4 }
+    C_Item = { GetItemCount = function(itemID)
+        itemCalls = itemCalls + 1
+        return itemCounts[itemID]
+    end }
+    local ITEM_KEYS = { venomstone = 280562, heroicSoulFragment = 285801, mythicalSoulFragment = 285065 }
+    local function Resource(key) return WeeklyAltTrackerDB.characters["Player-Main"].resources[key] end
+
+    ResetCounters()
+    local WAT, onEvent = StartAddon({ seenIntro = true })
+
+    -- Keine zusaetzlichen Item-/Bank-Ereignisse; das Taschenereignis ist das einzige.
+    checkEqual(WAT.events:IsEventRegistered("BAG_UPDATE_DELAYED"), true, "Taschenereignis ist registriert")
+    for _, event in ipairs({ "BAG_UPDATE", "ITEM_COUNT_CHANGED", "BANKFRAME_OPENED", "PLAYERBANKSLOTS_CHANGED",
+            "PLAYERREAGENTBANKSLOTS_CHANGED", "BAG_UPDATE_COOLDOWN" }) do
+        checkEqual(WAT.events:IsEventRegistered(event), false, "kein zusaetzliches Ereignis fuer Gegenstaende: " .. event)
+    end
+
+    -- Login: ein 0-Ergebnis ist dort keine Beobachtung (Taschen evtl. nicht geladen).
+    onEvent(nil, "PLAYER_LOGIN")
+    checkEqual(Resource("venomstone") and Resource("venomstone").quantity, 12, "Login liest den positiven Bestand")
+    checkEqual(Resource("heroicSoulFragment"), nil, "Login: ein 0-Ergebnis erzeugt keinen Snapshot")
+    check(Resource("venomstone").itemID == 280562 and Resource("venomstone").currencyID == nil,
+        "Gegenstandssnapshot liegt im gemeinsamen Pfad character.resources[key] mit itemID")
+
+    -- Taschenereignis: ein Scan, ein API-Aufruf je ausgewaehltem Gegenstand.
+    ResetCounters()
+    itemCalls = 0
+    itemCounts[280562] = 15
+    onEvent(nil, "BAG_UPDATE_DELAYED")
+    checkEqual(counters.scans, 1, "ein Taschenereignis loest genau einen Scan aus")
+    checkEqual(itemCalls, 3, "ein Zaehlaufruf je ausgewaehltem Gegenstand")
+    checkEqual(Resource("venomstone").quantity, 15, "der Taschenbestand wird aktualisiert")
+    checkEqual(Resource("heroicSoulFragment") and Resource("heroicSoulFragment").quantity, 0,
+        "nach dem Taschenereignis gilt die gelesene 0")
+
+    -- Auswahl aendern: nur die Waehrungen werden neu gelesen, kein Vollscan.
+    ResetCounters()
+    itemCalls = 0
+    for key in pairs(ITEM_KEYS) do
+        checkEqual(WAT:SetCurrencyEnabled(key, false), true, "Abwaehlen von " .. key)
+    end
+    checkEqual(counters.scans, 0, "eine Auswahl liest nicht den ganzen Charakter")
+    checkEqual(itemCalls, 0, "abgewaehlte Gegenstaende werden nicht abgefragt")
+    check(WeeklyAltTrackerDB.settings.currencies.venomstone == false
+            and WeeklyAltTrackerDB.settings.currencies.heroicSoulFragment == false
+            and WeeklyAltTrackerDB.settings.currencies.mythicalSoulFragment == false,
+        "nur Abweichungen werden gespeichert")
+    checkEqual(Resource("venomstone").quantity, 15, "der Snapshot eines abgewaehlten Gegenstands bleibt erhalten")
+
+    -- Ohne ausgewaehlte Gegenstaende kostet das Taschenereignis keinen Zaehlaufruf.
+    ResetCounters()
+    itemCalls = 0
+    itemCounts[280562] = 99
+    Burst(onEvent)
+    checkEqual(itemCalls, 0, "ohne ausgewaehlte Gegenstaende keine Zaehlaufrufe im Ereignissturm")
+    checkEqual(Resource("venomstone").quantity, 15, "abgewaehlter Bestand wird auch bei Taschenereignissen nicht gelesen")
+
+    -- Wieder auswaehlen: sofort gelesen (ohne /reload), danach wieder pro Ereignis.
+    ResetCounters()
+    itemCalls = 0
+    checkEqual(WAT:SetCurrencyEnabled("venomstone", true), true, "Anwaehlen von venomstone")
+    checkEqual(itemCalls, 1, "nur der neu ausgewaehlte Gegenstand wird gelesen")
+    checkEqual(counters.scans, 0, "auch das Anwaehlen ist kein Vollscan")
+    checkEqual(Resource("venomstone").quantity, 99, "der neu ausgewaehlte Gegenstand zeigt sofort den aktuellen Bestand")
+    itemCalls = 0
+    onEvent(nil, "BAG_UPDATE_DELAYED")
+    checkEqual(itemCalls, 1, "danach liest jedes Taschenereignis genau diesen einen Gegenstand")
+
+    -- Gespeicherte Auswahl gilt schon beim Start: abgewaehlte werden nie angefasst.
+    itemCalls = 0
+    local restored, restoredEvent = StartAddon({ seenIntro = true, currencies = {
+        venomstone = false, heroicSoulFragment = false, mythicalSoulFragment = false } })
+    restoredEvent(nil, "PLAYER_LOGIN")
+    restoredEvent(nil, "BAG_UPDATE_DELAYED")
+    checkEqual(itemCalls, 0, "gespeicherte Abwahl: auch Login und Taschenereignis lesen nichts")
+    checkEqual(restored.events:IsEventRegistered("BAG_UPDATE_DELAYED"), true,
+        "das Taschenereignis gehoert dem Kern (Schluesselstein, Vault) und bleibt registriert")
+
+    C_Item = nil
+end
+
 print(string.format("LUA PERFORMANCE RUNTIME %s: %d checks, %d failures",
     failures == 0 and "OK" or "FAILED", checks, failures))
 if failures > 0 then os.exit(1) end

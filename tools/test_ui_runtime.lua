@@ -2590,22 +2590,28 @@ local function RunDundunSuite()
         "[currencies] alter Wochenstand darf keinen Wochenfortschritt zeigen: " .. staleTooltip)
     WAT.IsStale = savedIsStale
 
-    -- Alle elf Symbole stammen aus der jeweiligen Currency-ID des Clients.
-    -- Auch unbekannte Bestaende bleiben zuordenbar; Mengen/Maxima und die
-    -- gespeicherten Snapshots werden durch die Darstellung nicht veraendert.
+    -- Alle Symbole stammen vom Client: aus der Currency-ID bzw. der Item-ID
+    -- des jeweiligen Eintrags (Quellart). Auch unbekannte Bestaende bleiben
+    -- zuordenbar; Mengen/Maxima und die gespeicherten Snapshots werden durch
+    -- die Darstellung nicht veraendert.
     local plainCurrencyCells = {}
     WAT:RefreshUI()
     for _, definition in ipairs(WAT.Data.CURRENCIES) do
         plainCurrencyCells[definition.key] = rows[1].values[definition.key].text
     end
+    local savedItemApi = C_Item
+    C_Item = { GetItemIconByID = function(itemID) return 800000 + itemID end }
     C_CurrencyInfo.GetCurrencyInfo = function(currencyID)
         return { iconFileID = 900000 + currencyID }
     end
     WAT:RefreshUI()
     rows[1].scripts.OnEnter(rows[1])
     local iconTooltip = GameTooltip:TooltipText()
+    local itemEntries = 0
     for _, definition in ipairs(WAT.Data.CURRENCIES) do
-        local prefix = string.format("|T%d:12:12:0:0|t ", 900000 + definition.currencyID)
+        local kind, sourceID = WAT.Data.CurrencySource(definition)
+        if kind == "item" then itemEntries = itemEntries + 1 end
+        local prefix = string.format("|T%d:12:12:0:0|t ", (kind == "item" and 800000 or 900000) + sourceID)
         assert(rows[1].values[definition.key].text == prefix .. plainCurrencyCells[definition.key],
             "[currencies] falsches Symbol oder veraenderter Bestand: " .. definition.key)
         assert(string.find(iconTooltip, prefix .. WAT.L(definition.nameKey), 1, true),
@@ -2614,15 +2620,25 @@ local function RunDundunSuite()
         assert(not snapshot or snapshot.iconFileID == nil,
             "[currencies] Symbol darf nicht im Snapshot gespeichert werden")
     end
+    assert(itemEntries == 3, "[currencies] drei Gegenstandseintraege aus 12.1.5 erwartet, gefunden " .. itemEntries)
     -- Unlesbare Symbole duerfen weder Texturmarkup noch einen UI-Fehler erzeugen.
     for _, badIcon in ipairs({ SECRET_VALUE, "ungueltig", 0, -1, 1.5, math.huge }) do
         C_CurrencyInfo.GetCurrencyInfo = function() return { iconFileID = badIcon } end
+        C_Item = { GetItemIconByID = function() return badIcon end }
         WAT:RefreshUI()
         for _, definition in ipairs(WAT.Data.CURRENCIES) do
             assert(rows[1].values[definition.key].text == plainCurrencyCells[definition.key],
                 "[currencies] Symbol-Fallback veraendert den Bestand: " .. definition.key)
         end
     end
+    -- Ein werfender Item-Aufruf bricht die Darstellung nicht ab.
+    C_Item = { GetItemIconByID = function() error("Item-API-Fehler") end }
+    WAT:RefreshUI()
+    for _, definition in ipairs(WAT.Data.CURRENCIES) do
+        assert(rows[1].values[definition.key].text == plainCurrencyCells[definition.key],
+            "[currencies] werfende Item-API veraendert den Bestand: " .. definition.key)
+    end
+    C_Item = savedItemApi
 
     -- Ohne lesbaren API-Namen faellt der Tooltip auf den eigenen Ersatztext zurueck.
     C_CurrencyInfo.GetCurrencyInfo = function() return nil end
@@ -2828,6 +2844,281 @@ local function RunDundunLocaleSuite(locale, expected)
 end
 
 -- ---------------------------------------------------------------------------
+-- Auswahl der Waehrungen (#26) und Gegenstandsspalten (#25) in der UI.
+--
+-- Die Suite laedt die ECHTE Core.lua (Auswahl, Speicherung) neben der echten
+-- UI.lua und Data.lua. Nur der Scan (RefreshCurrencies) ist ersetzt: er liest
+-- hier nichts, sondern rendert nur neu - der Scanner selbst wird in
+-- test_vault_runtime.lua geprueft. Bewiesen wird: abgewaehlte Eintraege
+-- verschwinden als Spalte, Zelle, Trennlinie und Tooltip-Zeile; die Breiten
+-- passen sich an und bleiben innerhalb von CONTENT_WIDTH; nichts wird neu
+-- erzeugt; die Snapshots bleiben; bei leerer Auswahl steht ein Hinweis statt
+-- einer leeren Tabelle; die Einstellungsseite bildet die Liste ab.
+-- ---------------------------------------------------------------------------
+
+local function RunCurrencySelectionSuite(locale, expect)
+    local function context(message) return "[currency-selection " .. locale .. "] " .. message end
+    local savedCurrencyInfo, savedItemApi = C_CurrencyInfo, C_Item
+    C_CurrencyInfo = { GetCurrencyInfo = function(currencyID)
+        return { name = "Cur" .. currencyID, iconFileID = 900000 + currencyID }
+    end }
+    C_Item = {
+        GetItemIconByID = function(itemID) return 800000 + itemID end,
+        GetItemNameByID = function(itemID) return "Item" .. itemID end,
+    }
+    local WAT = MakeWAT()
+    GetLocale = function() return locale end
+    WAT.db.characters.dundunKnown = {
+        name = "Dunkun", realm = "Testreich", classFile = "HUNTER",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+        resources = {
+            venomstone = { itemID = 280562, quantity = 37, updated = 900 },
+            heroicSoulFragment = { itemID = 285801, quantity = 6, updated = 900 },
+            voidcore = { currencyID = 3513, quantity = 3, maxQuantity = 6, updated = 900 },
+        },
+    }
+    WAT.db.settings.characterOrder = { "dundunKnown", "test", "alt" }
+    SlashCmdList = SlashCmdList or {}
+    LoadInto(WAT, "Localization.lua")
+    LoadInto(WAT, "Data.lua")
+    LoadInto(WAT, "Core.lua")
+    LoadInto(WAT, "UI.lua")
+    local refreshReasons = {}
+    function WAT:RefreshCurrencies(reason)
+        refreshReasons[#refreshReasons + 1] = reason
+        self:RefreshUI()
+    end
+    WAT:CreateUI()
+    WAT.frame:Show()
+    WAT:SetActiveTab("currencies")
+    RenderAllPanels(WAT)
+
+    local panel = WAT.panels.currencies
+    local definitions = WAT.Data.CURRENCIES
+    local total = #definitions
+    assert(total == 14, context("14 Eintraege erwartet (11 Currencies + 3 Gegenstaende), gefunden " .. total))
+    local function VisibleKeys()
+        local keys = {}
+        for _, column in ipairs(panel.columns) do
+            if not column.hidden then keys[#keys + 1] = column.key end
+        end
+        return keys
+    end
+    local function Layout()
+        local sum, visible = 0, 0
+        for _, column in ipairs(panel.columns) do
+            if not column.hidden then
+                sum = sum + column.width
+                if column.key ~= "character" then visible = visible + 1 end
+            end
+        end
+        return sum, visible
+    end
+
+    -- Standard: alles aktiv, die Gegenstaende stehen als Spalten hinter den Currencies.
+    assert(#VisibleKeys() == total + 1 and VisibleKeys()[#VisibleKeys()] == "mythicalSoulFragment",
+        context("ohne Auswahl muessen alle Eintraege als Spalten erscheinen"))
+    local sum = Layout()
+    assert(sum == 920 and panel.tableWidth == 920,
+        context("14 Spalten fuellen CONTENT_WIDTH exakt, erhalten " .. sum .. "/" .. tostring(panel.tableWidth)))
+    assert(panel.columnBar.shown == false, context("ohne Ueberbreite kein waagerechter Balken"))
+    assert(panel.emptyNotice.shown == false and panel.header.shown ~= false and panel.scroll.shown ~= false,
+        context("ohne leere Auswahl kein Hinweis"))
+    local expectedItemHeader = WAT.L("COL_CUR_VENOMSTONE")
+    assert(panel.headerLabels.venomstone.text == expectedItemHeader,
+        context("Spaltenkopf des Gegenstands nicht lokalisiert: " .. tostring(panel.headerLabels.venomstone.text)))
+    local rows = panel.rows
+    assert(string.find(rows[1].values.venomstone.text or "", "37", 1, true),
+        context("Gegenstandsbestand fehlt in der Zelle: " .. tostring(rows[1].values.venomstone.text)))
+    assert(string.find(rows[1].values.venomstone.text or "", "|T800000", 1, true) == nil
+            and string.find(rows[1].values.venomstone.text or "", "|T" .. (800000 + 280562), 1, true) ~= nil,
+        context("Gegenstandssymbol stammt nicht aus C_Item.GetItemIconByID"))
+    assert(string.find(rows[2].values.venomstone.text or "", "%-"),
+        context("fehlender Gegenstandssnapshot muss '-' zeigen"))
+
+    -- Tooltip: Gegenstaende sind gekennzeichnet, Currencies nicht.
+    rows[1].scripts.OnEnter(rows[1])
+    local tooltip = GameTooltip:TooltipText()
+    assert(string.find(tooltip, WAT.L("CUR_KIND_ITEM"), 1, true) and string.find(tooltip, "37", 1, true),
+        context("Tooltip kennzeichnet den Gegenstand nicht: " .. tooltip))
+    assert(string.find(tooltip, WAT.L("CUR_ITEM_NOTE"), 1, true),
+        context("Tooltip nennt den Taschenhinweis nicht: " .. tooltip))
+    assert(string.find(tooltip, "Item280562", 1, true),
+        context("Tooltip nennt nicht den clientlokalisierten Gegenstandsnamen: " .. tooltip))
+    local currencyLine = string.match(tooltip, "[^\n]*Cur3513[^\n]*")
+    assert(currencyLine and not string.find(currencyLine, WAT.L("CUR_KIND_ITEM"), 1, true),
+        context("eine Currency darf nicht als Gegenstand gekennzeichnet sein: " .. tostring(currencyLine)))
+
+    -- Einstellungen: ein Feld je Eintrag, alle angehakt.
+    WAT:SetActiveTab("settings")
+    local controls = WAT.settingsControls
+    assert(#controls.currencyToggles == total, context("ein Auswahlfeld je Eintrag erwartet"))
+    for index, toggle in ipairs(controls.currencyToggles) do
+        assert(toggle.definition == definitions[index], context("Feld " .. index .. " folgt nicht Data.CURRENCIES"))
+        assert(toggle.check.shown == true, context("ohne Auswahl muss jedes Feld angehakt sein: " .. toggle.definition.key))
+        assert(string.find(toggle.label.text or "", definitions[index].itemID and "Item" or "Cur", 1, true),
+            context("Feldbeschriftung ohne Clientname: " .. tostring(toggle.label.text)))
+    end
+    assert(controls.headingCurrencies.text == expect.heading,
+        context("Abschnittstitel nicht lokalisiert: " .. tostring(controls.headingCurrencies.text)))
+    assert(controls.currencyAll.label.text == expect.all and controls.currencyNone.label.text == expect.none,
+        context("Alle/Keine nicht lokalisiert"))
+    assert(controls.currencyStatus.text == WAT.L("SETTINGS_CURRENCIES_COUNT", total, total),
+        context("Zaehler falsch: " .. tostring(controls.currencyStatus.text)))
+    assert(controls.currencyAll.active == true and controls.currencyNone.active ~= true,
+        context("'Alle' muss bei voller Auswahl hervorgehoben sein"))
+    assert(controls.currencyToggles[#controls.currencyToggles].width and panel and WAT.panels.settings.content.height > 402,
+        context("das Formular muss laenger sein als das Panel (Scrollbereich)"))
+    for _, toggle in ipairs(controls.currencyToggles) do
+        local point = toggle.points[1]
+        assert(point and point[2] >= 0 and point[2] + toggle.width <= 920,
+            context("Auswahlfeld ragt aus dem Formular: " .. toggle.definition.key))
+    end
+
+    local widgetsBefore = WidgetsCreated()
+
+    -- Abwaehlen eines Gegenstands: sofort, ohne neue Objekte.
+    local venomToggle = controls.currencyToggles[12]
+    assert(venomToggle.definition.key == "venomstone", context("Feld 12 ist nicht der Venomstone"))
+    venomToggle.scripts.OnClick(venomToggle)
+    assert(WAT.db.settings.currencies.venomstone == false and next(WAT.db.settings.currencies, "venomstone") == nil,
+        context("nur die Abweichung (false) wird gespeichert"))
+    assert(#refreshReasons == 0, context("ein Abwaehlen liest nichts mehr, es zeichnet nur neu"))
+    assert(venomToggle.check.shown == false, context("abgewaehltes Feld zeigt noch den Haken"))
+    assert(controls.currencyStatus.text == WAT.L("SETTINGS_CURRENCIES_COUNT", total - 1, total),
+        context("Zaehler folgt der Auswahl nicht"))
+    assert(controls.currencyAll.active ~= true, context("'Alle' darf bei Teilauswahl nicht hervorgehoben sein"))
+    WAT:SetActiveTab("currencies")
+    assert(#VisibleKeys() == total, context("abgewaehlte Spalte muss verschwinden"))
+    local venomColumn
+    for _, column in ipairs(panel.columns) do
+        if column.key == "venomstone" then venomColumn = column end
+    end
+    assert(venomColumn.hidden == true, context("Spalte nicht als ausgeblendet markiert"))
+    assert(panel.headerCells.venomstone.shown == false and panel.columnDividers.venomstone.shown == false,
+        context("Kopfzelle und Trennlinie muessen verschwinden"))
+    assert(rows[1].cells.venomstone.shown == false and rows[2].cells.venomstone.shown == false,
+        context("die Zellen aller Zeilen muessen verschwinden"))
+    local sum13, visible13 = Layout()
+    assert(visible13 == 13 and panel.columns[2].width == 59 and sum13 <= 920 and panel.tableWidth == 920,
+        context("Breiten passen sich an 13 Spalten an (59px), erhalten " .. panel.columns[2].width))
+    -- Keine Luecke: die Spalte hinter der abgewaehlten rueckt auf.
+    assert(rows[1].cells.heroicSoulFragment.points[1][2] == rows[1].cells.coiledFilament.points[1][2]
+            + panel.columns[2].width,
+        context("die Folgespalte rueckt nicht an die Stelle der abgewaehlten"))
+    -- Nichts wird gelesen oder gezeigt: kein Wert, kein Tooltipeintrag, Snapshot bleibt.
+    rows[1].values.venomstone:SetText("UNBERUEHRT")
+    WAT:RefreshUI()
+    assert(rows[1].values.venomstone.text == "UNBERUEHRT", context("abgewaehlte Zelle darf nicht mehr befuellt werden"))
+    rows[1].scripts.OnEnter(rows[1])
+    local reduced = GameTooltip:TooltipText()
+    assert(not string.find(reduced, "Item280562", 1, true), context("abgewaehlter Eintrag steht noch im Tooltip"))
+    assert(string.find(reduced, "Item285801", 1, true) and string.find(reduced, WAT.L("CUR_ITEM_NOTE"), 1, true),
+        context("ausgewaehlte Gegenstaende fehlen im Tooltip"))
+    assert(WAT.db.characters.dundunKnown.resources.venomstone.quantity == 37,
+        context("der Snapshot eines abgewaehlten Eintrags muss erhalten bleiben"))
+    assert(WidgetsCreated() == widgetsBefore, context("Abwaehlen erzeugt neue Objekte"))
+
+    -- Wieder auswaehlen: Spalte, Zelle und Breite kehren zurueck, der alte Stand erscheint.
+    WAT:SetActiveTab("settings")
+    venomToggle.scripts.OnClick(venomToggle)
+    assert(refreshReasons[#refreshReasons] == "currency-selection",
+        context("ein Anwaehlen muss den Eintrag sofort lesen (Waehrungsscan)"))
+    WAT:SetActiveTab("currencies")
+    assert(WAT.db.settings.currencies.venomstone == nil, context("Standard (aktiv) darf nicht gespeichert werden"))
+    assert(#VisibleKeys() == total + 1 and venomColumn.hidden == false, context("Spalte kehrt nicht zurueck"))
+    assert(rows[1].cells.venomstone.shown == true and string.find(rows[1].values.venomstone.text or "", "37", 1, true),
+        context("der gespeicherte Bestand muss wieder erscheinen"))
+    assert(panel.columns[2].width == 55 and panel.tableWidth == 920, context("Breite kehrt nicht auf 55px zurueck"))
+
+    -- Alle Gegenstaende abgewaehlt: kein Taschenhinweis mehr.
+    WAT:SetCurrencyEnabled("venomstone", false)
+    WAT:SetCurrencyEnabled("heroicSoulFragment", false)
+    WAT:SetCurrencyEnabled("mythicalSoulFragment", false)
+    rows[1].scripts.OnEnter(rows[1])
+    assert(not string.find(GameTooltip:TooltipText(), WAT.L("CUR_ITEM_NOTE"), 1, true),
+        context("ohne ausgewaehlte Gegenstaende darf der Taschenhinweis nicht erscheinen"))
+    assert(select(2, Layout()) == 11 and panel.columns[2].width == 70 and Layout() == 920,
+        context("11 Currencies fuellen wie bisher 150 + 11 x 70 = 920"))
+    WAT:SetAllCurrenciesEnabled(true)
+
+    -- Eigene Breiten gelten weiter, auch wenn sich die Standardbreite aendert.
+    assert(WAT:SetColumnWidth("currencies", "voidcore", 90) == 90, context("eigene Breite wird nicht gesetzt"))
+    assert(WAT.db.settings.columnWidths.currencies.voidcore == 90, context("eigene Breite nicht gespeichert"))
+    WAT:SetCurrencyEnabled("dundun", false)
+    assert(WAT:GetColumnWidth("currencies", "voidcore") == 90, context("eigene Breite geht beim Umschalten verloren"))
+    assert(WAT:GetColumnWidth("currencies", "cofferKey") == 59, context("Standardbreite folgt der Auswahl nicht"))
+    WAT:SetAllCurrenciesEnabled(true)
+    WAT:ResetColumnWidths("currencies")
+
+    -- Alle abgewaehlt: Hinweis statt leerer Tabelle, Hinweis auch in den Einstellungen.
+    WAT:SetActiveTab("settings")
+    controls.currencyNone.scripts.OnClick(controls.currencyNone)
+    assert(#VisibleKeys() == 1 and VisibleKeys()[1] == "character", context("bei leerer Auswahl bleibt nur die Charakterspalte"))
+    assert(panel.emptyNotice.shown == true and panel.emptyNotice.text == WAT.L("CUR_EMPTY_NOTICE"),
+        context("leere Auswahl braucht den Hinweis auf der Waehrungsseite"))
+    assert(panel.header.shown == false and panel.scroll.shown == false,
+        context("bei leerer Auswahl darf keine leere Tabelle stehen"))
+    assert(controls.currencyStatus.text == WAT.L("SETTINGS_CURRENCIES_EMPTY"),
+        context("Hinweis bei leerer Auswahl fehlt in den Einstellungen: " .. tostring(controls.currencyStatus.text)))
+    assert(controls.currencyNone.active == true and controls.currencyAll.active ~= true,
+        context("'Keine' muss bei leerer Auswahl hervorgehoben sein"))
+    for _, toggle in ipairs(controls.currencyToggles) do
+        assert(toggle.check.shown == false, context("bei 'Keine' darf kein Haken stehen: " .. toggle.definition.key))
+    end
+    WAT:SetActiveTab("currencies")
+    RenderAllPanels(WAT)
+    assert(panel.emptyNotice.shown == true, context("Hinweis bleibt nach dem Seitenwechsel"))
+    -- Und zurueck: alles sichtbar, Hinweis weg, nichts neu erzeugt.
+    WAT:SetActiveTab("settings")
+    controls.currencyAll.scripts.OnClick(controls.currencyAll)
+    WAT:SetActiveTab("currencies")
+    assert(#VisibleKeys() == total + 1 and panel.emptyNotice.shown == false and panel.header.shown == true
+            and panel.scroll.shown == true and next(WAT.db.settings.currencies) == nil,
+        context("'Alle' stellt die volle Tabelle wieder her"))
+    assert(WidgetsCreated() == widgetsBefore, context("Umschalten erzeugt neue Objekte"))
+
+    -- Eine neue Zeile entsteht korrekt, solange Spalten ausgeblendet sind.
+    WAT:SetCurrencyEnabled("manaflux", false)
+    WAT.db.characters.spaeter = {
+        name = "Spaeter", realm = "Testreich", classFile = "MAGE",
+        lastSeen = 995, statistics = { scanned = 995 }, weekly = {},
+    }
+    WAT.db.settings.characterOrder = { "dundunKnown", "test", "alt", "spaeter" }
+    WAT:RefreshUI()
+    local newRow = panel.rows[#panel.rows]
+    assert(newRow.character == WAT.db.characters.spaeter, context("neue Zeile fehlt"))
+    assert(newRow.cells.manaflux.shown == false, context("die neue Zeile zeigt eine abgewaehlte Zelle"))
+    assert(newRow.cells.voidcore.points[1][2] == 4 + 150, context("die neue Zeile ist falsch ausgerichtet"))
+    assert(newRow.cells.sparkDust.points[1][2] == panel.rows[1].cells.sparkDust.points[1][2],
+        context("die neue Zeile weicht von den vorhandenen ab"))
+    WAT:SetAllCurrenciesEnabled(true)
+
+    -- Gespeicherte Auswahl wirkt beim Start: Spalte fehlt von Anfang an.
+    local savedSettingsWAT = MakeWAT()
+    savedSettingsWAT.db.settings.currencies = { heroicSoulFragment = false, mythicalSoulFragment = false }
+    savedSettingsWAT.db.settings.activeTab = "currencies"
+    LoadInto(savedSettingsWAT, "Localization.lua")
+    LoadInto(savedSettingsWAT, "Data.lua")
+    LoadInto(savedSettingsWAT, "Core.lua")
+    LoadInto(savedSettingsWAT, "UI.lua")
+    savedSettingsWAT:CreateUI()
+    savedSettingsWAT.frame:Show()
+    savedSettingsWAT:SetActiveTab("currencies")
+    local startPanel = savedSettingsWAT.panels.currencies
+    local startVisible = 0
+    for _, column in ipairs(startPanel.columns) do
+        if not column.hidden and column.key ~= "character" then startVisible = startVisible + 1 end
+    end
+    assert(startVisible == 12 and startPanel.columns[#startPanel.columns].hidden == true,
+        context("die gespeicherte Auswahl muss beim Start gelten"))
+    assert(startPanel.rows[1].cells.heroicSoulFragment.shown == false,
+        context("abgewaehlte Zellen duerfen beim Start nicht sichtbar sein"))
+
+    C_CurrencyInfo, C_Item = savedCurrencyInfo, savedItemApi
+end
+
+-- ---------------------------------------------------------------------------
 -- Easter Egg: Panra (Krieger/Tauren) + Cataline (Paladin) muessen BEIDE in
 -- WAT.db.characters bekannt sein, dann erscheint eine einzelne subtile Zeile
 -- ausschliesslich im Wappenquellen-Tooltip des jeweils EIGENEN Charakters.
@@ -2983,6 +3274,8 @@ RunDundunLocaleSuite("frFR", {
     "Panra holds the line, Cataline keeps him in the Light",
 })
 RunEasterEggSuite()
+RunCurrencySelectionSuite("enUS", { heading = "Currencies", all = "All", none = "None" })
+RunCurrencySelectionSuite("deDE", { heading = "Währungen", all = "Alle", none = "Keine" })
 
 print("LUA UI RUNTIME OK: 12/12 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, Berufswissen, M+10/318,"
     .. " entlastete Übersicht ohne Wappen-/Truhenduplikate, Ritual-Verweis statt Doppelzählung,"
@@ -3009,4 +3302,9 @@ print("LUA UI RUNTIME OK: 12/12 Sidebar-Ziele, Minimap-Symbol, Schlüsselstein, 
     .. " mehr in den Wappenquellen; bekannt+Maximum, nur Menge, '-'), lokalisierter"
     .. " Tooltip mit Client-Name/Ersatzname/Wochenfortschritt/Reichweite/Offline-Hinweis,"
     .. " objektfreier Mehrfach-Refresh sowie das Panra/Cataline-Easter-Egg (nur bei"
-    .. " beiden passenden Charakteren, nur im eigenen Waehrungs-Tooltip, jeder Negativfall geprüft)")
+    .. " beiden passenden Charakteren, nur im eigenen Waehrungs-Tooltip, jeder Negativfall geprüft),"
+    .. " Gegenstandsspalten (Venomstone, Seelenfragmente) mit Client-Symbol/-Name und Gegenstands-Tooltip,"
+    .. " Waehrungsauswahl in den Einstellungen (Feld je Eintrag, Alle/Keine, Zaehler, Hinweis bei leerer"
+    .. " Auswahl): abgewaehlte Spalten/Zellen/Tooltipzeilen verschwinden sofort, Breiten passen sich an"
+    .. " (14 x 55, 13 x 59, 11 x 70), Snapshots bleiben, kein neues Objekt, Hinweis statt leerer Tabelle,"
+    .. " gespeicherte Auswahl gilt beim Start, in deDE und enUS")

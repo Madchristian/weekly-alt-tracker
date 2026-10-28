@@ -71,6 +71,18 @@ UnitLevel = function() return player.level end
 GetAverageItemLevel = function() return player.itemLevel, player.itemLevel end
 C_DateAndTime = { GetSecondsUntilWeeklyReset = function() return player.secondsUntilReset end }
 
+-- Quellart einer Waehrungsdefinition (currencyID oder itemID): genau eine
+-- Funktion in Data.lua. Dieser Harness stubbt nur die Definitionsliste und
+-- uebernimmt die ECHTE Funktion, statt sie nachzubauen.
+local function CurrencySourceFromData()
+    local chunk, err = loadfile("Data.lua")
+    assert(chunk, "Data.lua nicht ladbar: " .. tostring(err))
+    local scratch = {}
+    chunk("WeeklyAltTracker", scratch)
+    assert(type(scratch.Data.CurrencySource) == "function", "Data.CurrencySource fehlt")
+    return scratch.Data.CurrencySource
+end
+
 -- Lädt Localization.lua und Core.lua frisch in eine gemeinsame Addon-Tabelle.
 -- Rückgabe: die Addon-Tabelle und das Log der Chatausgaben.
 local function Load(locale)
@@ -935,7 +947,7 @@ do
     local WAT = Load("deDE")
     -- Im echten TOC liegt Data.lua beim ADDON_LOADED/InitializeDatabase bereits
     -- vor. Dieser isolierte Core-Harness bildet die relevante Invariante nach.
-    WAT.Data = { DUNDUN_CURRENCY_ID = 3376, CURRENCIES = {
+    WAT.Data = { DUNDUN_CURRENCY_ID = 3376, CurrencySource = CurrencySourceFromData(), CURRENCIES = {
         { key = "voidcore", currencyID = 3513 },
         { key = "dundun", currencyID = 3376 },
     } }
@@ -1087,6 +1099,205 @@ do
     end
 end
 
+-- ---------------------------------------------------------------------------
+-- 9. Gegenstaende auf der Waehrungsseite (#25): ein Snapshot-Pfad, zwei
+-- Quellarten. Die Normalisierung prueft je Quellart die passende ID.
+-- ---------------------------------------------------------------------------
+
+local function CurrencyWAT()
+    local WAT = Load("deDE")
+    WAT.Data = { CurrencySource = CurrencySourceFromData(), CURRENCIES = {
+        { key = "dundun", currencyID = 3376 },
+        { key = "venomstone", itemID = 280562 },
+        { key = "heroicSoulFragment", itemID = 285801 },
+    } }
+    return WAT
+end
+
+do
+    local WAT = CurrencyWAT()
+    local source = WAT.Data.CurrencySource
+    -- Quellart und ID: genau eine positive ganze Zahl.
+    local kind, id = source({ key = "a", currencyID = 3376 })
+    check(kind == "currency" and id == 3376, "currencyID ergibt die Quellart currency")
+    kind, id = source({ key = "b", itemID = 280562 })
+    check(kind == "item" and id == 280562, "itemID ergibt die Quellart item")
+    for label, definition in pairs({
+        both = { currencyID = 1, itemID = 2 }, neither = { key = "x" }, text = { itemID = "7" },
+        zero = { currencyID = 0 }, negative = { itemID = -5 }, fraction = { itemID = 1.5 },
+        infinite = { currencyID = math.huge }, secret = { itemID = SECRET_VALUE },
+    }) do
+        check(source(definition) == nil, "Definition ohne gueltige Einzel-ID hat keine Quelle: " .. label)
+    end
+    check(source(nil) == nil and source("x") == nil, "Fremdtyp statt Definition hat keine Quelle")
+
+    local GUID_ITEMS = "Player-1084-0000ITEM"
+    WeeklyAltTrackerDB = { version = 2, characters = {
+        [GUID_ITEMS] = { guid = GUID_ITEMS, name = "Sammler", realm = "Blackrock", weekly = {},
+            resources = {
+                venomstone = { itemID = 280562, quantity = 37, updated = 500, junk = "x" },
+                heroicSoulFragment = { itemID = 280562, quantity = 5, updated = 500 },
+                dundun = { currencyID = 3376, quantity = 4, maxQuantity = 8, updated = 500 },
+                mythicalSoulFragment = { itemID = 285065, quantity = 2 },
+            } },
+        ["Player-1084-0000ITM2"] = { guid = "Player-1084-0000ITM2", name = "Kaputt", realm = "Blackrock", weekly = {},
+            resources = {
+                venomstone = { currencyID = 280562, quantity = 9 },
+                heroicSoulFragment = { itemID = 285801, quantity = -1 },
+                dundun = { itemID = 3376, quantity = 4 },
+            } },
+        ["Player-1084-0000ITM3"] = { guid = "Player-1084-0000ITM3", name = "Geheim", realm = "Blackrock", weekly = {},
+            resources = {
+                venomstone = { itemID = 280562, quantity = SECRET_VALUE },
+                heroicSoulFragment = { itemID = SECRET_VALUE, quantity = 3 },
+            } },
+        ["Player-1084-0000ITM4"] = { guid = "Player-1084-0000ITM4", name = "Bruch", realm = "Blackrock", weekly = {},
+            resources = {
+                venomstone = { itemID = 280562, quantity = 1.5 },
+                heroicSoulFragment = { itemID = 285801, quantity = 0 / 0 },
+            } },
+        ["Player-1084-0000ITM5"] = { guid = "Player-1084-0000ITM5", name = "Unendlich", realm = "Blackrock", weekly = {},
+            resources = { venomstone = { itemID = 280562, quantity = math.huge },
+                heroicSoulFragment = { itemID = 285801, quantity = "5" } } },
+    } }
+    WAT:InitializeDatabase()
+    local items = WeeklyAltTrackerDB.characters[GUID_ITEMS].resources
+    check(type(items.venomstone) == "table" and items.venomstone.itemID == 280562
+            and items.venomstone.quantity == 37 and items.venomstone.updated == 500,
+        "ein gueltiger Gegenstandssnapshot muss die Normalisierung ueberleben")
+    checkEqual(items.venomstone.junk, nil, "unbekannte Felder werden aus dem Snapshot entfernt")
+    checkEqual(items.venomstone.currencyID, nil, "ein Gegenstandssnapshot traegt keine currencyID")
+    checkEqual(items.heroicSoulFragment, nil, "fremde itemID unter dem Schluessel wird verworfen")
+    check(items.dundun and items.dundun.quantity == 4 and items.dundun.maxQuantity == 8,
+        "ein Currency-Snapshot neben Gegenstaenden bleibt unveraendert")
+    checkEqual(items.mythicalSoulFragment, nil, "Schluessel ohne Definition faellt heraus")
+    local broken = WeeklyAltTrackerDB.characters["Player-1084-0000ITM2"].resources
+    checkEqual(broken.venomstone, nil, "currencyID-Form unter einem Gegenstandsschluessel wird verworfen")
+    checkEqual(broken.heroicSoulFragment, nil, "negative Menge wird verworfen")
+    checkEqual(broken.dundun, nil, "itemID-Form unter einem Currency-Schluessel wird verworfen")
+    local secret = WeeklyAltTrackerDB.characters["Player-1084-0000ITM3"].resources
+    checkEqual(secret.venomstone, nil, "Secret-Menge entwertet den Gegenstandssnapshot")
+    checkEqual(secret.heroicSoulFragment, nil, "Secret-itemID entwertet den Gegenstandssnapshot")
+    local fractions = WeeklyAltTrackerDB.characters["Player-1084-0000ITM4"].resources
+    checkEqual(fractions.venomstone, nil, "gebrochene Menge wird verworfen")
+    checkEqual(fractions.heroicSoulFragment, nil, "NaN-Menge wird verworfen")
+    local infinite = WeeklyAltTrackerDB.characters["Player-1084-0000ITM5"].resources
+    checkEqual(infinite.venomstone, nil, "unendliche Menge wird verworfen")
+    checkEqual(infinite.heroicSoulFragment, nil, "Textmenge wird verworfen")
+    -- Idempotent: ein zweiter Lauf aendert nichts.
+    local before = items.venomstone
+    WAT:InitializeDatabase()
+    check(WeeklyAltTrackerDB.characters[GUID_ITEMS].resources.venomstone.quantity == before.quantity,
+        "Normalisierung ist idempotent")
+end
+
+-- ---------------------------------------------------------------------------
+-- 10. Auswahl der Waehrungen (#26): db.settings.currencies[key] = false.
+-- Gespeichert wird nur die Abweichung; fehlend oder unbekannt heisst aktiv.
+-- ---------------------------------------------------------------------------
+
+do
+    local WAT = CurrencyWAT()
+
+    -- Kein Verhaltenswechsel: ohne gespeicherte Auswahl ist alles aktiv.
+    for label, settings in pairs({
+        absent = {}, secret = { currencies = SECRET_VALUE }, text = { currencies = "x" }, number = { currencies = 7 },
+    }) do
+        WeeklyAltTrackerDB = { settings = settings }
+        WAT:InitializeDatabase()
+        check(type(WeeklyAltTrackerDB.settings.currencies) == "table"
+                and next(WeeklyAltTrackerDB.settings.currencies) == nil,
+            "Auswahl (" .. label .. ") wird additiv zu einer leeren Tabelle")
+        for _, key in ipairs({ "dundun", "venomstone", "heroicSoulFragment", "neuerEintrag" }) do
+            checkEqual(WAT:IsCurrencyEnabled(key), true, "ohne Auswahl ist " .. key .. " aktiv (" .. label .. ")")
+        end
+    end
+
+    -- Normalisierung: nur ein sicher gelesenes false bleibt erhalten.
+    WeeklyAltTrackerDB = { settings = { currencies = {
+        venomstone = false, dundun = true, heroicSoulFragment = "nein", mythicalSoulFragment = SECRET_VALUE,
+        future_entry = false, ["bad key"] = false, ["9lead"] = false, [42] = false, [SECRET_VALUE] = false,
+        [string.rep("a", 41)] = false, extra = 0,
+    } } }
+    WAT:InitializeDatabase()
+    local saved = WeeklyAltTrackerDB.settings.currencies
+    check(saved.venomstone == false and saved.future_entry == false,
+        "abgewaehlte (auch unbekannte, sichere) Schluessel bleiben als false erhalten")
+    local count = 0
+    for _ in pairs(saved) do count = count + 1 end
+    checkEqual(count, 2, "alles ausser sicheren false-Werten faellt weg (true, Text, Secret, Zahl, ungueltige Schluessel)")
+    checkEqual(WAT:IsCurrencyEnabled("venomstone"), false, "abgewaehlt ist inaktiv")
+    checkEqual(WAT:IsCurrencyEnabled("dundun"), true, "true als Wert zaehlt als aktiv und wird nicht gespeichert")
+    checkEqual(WAT:IsCurrencyEnabled("heroicSoulFragment"), true, "Fremdtypwert zaehlt als aktiv")
+    checkEqual(WAT:IsCurrencyEnabled("unbekannt"), true, "ein unbekannter Schluessel gilt als aktiv")
+    WAT:InitializeDatabase()
+    checkEqual(WeeklyAltTrackerDB.settings.currencies.venomstone, false, "Normalisierung ist idempotent")
+
+    -- Die Auswahl beruehrt gespeicherte Snapshots nie.
+    WeeklyAltTrackerDB = {
+        settings = { currencies = { venomstone = false } },
+        characters = { ["Player-1084-0000SEL1"] = { guid = "Player-1084-0000SEL1", name = "Wahl", realm = "Blackrock",
+            weekly = {}, resources = { venomstone = { itemID = 280562, quantity = 12, updated = 5 } } } },
+    }
+    WAT:InitializeDatabase()
+    checkEqual(WeeklyAltTrackerDB.characters["Player-1084-0000SEL1"].resources.venomstone.quantity, 12,
+        "der Snapshot eines abgewaehlten Eintrags bleibt erhalten")
+
+    -- Setzen: nur Abweichungen werden gespeichert, Anzeige und Scan folgen sofort.
+    WeeklyAltTrackerDB = { settings = {} }
+    WAT:InitializeDatabase()
+    local calls = {}
+    function WAT:ApplyCurrencyColumns() calls[#calls + 1] = "columns" end
+    function WAT:RefreshCurrencies(reason) calls[#calls + 1] = "refresh:" .. tostring(reason) end
+    function WAT:RefreshUI() calls[#calls + 1] = "ui" end
+    checkEqual(WAT:SetCurrencyEnabled("venomstone", false), true, "Abwaehlen meldet eine Aenderung")
+    checkEqual(WeeklyAltTrackerDB.settings.currencies.venomstone, false, "Abweichung wird als false gespeichert")
+    checkEqual(table.concat(calls, ","), "columns,ui",
+        "Abwaehlen passt die Anzeige sofort an und liest nichts mehr")
+    calls = {}
+    checkEqual(WAT:SetCurrencyEnabled("venomstone", false), false, "erneutes Abwaehlen aendert nichts")
+    checkEqual(#calls, 0, "ohne Aenderung weder Anzeige noch Scan")
+    checkEqual(WAT:SetCurrencyEnabled("venomstone", true), true, "Anwaehlen meldet eine Aenderung")
+    checkEqual(table.concat(calls, ","), "columns,refresh:currency-selection",
+        "Anwaehlen: zuerst die Anzeige, dann der Waehrungsscan - ohne /reload")
+    checkEqual(WeeklyAltTrackerDB.settings.currencies.venomstone, nil,
+        "der Standard (aktiv) wird nicht gespeichert")
+    checkEqual(next(WeeklyAltTrackerDB.settings.currencies), nil, "keine Restschluessel")
+    calls = {}
+    checkEqual(WAT:SetCurrencyEnabled("existiertNicht", false), false, "unbekannter Schluessel wird abgelehnt")
+    checkEqual(WAT:SetCurrencyEnabled(SECRET_VALUE, false), false, "Secret-Schluessel wird abgelehnt")
+    checkEqual(WAT:SetCurrencyEnabled(42, false), false, "Zahl als Schluessel wird abgelehnt")
+    checkEqual(next(WeeklyAltTrackerDB.settings.currencies), nil, "abgelehnte Schluessel hinterlassen nichts")
+    checkEqual(#calls, 0, "abgelehnte Schluessel loesen weder Anzeige noch Scan aus")
+
+    -- Alle / Keine: ein einziger Durchlauf fuer Anzeige und Scan.
+    calls = {}
+    checkEqual(WAT:SetAllCurrenciesEnabled(false), true, "Keine meldet eine Aenderung")
+    checkEqual(table.concat(calls, ","), "columns,ui", "Keine wirkt einmal, nicht je Eintrag, und liest nichts")
+    for _, key in ipairs({ "dundun", "venomstone", "heroicSoulFragment" }) do
+        checkEqual(WeeklyAltTrackerDB.settings.currencies[key], false, "Keine waehlt " .. key .. " ab")
+    end
+    calls = {}
+    checkEqual(WAT:SetAllCurrenciesEnabled(false), false, "zweites Keine aendert nichts")
+    checkEqual(#calls, 0, "zweites Keine loest nichts aus")
+    calls = {}
+    checkEqual(WAT:SetAllCurrenciesEnabled(true), true, "Alle meldet eine Aenderung")
+    checkEqual(table.concat(calls, ","), "columns,refresh:currency-selection",
+        "Alle liest die wieder ausgewaehlten Eintraege einmal")
+    checkEqual(next(WeeklyAltTrackerDB.settings.currencies), nil, "Alle entfernt jede Abweichung")
+    -- Eine Auswahl fuer einen Eintrag ohne Definition (spaeterer Patch) bleibt bei Alle/Keine unberuehrt.
+    WeeklyAltTrackerDB.settings.currencies.future_entry = false
+    WAT:SetAllCurrenciesEnabled(true)
+    checkEqual(WeeklyAltTrackerDB.settings.currencies.future_entry, false,
+        "Alle beruehrt Schluessel ohne aktuelle Definition nicht")
+
+    -- Ohne Datenbank oder Definitionsliste passiert nichts und nichts wirft.
+    local bare = Load("deDE")
+    checkEqual(bare:SetCurrencyEnabled("dundun", false), false, "ohne Datenbank keine Aenderung")
+    checkEqual(bare:SetAllCurrenciesEnabled(false), false, "ohne Datenbank kein Alle/Keine")
+    checkEqual(bare:IsCurrencyEnabled("dundun"), true, "ohne Datenbank gilt alles als aktiv")
+end
+
 -- Entfernen ist auf genau einen Offline-Datensatz begrenzt.
 do
     local wat = Load("deDE")
@@ -1120,4 +1331,6 @@ print("LUA CORE RUNTIME OK: " .. #LOCALE_CASES .. " Locale-Szenarien, Initialize
     .. " sicher erfasste UnitRace-Metadaten mit Secret-Erhalt, Dundun-Ressourcen-Snapshot"
     .. " als Wochenreset-Ueberlebender und additive Migration von Rasse/resources"
     .. " (leer, echte Daten, Secret/Fremdtyp verworfen ohne Erfindung), Waehrungsseite mit"
-    .. " Saison-2-Leerenkern und verworfenem Saison-1-Kern/verwaistem Schluessel")
+    .. " Saison-2-Leerenkern und verworfenem Saison-1-Kern/verwaistem Schluessel,"
+    .. " Quellart currency/item (Data.CurrencySource), Gegenstandssnapshots fail-closed normalisiert,"
+    .. " Waehrungsauswahl (nur Abweichungen, Standard alles aktiv, sofortige Wirkung)")

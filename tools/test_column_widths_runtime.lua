@@ -263,7 +263,8 @@ local TABLE_COLUMNS = {
     sources = { "character", "gilded", "mythicPlusKey", "crestAdventurer", "crestVeteran",
         "crestChampion", "crestHero", "crestMyth" },
     currencies = { "character", "voidcore", "dundun", "cofferKey", "cofferKeyShards", "manaCrystals",
-        "manaflux", "sparkDust", "voidlightMarl", "undercoin", "corrosiveCoin", "coiledFilament" },
+        "manaflux", "sparkDust", "voidlightMarl", "undercoin", "corrosiveCoin", "coiledFilament",
+        "venomstone", "heroicSoulFragment", "mythicalSoulFragment" },
     dungeons = { "character", "normal", "heroic", "mythic", "mythicPlus", "runs", "updated" },
     raids = { "character", "bosses", "highest", "instances", "updated" },
     keystones = { "character", "dungeon", "keystoneLevel", "updated" },
@@ -1003,12 +1004,139 @@ local function RunDividerEdgeSuite()
     end
 end
 
+-- ---------------------------------------------------------------------------
+-- Waehrungsseite mit abgewaehlten Eintraegen (#26): eine ausgeblendete Spalte
+-- belegt keinen Platz; Kopf, Trennlinie und Zellen verschwinden, die uebrigen
+-- ruecken auf. Die Standardbreite folgt der Zahl der aktiven Eintraege, eigene
+-- Breiten (auch die ausgeblendeter Spalten) bleiben gespeichert.
+-- ---------------------------------------------------------------------------
+
+local function RunHiddenColumnSuite(locale)
+    local function context(message) return "[hidden-columns " .. locale .. "] " .. message end
+    local db = Database({
+        currencies = { cofferKey = false, manaflux = false, venomstone = false },
+        columnWidths = { currencies = { manaflux = 120 } },
+    })
+    local WAT = StartAddon(locale, db)
+    -- Der Scan selbst ist in test_vault_runtime/test_performance_runtime
+    -- belegt (dieser Harness stubbt keine Unit-API); hier genuegt das Neuzeichnen.
+    function WAT:RefreshCurrencies() self:RefreshUI() end
+    WAT:SetActiveTab("currencies")
+    local panel = WAT.panels.currencies
+    local widgetsBefore = widgetCount
+
+    local function Visible()
+        local visible = {}
+        for _, column in ipairs(panel.columns) do
+            if not column.hidden then visible[#visible + 1] = column end
+        end
+        return visible
+    end
+    -- Linke Kante wie LayoutColumns sie rechnet, nur ueber sichtbare Spalten.
+    local function VisibleLeft(key)
+        local left = 4
+        for _, column in ipairs(Visible()) do
+            if column.key == key then return left end
+            left = left + column.width
+        end
+    end
+    local function CheckGeometry(where)
+        local visible = Visible()
+        local sum = 0
+        for _, column in ipairs(visible) do sum = sum + column.width end
+        checkEqual(panel.tableWidth, math.max(CONTENT_WIDTH, sum), context(where .. ": Tabellenbreite zaehlt nur sichtbare Spalten"))
+        for _, column in ipairs(panel.columns) do
+            local header, divider = panel.headerCells[column.key], panel.columnDividers[column.key]
+            if column.hidden then
+                checkEqual(header.shown, false, context(where .. ": Kopf " .. column.key .. " ausgeblendet"))
+                checkEqual(divider.shown, false, context(where .. ": Trennlinie " .. column.key .. " ausgeblendet"))
+                for _, row in ipairs(panel.rows) do
+                    checkEqual(row.cells[column.key].shown, false, context(where .. ": Zelle " .. column.key .. " ausgeblendet"))
+                end
+            else
+                checkEqual(header.shown, true, context(where .. ": Kopf " .. column.key .. " sichtbar"))
+                checkEqual(divider.shown, true, context(where .. ": Trennlinie " .. column.key .. " sichtbar"))
+                checkEqual(PointX(header), VisibleLeft(column.key), context(where .. ": Kopf " .. column.key .. " ohne Luecke"))
+                for _, row in ipairs(panel.rows) do
+                    checkEqual(row.cells[column.key].shown, true, context(where .. ": Zelle " .. column.key .. " sichtbar"))
+                    checkEqual(PointX(row.cells[column.key]), VisibleLeft(column.key),
+                        context(where .. ": Zelle " .. column.key .. " ohne Luecke"))
+                end
+                local left = PointX(divider)
+                check(left >= 0 and left + divider.width <= panel.tableWidth,
+                    context(where .. ": Hitzone " .. column.key .. " in der Tabelle"))
+            end
+        end
+    end
+
+    -- Start mit gespeicherter Auswahl: elf aktive Eintraege, 150 + 11 x 70 = 920.
+    checkEqual(#Visible(), 12, context("Charakterspalte + 11 aktive Eintraege"))
+    checkEqual(ColumnByKey(panel, "voidcore").width, 70, context("Standardbreite bei 11 aktiven Eintraegen"))
+    checkEqual(panel.tableWidth, CONTENT_WIDTH, context("keine Ueberbreite bei 11 aktiven Eintraegen"))
+    checkEqual(panel.columnBar.shown, false, context("kein Balken ohne Ueberbreite"))
+    CheckGeometry("Start")
+    -- Die gespeicherte Breite einer ausgeblendeten Spalte bleibt unberuehrt erhalten.
+    checkEqual(WeeklyAltTrackerDB.settings.columnWidths.currencies.manaflux, 120,
+        context("Breite der ausgeblendeten Spalte bleibt gespeichert"))
+
+    -- Verbreitern erzeugt Ueberbreite nur aus sichtbaren Spalten; Blaettern und Kanten stimmen.
+    checkEqual(WAT:SetColumnWidth("currencies", "voidcore", 200), 200, context("Verbreitern"))
+    checkEqual(panel.tableWidth, CONTENT_WIDTH + 130, context("Ueberbreite = 130px, ausgeblendete Spalten zaehlen nicht"))
+    checkEqual(panel.columnBar.shown, true, context("Balken bei Ueberbreite"))
+    CheckGeometry("verbreitert")
+    WAT:SetColumnScroll("currencies", 1000)
+    checkEqual(panel.columnOffset, 130, context("Blaettern klemmt auf die sichtbare Ueberbreite"))
+    local lastVisible = Visible()[#Visible()]
+    local lastDivider = panel.columnDividers[lastVisible.key]
+    check(PointX(lastDivider) - panel.columnOffset + lastDivider.width <= CONTENT_WIDTH,
+        context("letzte sichtbare Trennlinie liegt am Anschlag im Kopf"))
+    WAT:SetColumnScroll("currencies", 0)
+
+    -- Einen Eintrag wieder anwaehlen: Standardbreite sinkt auf floor(770 / 12) = 64,
+    -- die eigene Breite 200 gilt weiter, die gespeicherte 120 gilt fuer manaflux.
+    checkEqual(WAT:SetCurrencyEnabled("cofferKey", true), true, context("Anwaehlen"))
+    checkEqual(#Visible(), 13, context("zwoelf aktive Eintraege plus Charakterspalte"))
+    checkEqual(ColumnByKey(panel, "cofferKey").width, 64, context("Standardbreite folgt der Auswahl"))
+    checkEqual(ColumnByKey(panel, "voidcore").width, 200, context("eigene Breite bleibt"))
+    CheckGeometry("angewaehlt")
+    checkEqual(WAT:SetCurrencyEnabled("manaflux", true), true, context("manaflux anwaehlen"))
+    checkEqual(ColumnByKey(panel, "manaflux").width, 120, context("die gespeicherte Breite der wieder gewaehlten Spalte gilt"))
+    checkEqual(ColumnByKey(panel, "dundun").width, 59, context("13 aktive Eintraege: floor(770 / 13) = 59"))
+    CheckGeometry("manaflux angewaehlt")
+
+    -- Reset setzt die Breiten auf den Standard der aktuellen Auswahl.
+    WAT:ResetColumnWidths("currencies")
+    checkEqual(ColumnByKey(panel, "voidcore").width, 59, context("Reset nutzt die Standardbreite der Auswahl"))
+    checkEqual(WeeklyAltTrackerDB.settings.columnWidths.currencies, nil, context("Reset entfernt die gespeicherten Breiten"))
+    checkEqual(panel.tableWidth, CONTENT_WIDTH, context("nach Reset keine Ueberbreite"))
+    CheckGeometry("nach Reset")
+
+    -- Standard: Alles an, 14 Spalten zu je 55px fuellen genau 920.
+    WAT:SetAllCurrenciesEnabled(true)
+    checkEqual(#Visible(), 15, context("alle Eintraege aktiv"))
+    checkEqual(ColumnByKey(panel, "voidcore").width, 55, context("14 aktive Eintraege: 55px"))
+    checkEqual(panel.tableWidth, CONTENT_WIDTH, context("14 x 55 + 150 = 920"))
+    CheckGeometry("alle aktiv")
+    checkEqual(next(WeeklyAltTrackerDB.settings.currencies), nil, context("keine gespeicherte Abweichung bei voller Auswahl"))
+
+    -- Nichts wurde dabei neu erzeugt.
+    checkEqual(widgetCount, widgetsBefore, context("Umschalten und Verbreitern erzeugt keine Rahmen"))
+
+    -- Neustart uebernimmt die Auswahl.
+    WAT:SetCurrencyEnabled("sparkDust", false)
+    local restarted = StartAddon(locale, DeepCopy(WeeklyAltTrackerDB))
+    restarted:SetActiveTab("currencies")
+    checkEqual(ColumnByKey(restarted.panels.currencies, "sparkDust").hidden, true, context("Auswahl uebersteht den Neustart"))
+    checkEqual(ColumnByKey(restarted.panels.currencies, "sparkDust").defaultWidth, 59, context("Standardbreite nach Neustart"))
+end
+
 RunNormalizationSuite()
 RunDividerEdgeSuite()
 for _, locale in ipairs({ "deDE", "enUS", "frFR" }) do
     RunGeometrySuite(locale)
     RunCatalogSuite(locale)
     RunCrossFeatureSuite(locale)
+    RunHiddenColumnSuite(locale)
 end
 RunPersistenceSuite()
 
@@ -1020,4 +1148,6 @@ print("LUA COLUMN WIDTHS RUNTIME OK: " .. checks .. " Prüfungen - Normalisierun
     .. " Tabellenseite, Goldene-Truhe-Standard, Ziehen/Skala/Klemmen/Persistenz/Reset,"
     .. " synchrones waagerechtes Blättern, Katalog-Sortierung und Rebinding, Klassenfarben"
     .. " der Wochenquests, featureübergreifend Raid-Vault + Dungeons/Schlachtzüge"
-    .. " mit Resize/Reset/Blättern/Neustart in deDE/enUS/frFR")
+    .. " mit Resize/Reset/Blättern/Neustart in deDE/enUS/frFR,"
+    .. " Währungsseite mit abgewählten Einträgen (keine Lücke, Standardbreite folgt der Auswahl,"
+    .. " eigene Breiten bleiben, keine neuen Rahmen)")

@@ -103,20 +103,65 @@ local function NormalizeCurrencySnapshot(raw, expectedID)
     }
 end
 
+-- Gegenstandsbestand (Quellart "item"): nur eine sicher gelesene, endliche,
+-- nichtnegative ganze Menge und eine zur Definition passende itemID zaehlen.
+-- Ein Gegenstand kennt weder Maximum noch Wochenfortschritt, deshalb gibt es
+-- hier keine weiteren Felder.
+local function NormalizeItemSnapshot(raw, expectedID)
+    local snapshot = SafeTable(raw)
+    local quantity = snapshot and SafeNumber(snapshot.quantity)
+    if quantity == nil or quantity ~= quantity or quantity < 0
+            or quantity % 1 ~= 0 or quantity == math.huge then
+        return nil
+    end
+    if SafeNumber(snapshot.itemID) ~= expectedID then return nil end
+    return { itemID = expectedID, quantity = quantity, updated = SafeNumber(snapshot.updated) }
+end
+
+-- Ein Normalisierer je Quellart (Data.CurrencySource); neue Quellarten
+-- kommen hier und im Scanner dazu, nicht als Verzweigung in NormalizeResources.
+local RESOURCE_NORMALIZERS = {
+    currency = NormalizeCurrencySnapshot,
+    item = NormalizeItemSnapshot,
+}
+
 -- Der Ressourcen-Container wird aus Data.CURRENCIES neu aufgebaut: nur
--- definierte Schluessel mit exakt passender currencyID ueberleben. Ein
--- Schluessel ohne Definition (z.B. eine spaeter entfernte Waehrung) faellt
--- fail-closed heraus, statt als verwaister Snapshot weiterzuleben.
+-- definierte Schluessel mit exakt passender currencyID bzw. itemID
+-- ueberleben. Ein Schluessel ohne Definition (z.B. eine spaeter entfernte
+-- Waehrung) faellt fail-closed heraus, statt als verwaister Snapshot
+-- weiterzuleben. Die Auswahl in den Einstellungen (settings.currencies)
+-- beruehrt diesen Container nie: abgewaehlte Eintraege behalten ihren Stand.
 local function NormalizeResources(resources)
-    local definitions = WAT.Data and SafeTable(WAT.Data.CURRENCIES)
+    local data = WAT.Data
+    local definitions = data and SafeTable(data.CURRENCIES)
+    local sourceOf = data and data.CurrencySource
     local result = {}
-    if not definitions then return result end
+    if not definitions or type(sourceOf) ~= "function" then return result end
     for _, definition in ipairs(definitions) do
         local key = type(definition) == "table" and SafeString(definition.key) or nil
-        local expectedID = type(definition) == "table" and SafeNumber(definition.currencyID) or nil
-        if key and expectedID then
-            result[key] = NormalizeCurrencySnapshot(resources[key], expectedID)
+        local kind, expectedID = sourceOf(definition)
+        local normalize = kind and RESOURCE_NORMALIZERS[kind]
+        if key and normalize then
+            result[key] = normalize(resources[key], expectedID)
         end
+    end
+    return result
+end
+
+-- Auswahl der Waehrungsseite (db.settings.currencies): gespeichert wird nur
+-- die Abweichung vom Standard "alles aktiv", also [key] = false. Alles
+-- andere (true, Zahlen, Secret Values, unlesbare Schluessel) faellt weg und
+-- gilt damit als aktiv. Schluessel ohne aktuelle Definition bleiben bewusst
+-- erhalten wie bei den Spaltenbreiten, damit eine andere Version ihre
+-- Auswahl nicht verliert; neue Eintraege aus spaeteren Patches sind ohne
+-- gespeicherte Abweichung automatisch aktiv.
+local function NormalizeCurrencySelection(value)
+    local result = {}
+    local stored = SafeTable(value)
+    if not stored then return result end
+    for key, enabled in pairs(stored) do
+        local safeKey = SafeLayoutKey(key)
+        if safeKey and SafeBoolean(enabled) == false then result[safeKey] = false end
     end
     return result
 end
@@ -345,6 +390,10 @@ function WAT:InitializeDatabase()
     -- Additiv: accountweite Spaltenbreiten je Bereich und stabilem
     -- Spaltenschluessel (siehe ColumnWidths in UI.lua).
     settings.columnWidths = NormalizeColumnWidths(settings.columnWidths)
+    -- Additiv: Auswahl der Waehrungsseite, nur Abweichungen (= false). Ohne
+    -- gespeicherte Auswahl sind alle Eintraege aktiv - kein Verhaltenswechsel
+    -- nach einem Update.
+    settings.currencies = NormalizeCurrencySelection(settings.currencies)
     -- Additiv: accountweite Benutzeruebersetzungen (db.translations) liegen
     -- neben characters/settings und ueberleben Updates. Localization.lua ist
     -- laut TOC bereits geladen; sie normalisiert den Container fail-closed
@@ -603,6 +652,99 @@ function WAT:RefreshStatistics(reason)
     if self.ScanStatistics then self:ScanStatistics(character, reason) end
     character.lastSeen = time()
     if self.RefreshUI then self:RefreshUI() end
+end
+
+-- Nur die Waehrungen neu lesen (Auswahl geaendert): ein voller Scan waere fuer
+-- einen Klick in den Einstellungen unnoetig.
+function WAT:RefreshCurrencies(reason)
+    if not self.db then return end
+    local character = self:PrepareCurrentCharacter()
+    if self.ScanCurrencies then self:ScanCurrencies(character, reason) end
+    character.lastSeen = time()
+    if self.RefreshUI then self:RefreshUI() end
+end
+
+-- ---------------------------------------------------------------------------
+-- Auswahl der Waehrungsseite
+--
+-- Gespeichert wird nur die Abweichung vom Standard: db.settings.currencies
+-- [key] = false. Ohne Eintrag ist ein Eintrag aktiv, so auch jeder neue aus
+-- einem spaeteren Patch. Ein abgewaehlter Eintrag wird weder gescannt noch
+-- angezeigt; sein Snapshot in character.resources bleibt unberuehrt und
+-- erscheint beim erneuten Auswaehlen wieder. Die Aenderung wirkt sofort.
+-- ---------------------------------------------------------------------------
+
+local function CurrencySelection(addon, create)
+    local settings = addon.db and SafeTable(addon.db.settings)
+    if not settings then return nil end
+    local selection = SafeTable(settings.currencies)
+    if not selection and create then
+        selection = {}
+        settings.currencies = selection
+    end
+    return selection
+end
+
+local function IsDefinedCurrencyKey(key)
+    local definitions = WAT.Data and SafeTable(WAT.Data.CURRENCIES)
+    if not definitions then return false end
+    for _, definition in ipairs(definitions) do
+        if type(definition) == "table" and definition.key == key then return true end
+    end
+    return false
+end
+
+-- Schreibt den Zustand eines Eintrags und meldet, ob sich etwas geaendert hat.
+local function StoreCurrencyState(addon, key, enabled)
+    if enabled then
+        local selection = CurrencySelection(addon, false)
+        if selection and selection[key] == false then
+            selection[key] = nil
+            return true
+        end
+        return false
+    end
+    local selection = CurrencySelection(addon, true)
+    if not selection or selection[key] == false then return false end
+    selection[key] = false
+    return true
+end
+
+function WAT:IsCurrencyEnabled(key)
+    local selection = CurrencySelection(self, false)
+    return not (selection and selection[key] == false)
+end
+
+-- Anzeige (Spalten, Auswahlfelder) und Daten folgen der Auswahl sofort, ohne
+-- /reload. Gelesen wird nur nach einem ANWAEHLEN (rescan): ein neu gewaehlter
+-- Eintrag braucht seinen aktuellen Stand. Ein Abwaehlen liest nichts mehr und
+-- zeichnet nur neu - die uebrigen Eintraege stehen schon richtig im Speicher.
+function WAT:ApplyCurrencySelection(rescan)
+    if self.ApplyCurrencyColumns then self:ApplyCurrencyColumns() end
+    if rescan then
+        self:RefreshCurrencies("currency-selection")
+    elseif self.RefreshUI then
+        self:RefreshUI()
+    end
+end
+
+function WAT:SetCurrencyEnabled(key, enabled)
+    if not self.db or not IsDefinedCurrencyKey(key) then return false end
+    local changed = StoreCurrencyState(self, key, enabled == true)
+    if changed then self:ApplyCurrencySelection(enabled == true) end
+    return changed
+end
+
+function WAT:SetAllCurrenciesEnabled(enabled)
+    local definitions = self.db and WAT.Data and SafeTable(WAT.Data.CURRENCIES)
+    if not definitions then return false end
+    local changed = false
+    for _, definition in ipairs(definitions) do
+        local key = type(definition) == "table" and SafeString(definition.key) or nil
+        if key and StoreCurrencyState(self, key, enabled == true) then changed = true end
+    end
+    if changed then self:ApplyCurrencySelection(enabled == true) end
+    return changed
 end
 
 function WAT:SaveFramePosition()

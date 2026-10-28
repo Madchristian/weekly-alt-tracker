@@ -5,6 +5,18 @@ local WAT = {
     Data = { CRESTS = {}, DUNDUN_CURRENCY_ID = 3376, CURRENCIES = { { key = "dundun", currencyID = 3376 } } },
 }
 
+-- Die Quellart einer Waehrungsdefinition (currencyID oder itemID) bestimmt
+-- genau eine Funktion in Data.lua. Der Harness stubbt nur die Liste und
+-- uebernimmt die ECHTE Funktion, statt sie ein zweites Mal nachzubauen.
+do
+    local dataChunk, dataError = loadfile("Data.lua")
+    assert(dataChunk, dataError)
+    local scratch = {}
+    dataChunk("WeeklyAltTracker", scratch)
+    WAT.Data.CurrencySource = scratch.Data.CurrencySource
+    assert(type(WAT.Data.CurrencySource) == "function", "Data.CurrencySource fehlt in Data.lua")
+end
+
 function time() return 123456 end
 
 local SECRET_VALUE = {}
@@ -657,6 +669,179 @@ WAT:ScanCharacter(matchingCrests, "runtime-test")
 assert(matchingCrests.weekly.crests.myth.quantity == 23,
     "ein Same-Week-Vorwert mit exakt passender Currency-ID muss API-Ausfall überleben")
 
+-- ---------------------------------------------------------------------------
+-- Gegenstaende auf der Waehrungsseite (Quellart "item", Issue #25): die Menge
+-- kommt aus C_Item.GetItemCount, der Snapshot liegt im selben Container
+-- character.resources[key] und traegt die itemID. Fail-closed: jeder
+-- Lesefehler laesst den Vorwert stehen, nie entsteht eine erfundene 0.
+-- ---------------------------------------------------------------------------
+
+WAT.Data.CURRENCIES = {
+    { key = "dundun", currencyID = 3376 },
+    { key = "venomstone", itemID = 280562 },
+    { key = "heroicSoulFragment", itemID = 285801 },
+}
+C_CurrencyInfo = { GetCurrencyInfo = function(currencyID)
+    if currencyID == 3376 then return { quantity = 6 } end
+    return nil
+end }
+
+local itemCalls = {}
+local itemCounts = { [280562] = 37, [285801] = 5 }
+local savedItemApi = C_Item
+local function InstallItemApi(getter)
+    C_Item = { GetItemCount = getter, GetDetailedItemLevelInfo = savedItemApi.GetDetailedItemLevelInfo }
+end
+local function RecordingGetter(...)
+    local args = { ... }
+    itemCalls[#itemCalls + 1] = args
+    return itemCounts[args[1]]
+end
+InstallItemApi(RecordingGetter)
+
+local itemCharacter = { weekly = {} }
+WAT:ScanCharacter(itemCharacter, "runtime-test")
+local venom = itemCharacter.resources.venomstone
+assert(type(venom) == "table" and venom.itemID == 280562 and venom.quantity == 37,
+    "Gegenstandssnapshot (itemID + Menge) fehlt nach erfolgreichem Scan")
+assert(venom.currencyID == nil and venom.maxQuantity == nil,
+    "ein Gegenstand traegt weder currencyID noch Maximum")
+assert(type(venom.updated) == "number", "Gegenstandssnapshot ohne Zeitstempel")
+assert(itemCharacter.resources.heroicSoulFragment.quantity == 5, "zweiter Gegenstand wird nicht gelesen")
+assert(itemCharacter.resources.dundun.quantity == 6, "Currency neben Gegenstaenden muss weiter gelesen werden")
+assert(itemCharacter.weekly.venomstone == nil, "Gegenstandsbestand ist kein Wochenwert")
+
+-- API-Form laut Blizzard-Dokumentation: (itemInfo, includeBank, includeUses,
+-- includeReagentBank, includeAccountBank); nur die Taschen, kein Bankbestand.
+assert(#itemCalls == 2, "ein Aufruf je ausgewaehltem Gegenstand erwartet, erhalten " .. #itemCalls)
+local call = itemCalls[1]
+assert(call[1] == 280562 and call[2] == false and call[3] == false and call[4] == false and call[5] == false
+        and call[6] == nil,
+    "C_Item.GetItemCount muss mit (itemID, false, false, false, false) aufgerufen werden")
+
+-- Unveraenderter Bestand: derselbe Snapshot wird nur aufgefrischt (keine Allokation je Taschenereignis).
+local sameSnapshot = itemCharacter.resources.venomstone
+WAT:ScanCharacter(itemCharacter, "runtime-test")
+assert(itemCharacter.resources.venomstone == sameSnapshot, "ein unveraenderter Bestand darf keinen neuen Snapshot anlegen")
+-- Geaenderter Bestand: neuer Snapshot mit neuer Menge.
+itemCounts[280562] = 38
+WAT:ScanCharacter(itemCharacter, "runtime-test")
+assert(itemCharacter.resources.venomstone ~= sameSnapshot and itemCharacter.resources.venomstone.quantity == 38,
+    "ein geaenderter Bestand muss gespeichert werden")
+itemCounts[280562] = 37
+
+-- Eine sicher gelesene Null ist real (alles verbraucht) und ersetzt den Vorwert.
+itemCounts[280562] = 0
+WAT:ScanCharacter(itemCharacter, "runtime-test")
+assert(itemCharacter.resources.venomstone.quantity == 0,
+    "eine sicher gelesene Menge 0 muss den Bestand ersetzen")
+
+-- Beim Login/ersten Betreten der Welt sind die Taschen evtl. noch nicht
+-- geladen: ein 0-Ergebnis ist dort keine Beobachtung, ein positives schon.
+itemCounts[280562] = 40
+WAT:ScanCharacter(itemCharacter, "runtime-test")
+for _, early in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD" }) do
+    itemCounts[280562] = 0
+    WAT:ScanCharacter(itemCharacter, early)
+    assert(itemCharacter.resources.venomstone.quantity == 40,
+        early .. ": ein 0-Ergebnis darf einen bekannten Bestand nicht ueberschreiben")
+end
+itemCounts[280562] = 41
+WAT:ScanCharacter(itemCharacter, "PLAYER_LOGIN")
+assert(itemCharacter.resources.venomstone.quantity == 41, "ein positiver Bestand beim Login muss gelten")
+local earlyFresh = { weekly = {} }
+itemCounts[280562] = 0
+WAT:ScanCharacter(earlyFresh, "PLAYER_LOGIN")
+assert(earlyFresh.resources.venomstone == nil,
+    "ohne Vorwert darf ein fruehes 0-Ergebnis keinen Snapshot erfinden")
+WAT:ScanCharacter(earlyFresh, "BAG_UPDATE_DELAYED")
+assert(earlyFresh.resources.venomstone.quantity == 0, "nach dem Bag-Event gilt die gelesene 0")
+
+-- Fail-closed: nil, Secret Value, falscher Typ, negativ, Bruch, NaN, inf,
+-- Fehler und fehlende API lassen den Vorwert unveraendert stehen.
+itemCounts[280562] = 25
+WAT:ScanCharacter(itemCharacter, "runtime-test")
+local keptVenom = itemCharacter.resources.venomstone
+assert(keptVenom.quantity == 25, "Ausgangsbestand 25 erwartet")
+local badValues = {
+    { "nil", nil }, { "secret", SECRET_VALUE }, { "text", "12" }, { "negative", -1 },
+    { "fraction", 1.5 }, { "nan", 0 / 0 }, { "infinite", math.huge }, { "boolean", true }, { "table", {} },
+}
+for _, case in ipairs(badValues) do
+    itemCounts[280562] = case[2]
+    WAT:ScanCharacter(itemCharacter, "runtime-test")
+    assert(itemCharacter.resources.venomstone == keptVenom,
+        "unlesbarer Wert (" .. case[1] .. ") darf den Gegenstandsbestand nicht veraendern")
+end
+InstallItemApi(function() error("API-Fehler") end)
+assert(pcall(WAT.ScanCharacter, WAT, itemCharacter, "runtime-test"), "ein API-Fehler darf den Scan nicht abbrechen")
+assert(itemCharacter.resources.venomstone == keptVenom, "ein API-Fehler darf den Bestand nicht veraendern")
+C_Item = { GetDetailedItemLevelInfo = savedItemApi.GetDetailedItemLevelInfo }
+WAT:ScanCharacter(itemCharacter, "runtime-test")
+assert(itemCharacter.resources.venomstone == keptVenom, "ohne GetItemCount bleibt der Vorwert stehen")
+local noApi = { weekly = {} }
+WAT:ScanCharacter(noApi, "runtime-test")
+assert(noApi.resources.venomstone == nil and noApi.resources.heroicSoulFragment == nil,
+    "ohne API darf nie ein Gegenstandsbestand erfunden werden")
+
+-- Ein Vorwert mit fremder itemID ist nie derselbe Snapshot.
+InstallItemApi(function() return nil end)
+local foreign = { weekly = {}, resources = { venomstone = { itemID = 285801, quantity = 99 } } }
+WAT:ScanCharacter(foreign, "runtime-test")
+assert(foreign.resources.venomstone == nil, "Vorwert mit fremder itemID darf nicht erhalten bleiben")
+local sameItem = { itemID = 280562, quantity = 4 }
+local keptItem = { weekly = {}, resources = { venomstone = sameItem } }
+WAT:ScanCharacter(keptItem, "runtime-test")
+assert(keptItem.resources.venomstone == sameItem, "Vorwert mit passender itemID uebersteht einen API-Ausfall")
+-- Eine Currency-Snapshot-Form (currencyID) unter einem Gegenstandsschluessel zaehlt nicht.
+local mixed = { weekly = {}, resources = { venomstone = { currencyID = 280562, quantity = 99 } } }
+WAT:ScanCharacter(mixed, "runtime-test")
+assert(mixed.resources.venomstone == nil, "currencyID-Snapshot unter Gegenstandsschluessel muss verworfen werden")
+
+-- Auswahl (Issue #26): ein abgewaehlter Eintrag wird nicht gescannt (kein
+-- API-Aufruf, kein Schreiben); sein Snapshot bleibt unveraendert erhalten.
+itemCounts[280562], itemCounts[285801] = 7, 3
+local selection = {}
+function WAT:IsCurrencyEnabled(key) return selection[key] ~= false end
+itemCalls = {}
+InstallItemApi(RecordingGetter)
+local currencyCalls = 0
+C_CurrencyInfo = { GetCurrencyInfo = function(currencyID)
+    -- Die Wappen (Data.CRESTS) fragen unabhaengig davon eigene IDs ab.
+    if currencyID == 3376 then
+        currencyCalls = currencyCalls + 1
+        return { quantity = 6 }
+    end
+    return nil
+end }
+local chosen = { weekly = {}, resources = {
+    venomstone = { itemID = 280562, quantity = 11, updated = 1 },
+    dundun = { currencyID = 3376, quantity = 2, updated = 1 },
+} }
+local chosenVenom, chosenDundun = chosen.resources.venomstone, chosen.resources.dundun
+selection.venomstone, selection.dundun = false, false
+WAT:ScanCharacter(chosen, "runtime-test")
+assert(chosen.resources.venomstone == chosenVenom and chosen.resources.venomstone.quantity == 11,
+    "ein abgewaehlter Gegenstand behaelt seinen gespeicherten Snapshot")
+assert(chosen.resources.dundun == chosenDundun, "eine abgewaehlte Currency behaelt ihren gespeicherten Snapshot")
+assert(currencyCalls == 0, "eine abgewaehlte Currency darf C_CurrencyInfo nicht abfragen")
+assert(#itemCalls == 1 and itemCalls[1][1] == 285801,
+    "nur der noch ausgewaehlte Gegenstand wird abgefragt, erhalten " .. #itemCalls .. " Aufrufe")
+assert(chosen.resources.heroicSoulFragment.quantity == 3, "der ausgewaehlte Gegenstand wird gelesen")
+-- Wieder ausgewaehlt: gelesen wird sofort, ohne /reload.
+selection.venomstone = nil
+itemCalls = {}
+WAT:ScanCurrencies(chosen, "currency-selection")
+assert(chosen.resources.venomstone.quantity == 7, "ScanCurrencies liest den wieder ausgewaehlten Eintrag")
+assert(chosen.resources.dundun == chosenDundun, "ScanCurrencies fasst abgewaehlte Currencies nicht an")
+assert(#itemCalls == 2, "ScanCurrencies liest nur die Waehrungen (zwei ausgewaehlte Gegenstaende)")
+-- Alles abgewaehlt: kein einziger API-Aufruf.
+selection.venomstone, selection.heroicSoulFragment, selection.dundun = false, false, false
+itemCalls, currencyCalls = {}, 0
+WAT:ScanCurrencies(chosen, "currency-selection")
+assert(#itemCalls == 0 and currencyCalls == 0, "bei leerer Auswahl darf kein Waehrungs-API-Aufruf stattfinden")
+WAT.IsCurrencyEnabled = nil
+
 print("LUA RUNTIME OK: Vault, Raid-Schatzkammer mit Schwierigkeits-ID/Secret-Erhalt/Tooltip, Schlüsselstein +12, Secret-Erhalt, kein Schlüsselstein,"
     .. " konservative Vault-Summary und lückensichere Vorschau-Itemlevel,"
     .. " sprachneutraler GetVaultSummary-Vertrag in deDE/enUS"
@@ -666,4 +851,7 @@ print("LUA RUNTIME OK: Vault, Raid-Schatzkammer mit Schwierigkeits-ID/Secret-Erh
     .. " erhalten den Vorwert, optionale Secret-Felder entwerten die Menge nicht,"
     .. " keine erfundene Menge ganz ohne API, Leerenkern 3513 unabhaengig gescannt und"
     .. " Saison-1-Kern 3418 verworfen, Saisonwechsel verwirft alte 3343/3345/3347"
-    .. " und erhält nur exakt passende Nebelwappen-Currency-IDs")
+    .. " und erhält nur exakt passende Nebelwappen-Currency-IDs,"
+    .. " Gegenstände (Quellart item): C_Item.GetItemCount-Signatur, itemID-Snapshot,"
+    .. " fail-closed bei nil/Secret/ungültig/API-Fehler, kein 0-Überschreiben beim Login,"
+    .. " abgewählte Einträge ohne API-Aufruf und mit erhaltenem Snapshot")

@@ -906,13 +906,25 @@ do
         check(type(label.text) == "string" and label.text ~= "" and not string.find(label.text, "[", 1, true),
             "Roh-Schlüssel auf der Einstellungsseite: " .. tostring(label.text))
     end
-    -- Alle Einstellungs-Bedienelemente müssen in das 402px hohe Panel passen.
-    for _, button in ipairs({ controls.translations, controls.character_confirm, controls.character_cancel,
-                              controls.character_remove }) do
+    -- Die Charakterverwaltung bleibt im 402px hohen sichtbaren Bereich. Das
+    -- Formular scrollt (Währungsauswahl): alle weiteren Bedienelemente müssen
+    -- in den Scrollinhalt passen, dessen Höhe sich aus dem letzten Abschnitt ergibt.
+    for _, button in ipairs({ controls.character_confirm, controls.character_cancel, controls.character_remove }) do
         local point = button and button.points[1]
         local y = point and point[3]
         check(type(y) == "number" and y - 30 >= -402,
             "Einstellungs-Schaltfläche ragt aus dem Panel: y=" .. tostring(y))
+    end
+    local contentHeight = WAT.panels.settings.content and WAT.panels.settings.content.height
+    check(type(contentHeight) == "number" and contentHeight > 402,
+        "das Einstellungsformular muss länger sein als das Panel und scrollen: " .. tostring(contentHeight))
+    local translationsY = controls.translations.points[1] and controls.translations.points[1][3]
+    check(type(translationsY) == "number" and translationsY - 30 >= -contentHeight,
+        "Übersetzungs-Schaltfläche ragt aus dem Scrollinhalt: y=" .. tostring(translationsY))
+    for _, toggle in ipairs(controls.currencyToggles) do
+        local y = toggle.points[1] and toggle.points[1][3]
+        check(type(y) == "number" and y - toggle.height >= -contentHeight and y < 0,
+            "Währungs-Auswahlfeld ragt aus dem Scrollinhalt: " .. toggle.definition.key .. " y=" .. tostring(y))
     end
 
     checkEqual(WAT.translation_editor, nil, "der Editor wird erst beim Öffnen erzeugt")
