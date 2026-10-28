@@ -141,17 +141,41 @@ def main() -> int:
     # Waehrungsseite: jede Currency-ID ist belegt (Wowhead-Tooltip-API, 12.1);
     # der Saison-2-Leerenkern 3513 darf nie durch den Saison-1-Wert 3418
     # ersetzt werden. "dundun" bleibt der Speicherschluessel aus 0.6.0.
+    # Jeder Eintrag traegt genau eine ID: currencyID (echte Currency) oder
+    # itemID (Gegenstand aus Patch 12.1.5, Warcraft Wiki). Beide stehen in
+    # EINER Liste und teilen sich den Snapshot-Pfad character.resources[key].
     currency_body = nested_table_body(data, "Data.CURRENCIES")
-    currency_entries = re.findall(r'\{ key = "([A-Za-z]+)", currencyID = ([A-Za-z_.]+|\d+),', currency_body)
-    require([key for key, _ in currency_entries] == [
+    currency_entries = re.findall(
+        r'\{ key = "([A-Za-z]+)", (currencyID|itemID) = ([A-Za-z_.]+|\d+),', currency_body)
+    require([key for key, _, _ in currency_entries] == [
         "voidcore", "dundun", "cofferKey", "cofferKeyShards", "manaCrystals", "manaflux",
-        "sparkDust", "voidlightMarl", "undercoin", "corrosiveCoin", "coiledFilament"],
+        "sparkDust", "voidlightMarl", "undercoin", "corrosiveCoin", "coiledFilament",
+        "venomstone", "heroicSoulFragment", "mythicalSoulFragment"],
             f"Data.CURRENCIES hat nicht die erwartete Spaltenreihenfolge: {currency_entries}")
-    require(dict(currency_entries) == {
-        "voidcore": "3513", "dundun": "Data.DUNDUN_CURRENCY_ID", "cofferKey": "3028",
-        "cofferKeyShards": "3310", "manaCrystals": "3356", "manaflux": "3465", "sparkDust": "3509",
-        "voidlightMarl": "3316", "undercoin": "2803", "corrosiveCoin": "3448", "coiledFilament": "3546"},
-            f"Data.CURRENCIES nutzt unbelegte Currency-IDs: {currency_entries}")
+    require({key: (field, value) for key, field, value in currency_entries} == {
+        "voidcore": ("currencyID", "3513"), "dundun": ("currencyID", "Data.DUNDUN_CURRENCY_ID"),
+        "cofferKey": ("currencyID", "3028"), "cofferKeyShards": ("currencyID", "3310"),
+        "manaCrystals": ("currencyID", "3356"), "manaflux": ("currencyID", "3465"),
+        "sparkDust": ("currencyID", "3509"), "voidlightMarl": ("currencyID", "3316"),
+        "undercoin": ("currencyID", "2803"), "corrosiveCoin": ("currencyID", "3448"),
+        "coiledFilament": ("currencyID", "3546"),
+        "venomstone": ("itemID", "280562"), "heroicSoulFragment": ("itemID", "285801"),
+        "mythicalSoulFragment": ("itemID", "285065")},
+            f"Data.CURRENCIES nutzt unbelegte Currency-/Item-IDs: {currency_entries}")
+    # Die Item-IDs sind mit Patchbezug und Quelle belegt (CONTRIBUTING).
+    for needle in ("12.1.5", "warcraft.wiki.gg/wiki/Ascendant_Venomstone",
+                   "warcraft.wiki.gg/wiki/Heroic_Soul_Fragment", "warcraft.wiki.gg/wiki/Mythical_Soul_Fragment"):
+        require(needle in data, f"Data.lua belegt die Gegenstands-IDs nicht mit Quelle/Patch: {needle}")
+    require("function Data.CurrencySource(definition)" in data,
+            "Data.CurrencySource (Quellart currency/item) fehlt in Data.lua")
+    # Gegenstaende zaehlt nur C_Item.GetItemCount; das globale GetItemCount ist seit 12.1.5 entfernt.
+    require("C_Item" in scanner and "GetItemCount" in scanner, "Scanner.lua zaehlt Gegenstaende nicht ueber C_Item.GetItemCount")
+    uncommented = lambda source: re.sub(r"--[^\n]*", "", source)
+    require(not re.search(r"(?<![.\w])GetItemCount\s*\(", uncommented(scanner + ui + core)),
+            "das globale GetItemCount ist seit 12.1.5 entfernt - nur C_Item.GetItemCount verwenden")
+    # Kein weiteres Ereignis fuer Gegenstaende: das gedrosselte BAG_UPDATE_DELAYED des Kerns genuegt.
+    for forbidden_event in ("ITEM_COUNT_CHANGED", '"BAG_UPDATE"', "BANKFRAME_OPENED", "PLAYERBANKSLOTS_CHANGED"):
+        require(forbidden_event not in uncommented(core), f"Core.lua registriert kein Zusatzereignis: {forbidden_event}")
     require("3418" not in re.sub(r"--[^\n]*", "", data),
             "der Saison-1-Leerenkern 3418 darf nicht als Waehrung gefuehrt werden")
     require("weekly.dundun" not in scanner and "weekly.resources" not in scanner,
@@ -621,8 +645,8 @@ def main() -> int:
     # Statische Absicherung der dynamischen Quelle Data.STATISTICS[...].nameKey.
     currency_name_keys = re.findall(r'nameKey\s*=\s*"([A-Za-z_][A-Za-z0-9_]*)"',
                                     nested_table_body(data, "Data.CURRENCIES"))
-    require(len(currency_name_keys) == 11,
-            f"Data.CURRENCIES muss fuer jede der 11 Waehrungen einen nameKey fuehren, gefunden: {len(currency_name_keys)}")
+    require(len(currency_name_keys) == 14,
+            f"Data.CURRENCIES muss fuer jeden der 14 Eintraege einen nameKey fuehren, gefunden: {len(currency_name_keys)}")
     for key in currency_name_keys:
         require(key in en_keys, f"Data.lua: Waehrungs-nameKey {key!r} fehlt im enUS-Wörterbuch")
         require(key in de_keys, f"Data.lua: Waehrungs-nameKey {key!r} fehlt im deDE-Wörterbuch")
@@ -1104,10 +1128,22 @@ def main() -> int:
                 require('key = "dundun"' not in body,
                         "Dundun lebt auf der Waehrungsseite und darf nicht doppelt in den Wappenquellen stehen")
             if panel == "currencies":
-                width = re.search(r"local CURRENCY_VIEW = \{ columnWidth = (\d+) \}", ui)
-                require("columns = CURRENCY_VIEW.Columns()" in body and width is not None
-                        and 150 + 11 * int(width.group(1)) == 920,
-                        "die Waehrungsseite muss ihre 11 Spalten aus Data.CURRENCIES mit exakt 920px bilden")
+                # Die Standardbreite teilt den Platz neben der Charakterspalte auf die
+                # aktiven Eintraege (CURRENCY_VIEW.DefaultWidth); mit allen 14 Eintraegen
+                # darf die Tabelle nie breiter als CONTENT_WIDTH werden.
+                limits = re.search(
+                    r"local CURRENCY_VIEW = \{ characterWidth = (\d+), minColumnWidth = (\d+), maxColumnWidth = (\d+) \}", ui)
+                require("columns = CURRENCY_VIEW.Columns()" in body and limits is not None,
+                        "die Waehrungsseite muss ihre Spalten aus Data.CURRENCIES und CURRENCY_VIEW bilden")
+                if limits is not None:
+                    character_width, minimum, maximum = (int(value) for value in limits.groups())
+                    entries = len(currency_entries)
+                    width = max(minimum, min(maximum, (920 - character_width) // entries))
+                    require(character_width + entries * width <= 920,
+                            f"die Waehrungsseite muss mit allen {entries} Eintraegen in 920px passen "
+                            f"({character_width} + {entries} x {width})")
+                    require(character_width + 11 * max(minimum, min(maximum, (920 - character_width) // 11)) == 920,
+                            "mit 11 aktiven Eintraegen bleibt es bei 150 + 11 x 70 = 920px")
             if panel == "weeklies":
                 keys = re.findall(r'key = "([a-z]+)"', body)
                 require(keys == ["quest", "area", "character", "status", "progress", "updated"] and total == 920,

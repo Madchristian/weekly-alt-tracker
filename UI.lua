@@ -77,20 +77,49 @@ local COLORS = {
 local L = WAT.L
 
 -- Waehrungsseite: die Spalten entstehen aus Data.CURRENCIES, damit es fuer
--- Reihenfolge und Schluessel keine zweite Wahrheit gibt. 150 + 11 * 70 ergibt
--- exakt CONTENT_WIDTH (920). Alle Helfer der Seite liegen gebuendelt in
--- CURRENCY_VIEW: UI.lua steht nahe an Luas Grenze von 200 aktiven Locals.
-local CURRENCY_VIEW = { columnWidth = 70 }
+-- Reihenfolge und Schluessel keine zweite Wahrheit gibt. Die Standardbreite
+-- teilt den Platz neben der Charakterspalte auf die AKTIVEN Eintraege
+-- (siehe CURRENCY_VIEW.DefaultWidth): Charakterspalte + n * Breite ergibt nie
+-- mehr als CONTENT_WIDTH (920), solange die Breite nicht unter das Minimum
+-- faellt. Alle Helfer der Seite liegen gebuendelt in CURRENCY_VIEW: UI.lua
+-- steht nahe an Luas Grenze von 200 aktiven Locals.
+local CURRENCY_VIEW = { characterWidth = 150, minColumnWidth = 40, maxColumnWidth = 100 }
 
 function CURRENCY_VIEW.Definitions()
     local definitions = WAT.Data and WAT.Data.CURRENCIES
     return type(definitions) == "table" and definitions or {}
 end
 
-function CURRENCY_VIEW.Columns()
-    local columns = { { key = "character", label = L("COL_CHARACTER"), width = 150, left = true } }
+-- Auswahl aus den Einstellungen (WAT:IsCurrencyEnabled in Core.lua). Ohne
+-- Core (isolierte Harnesses) gilt alles als aktiv - der Standard.
+function CURRENCY_VIEW.IsEnabled(key)
+    local check = WAT.IsCurrencyEnabled
+    return type(check) ~= "function" or check(WAT, key)
+end
+
+function CURRENCY_VIEW.EnabledCount()
+    local count = 0
     for _, definition in ipairs(CURRENCY_VIEW.Definitions()) do
-        columns[#columns + 1] = { key = definition.key, label = L(definition.labelKey), width = CURRENCY_VIEW.columnWidth }
+        if CURRENCY_VIEW.IsEnabled(definition.key) then count = count + 1 end
+    end
+    return count
+end
+
+-- Standardbreite einer Waehrungsspalte bei n aktiven Eintraegen: der Platz
+-- neben der Charakterspalte, gleichmaessig verteilt, nach oben und unten
+-- begrenzt. Wenige Eintraege werden breiter, viele schmaler; die Breite
+-- einer Spalte bleibt wie bei jeder Tabelle per Ziehen anpassbar.
+function CURRENCY_VIEW.DefaultWidth(count)
+    if type(count) ~= "number" or count < 1 then count = 1 end
+    local width = math.floor((CONTENT_WIDTH - CURRENCY_VIEW.characterWidth) / count)
+    return math.max(CURRENCY_VIEW.minColumnWidth, math.min(CURRENCY_VIEW.maxColumnWidth, width))
+end
+
+function CURRENCY_VIEW.Columns()
+    local columns = { { key = "character", label = L("COL_CHARACTER"), width = CURRENCY_VIEW.characterWidth, left = true } }
+    local width = CURRENCY_VIEW.DefaultWidth(CURRENCY_VIEW.EnabledCount())
+    for _, definition in ipairs(CURRENCY_VIEW.Definitions()) do
+        columns[#columns + 1] = { key = definition.key, label = L(definition.labelKey), width = width }
     end
     return columns
 end
@@ -312,11 +341,17 @@ local TOTAL_SCOPE = "*total*"
 -- ---------------------------------------------------------------------------
 
 -- Ruft place(column, left) je Spalte auf und liefert die rechte Kante zurueck.
-local function LayoutColumns(columns, place)
+-- Eine ausgeblendete Spalte (column.hidden, z.B. eine in den Einstellungen
+-- abgewaehlte Waehrung) belegt keinen Platz und wird uebersprungen. Die Stellen,
+-- die Rahmen anlegen, rufen mit includeHidden auf: jede Spalte bekommt ihre
+-- Zellen, damit ein spaeter wieder eingeblendetes Feld sofort bereitsteht.
+local function LayoutColumns(columns, place, includeHidden)
     local edge = 4
     for _, column in ipairs(columns) do
-        place(column, edge)
-        edge = edge + column.width
+        if includeHidden or not column.hidden then
+            place(column, edge)
+            edge = edge + column.width
+        end
     end
     return edge
 end
@@ -454,13 +489,19 @@ local CREST_DISPLAY = {
     myth = { short = "M", color = "|cffe0b6ff" },
 }
 
--- Waehrungssymbol des laufenden Clients (Wappen und Waehrungsseite).
--- Die iconFileID wird ausschliesslich zur
--- Laufzeit referenziert und nie gespeichert. Nur eine sichere, positive
--- Ganzzahl ergibt Markup; jeder andere Fall liefert "" und damit den
--- Buchstaben-Fallback. Die Ganzzahlprüfung ist nötig, weil %d einen Bruchwert
--- je nach Lua-Variante still abschneiden oder mit einem Fehler abbrechen würde;
--- inf und nan fallen über denselben Test heraus (x % 1 ist dort nie 0).
+-- Symbolmarkup aus einer iconFileID (Wappen, Waehrungen und Gegenstaende).
+-- Die iconFileID wird ausschliesslich zur Laufzeit referenziert und nie
+-- gespeichert. Nur eine sichere, positive Ganzzahl ergibt Markup; jeder
+-- andere Fall liefert "" und damit den Buchstaben-Fallback. Die
+-- Ganzzahlprüfung ist nötig, weil %d einen Bruchwert je nach Lua-Variante
+-- still abschneiden oder mit einem Fehler abbrechen würde; inf und nan fallen
+-- über denselben Test heraus (x % 1 ist dort nie 0).
+function CURRENCY_VIEW.IconMarkup(icon)
+    if (issecretvalue and issecretvalue(icon)) or type(icon) ~= "number" then return "" end
+    if icon <= 0 or icon % 1 ~= 0 then return "" end
+    return string.format("|T%d:12:12:0:0|t ", icon)
+end
+
 -- Auch der Feldzugriff info.iconFileID liegt im pcall: eine Metatable auf der
 -- Rückgabe kann beim Lesen selbst einen Fehler werfen.
 local function CrestIcon(currencyID)
@@ -473,9 +514,7 @@ local function CrestIcon(currencyID)
         return info.iconFileID
     end)
     if not ok then return "" end
-    if (issecretvalue and issecretvalue(icon)) or type(icon) ~= "number" then return "" end
-    if icon <= 0 or icon % 1 ~= 0 then return "" end
-    return string.format("|T%d:12:12:0:0|t ", icon)
+    return CURRENCY_VIEW.IconMarkup(icon)
 end
 
 -- Der semantische Schlüssel allein genügt über einen Saisonwechsel nicht.
@@ -614,27 +653,32 @@ end
 
 function CURRENCY_VIEW.CellText(resources, definition, stale)
     local snapshot = CURRENCY_VIEW.Snapshot(resources, definition.key)
-    local icon = CrestIcon(definition.currencyID)
+    local icon = CURRENCY_VIEW.Icon(definition)
     if not snapshot then return icon .. COLORS.unknown .. "-|r" end
     return icon .. (stale and COLORS.stale or "|cffd8e0e7") .. CURRENCY_VIEW.ValueText(snapshot) .. "|r"
 end
 
--- Der volle, clientlokalisierte Name kommt zur Renderzeit aus C_CurrencyInfo,
--- wie schon CrestIcon oben - nie aus dem gespeicherten Snapshot, dessen
--- Sprache aus dem letzten Scan stammen kann. Ohne lesbaren Namen greift der
--- eigene, uebersetzte Ersatztext der Definition (nameKey).
+-- Symbol und Name kommen zur Renderzeit vom Client, nie aus dem gespeicherten
+-- Snapshot, dessen Sprache aus dem letzten Scan stammen kann. Welche API
+-- gefragt wird, haengt von der Quellart ab (Data.CurrencySource); die kleinen
+-- Leser je Quellart stehen in CURRENCY_VIEW.Sources (nach ClientItemName
+-- definiert), damit hier keine Verzweigung nach Currency/Gegenstand steht.
+-- Ohne lesbaren Namen greift der eigene, uebersetzte Ersatztext (nameKey).
+function CURRENCY_VIEW.Source(definition)
+    local sourceOf = WAT.Data and WAT.Data.CurrencySource
+    local kind, id = nil, nil
+    if type(sourceOf) == "function" then kind, id = sourceOf(definition) end
+    return CURRENCY_VIEW.Sources and CURRENCY_VIEW.Sources[kind], id, kind
+end
+
+function CURRENCY_VIEW.Icon(definition)
+    local source, id = CURRENCY_VIEW.Source(definition)
+    return source and source.Icon(id) or ""
+end
+
 function CURRENCY_VIEW.Name(definition)
-    local getter = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
-    if getter and type(definition.currencyID) == "number" then
-        local ok, info = pcall(getter, definition.currencyID)
-        if ok and not (issecretvalue and issecretvalue(info)) and type(info) == "table" then
-            local name = info.name
-            if not (issecretvalue and issecretvalue(name)) and type(name) == "string" and name ~= "" then
-                return name
-            end
-        end
-    end
-    return L(definition.nameKey)
+    local source, id = CURRENCY_VIEW.Source(definition)
+    return source and source.Name(id) or L(definition.nameKey)
 end
 
 local function AddTooltipLine(label, value)
@@ -872,6 +916,37 @@ local function ClientItemName(itemID)
     return nil
 end
 
+-- Leser je Quellart der Waehrungsseite (Data.CurrencySource): Symbol als
+-- Markup (oder "") und clientlokalisierter Name (oder nil). Beide ueberstehen
+-- jede unlesbare Antwort ohne Fehler.
+CURRENCY_VIEW.Sources = {
+    currency = {
+        Icon = CrestIcon,
+        Name = function(currencyID)
+            local getter = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
+            if not getter then return nil end
+            local ok, name = pcall(function()
+                local info = getter(currencyID)
+                if (issecretvalue and issecretvalue(info)) or type(info) ~= "table" then return nil end
+                return info.name
+            end)
+            if not ok or (issecretvalue and issecretvalue(name)) or type(name) ~= "string" or name == "" then
+                return nil
+            end
+            return name
+        end,
+    },
+    item = {
+        Icon = function(itemID)
+            local getter = C_Item and C_Item.GetItemIconByID
+            if type(getter) ~= "function" then return "" end
+            local ok, icon = pcall(getter, itemID)
+            return ok and CURRENCY_VIEW.IconMarkup(icon) or ""
+        end,
+        Name = ClientItemName,
+    },
+}
+
 local function KnowledgeItemName(itemID)
     -- Der Gegenstandsname kommt clientlokalisiert aus der API. Nur wenn er
     -- gar nicht lesbar ist, greift der eigene, uebersetzte Ersatztext.
@@ -974,8 +1049,11 @@ end
 -- bekanntem Maximum als Bruch). Der Wochenfortschritt erscheint nur fuer die
 -- aktuelle Woche; die Reichweite nur, wenn die API sie sicher geliefert hat -
 -- ein unlesbares Flag wird nie zu "charakterbezogen" umgedeutet.
-function CURRENCY_VIEW.TooltipValue(snapshot, stale)
+function CURRENCY_VIEW.TooltipValue(snapshot, stale, kind)
     local value = CURRENCY_VIEW.ValueText(snapshot)
+    -- Ein Gegenstand wird als solcher gekennzeichnet; er hat weder Maximum
+    -- noch Wochenfortschritt noch eine Reichweite.
+    if kind == "item" then return value .. " / " .. L("CUR_KIND_ITEM") end
     if not stale and type(snapshot.quantityEarnedThisWeek) == "number"
             and type(snapshot.maxWeeklyQuantity) == "number" and snapshot.maxWeeklyQuantity > 0 then
         value = value .. L("CREST_WEEK_SUFFIX", snapshot.quantityEarnedThisWeek, snapshot.maxWeeklyQuantity)
@@ -991,16 +1069,23 @@ end
 function CURRENCY_VIEW.Tooltip(character, stale)
     local resources = type(character.resources) == "table" and character.resources or {}
     local newest
+    local hasItems = false
     for _, definition in ipairs(CURRENCY_VIEW.Definitions()) do
-        local snapshot = CURRENCY_VIEW.Snapshot(resources, definition.key)
-        AddTooltipLine(CrestIcon(definition.currencyID) .. CURRENCY_VIEW.Name(definition),
-            snapshot and CURRENCY_VIEW.TooltipValue(snapshot, stale) or L("STATUS_UNKNOWN"))
-        if snapshot and type(snapshot.updated) == "number" and (not newest or snapshot.updated > newest) then
-            newest = snapshot.updated
+        -- Abgewaehlte Eintraege erscheinen weder als Spalte noch im Tooltip.
+        if CURRENCY_VIEW.IsEnabled(definition.key) then
+            local _, _, kind = CURRENCY_VIEW.Source(definition)
+            if kind == "item" then hasItems = true end
+            local snapshot = CURRENCY_VIEW.Snapshot(resources, definition.key)
+            AddTooltipLine(CURRENCY_VIEW.Icon(definition) .. CURRENCY_VIEW.Name(definition),
+                snapshot and CURRENCY_VIEW.TooltipValue(snapshot, stale, kind) or L("STATUS_UNKNOWN"))
+            if snapshot and type(snapshot.updated) == "number" and (not newest or snapshot.updated > newest) then
+                newest = snapshot.updated
+            end
         end
     end
     AddTooltipLine(L("KEY_RECORDED"), FormatAge(newest))
     GameTooltip:AddLine(L("CUR_OFFLINE_NOTE"), 0.56, 0.6, 0.66, true)
+    if hasItems then GameTooltip:AddLine(L("CUR_ITEM_NOTE"), 0.56, 0.6, 0.66, true) end
     local easterEgg = EasterEggLine(character)
     if easterEgg then
         GameTooltip:AddLine(" ")
@@ -1654,11 +1739,27 @@ function ColumnWidths.Persist(panel, column)
     if next(stored) == nil then WAT.db.settings.columnWidths[panel.key] = nil end
 end
 
+-- Legt die Zellen EINER Zeile an die aktuellen Breiten. Ausgeblendete Spalten
+-- (column.hidden) verbergen ihre Zelle und belegen keinen Platz. Auch eine neu
+-- angelegte Zeile geht hier durch, solange Spalten ausgeblendet sind.
+function ColumnWidths.LayoutRow(panel, row)
+    local rowHeight = panel.rowHeight or ROW_HEIGHT
+    for _, column in ipairs(panel.columns) do
+        if column.hidden then row.cells[column.key]:Hide() end
+    end
+    LayoutColumns(panel.columns, function(column, left)
+        local rowCell = row.cells[column.key]
+        rowCell:Show()
+        rowCell:ClearAllPoints()
+        rowCell:SetPoint("LEFT", left, 0)
+        rowCell:SetSize(column.width - 6, rowHeight - 2)
+    end)
+end
+
 -- Legt Kopfzellen, Trennlinien und alle gepoolten Zeilenzellen neu an die
 -- aktuellen Breiten. Dieselbe LayoutColumns-Rechnung wie beim Erzeugen; es
 -- entstehen dabei keine Rahmen.
 function ColumnWidths.Relayout(panel)
-    local rowHeight = panel.rowHeight or ROW_HEIGHT
     -- Die Tabellenbreite muss vor dem Ankern feststehen: die letzte Spalte
     -- endet 6px vor der Kante, ihre Luecke liegt also zur Haelfte hinter der
     -- Tabelle und damit hinter der Clipkante des Kopfes. Die Kante ergibt sich
@@ -1667,8 +1768,19 @@ function ColumnWidths.Relayout(panel)
     -- keinen Balken.
     local width = math.max(CONTENT_WIDTH, LayoutColumns(panel.columns, function() end) - 4)
     panel.tableWidth = width
+    -- Ausgeblendete Spalten: Kopfzelle und Trennlinie verschwinden (die
+    -- Zeilenzellen verbirgt LayoutRow); die sichtbaren zeigt der
+    -- Platzierungsdurchlauf unten.
+    for _, column in ipairs(panel.columns) do
+        if column.hidden then
+            panel.headerCells[column.key]:Hide()
+            local hiddenDivider = panel.columnDividers and panel.columnDividers[column.key]
+            if hiddenDivider then hiddenDivider:Hide() end
+        end
+    end
     LayoutColumns(panel.columns, function(column, left)
         local cell = panel.headerCells[column.key]
+        cell:Show()
         cell:ClearAllPoints()
         cell:SetPoint("LEFT", left, 0)
         cell:SetSize(column.width - 6, HEADER_HEIGHT - 6)
@@ -1679,19 +1791,15 @@ function ColumnWidths.Relayout(panel)
             -- Luecke vor der Tabellenkante.
             local dividerLeft = math.min(left + column.width - ColumnWidths.DIVIDER + 2, width - ColumnWidths.DIVIDER)
             local lineX = math.min(left + column.width - 3, width - 1) - dividerLeft - ColumnWidths.DIVIDER / 2
+            divider:Show()
             divider:ClearAllPoints()
             divider:SetPoint("LEFT", dividerLeft, 0)
             divider.line:ClearAllPoints()
             divider.line:SetPoint("TOP", lineX, -6)
             divider.line:SetPoint("BOTTOM", lineX, 6)
         end
-        for _, row in ipairs(panel.rows) do
-            local rowCell = row.cells[column.key]
-            rowCell:ClearAllPoints()
-            rowCell:SetPoint("LEFT", left, 0)
-            rowCell:SetSize(column.width - 6, rowHeight - 2)
-        end
     end)
+    for _, row in ipairs(panel.rows) do ColumnWidths.LayoutRow(panel, row) end
     panel.headerContent:SetWidth(width)
     panel.child:SetWidth(width)
     for _, row in ipairs(panel.rows) do row:SetWidth(width) end
@@ -1909,6 +2017,58 @@ function WAT:SetColumnScroll(panelKey, offset)
     return panel.columnOffset
 end
 
+-- Waehrungsseite: die Auswahl aus den Einstellungen bestimmt, welche Spalten
+-- sichtbar sind. Alle Spalten und Zellen existieren immer (Pool, keine neuen
+-- Rahmen beim Umschalten); abgewaehlte werden ausgeblendet und belegen keinen
+-- Platz. Die Standardbreite folgt der Zahl der aktiven Eintraege, gespeicherte
+-- eigene Breiten gelten weiter (ColumnWidths.Load). Sind alle abgewaehlt,
+-- ersetzt ein Hinweis die leere Tabelle.
+function CURRENCY_VIEW.ApplyColumns(panel)
+    local count = CURRENCY_VIEW.EnabledCount()
+    local width = CURRENCY_VIEW.DefaultWidth(count)
+    local anyHidden = false
+    for _, column in ipairs(panel.columns) do
+        if column.key ~= "character" then
+            column.hidden = not CURRENCY_VIEW.IsEnabled(column.key)
+            column.defaultWidth = width
+            if column.hidden then anyHidden = true end
+        end
+    end
+    panel.hasHiddenColumns = anyHidden
+    ColumnWidths.Load(panel)
+    ColumnWidths.Relayout(panel)
+    local empty = count == 0
+    panel.header:SetShown(not empty)
+    panel.scroll:SetShown(not empty)
+    -- Der Hinweistext wird erst gesetzt, wenn er gebraucht wird: eine
+    -- ungenutzte Seite bindet beim Erzeugen keinen Text.
+    if panel.emptyNotice then
+        if empty then panel.emptyNotice:SetText(L("CUR_EMPTY_NOTICE")) end
+        panel.emptyNotice:SetShown(empty)
+    end
+end
+
+-- Einmalig nach CreatePanel: der Hinweis bei leerer Auswahl und der erste
+-- Abgleich der Spalten mit den gespeicherten Einstellungen.
+function CURRENCY_VIEW.Prepare(panel)
+    local notice = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    notice:SetPoint("TOPLEFT", 0, -HEADER_HEIGHT)
+    notice:SetWidth(CONTENT_WIDTH)
+    notice:SetJustifyH("LEFT")
+    notice:SetWordWrap(true)
+    notice:SetTextColor(0.95, 0.76, 0.36, 0.9)
+    notice:Hide()
+    panel.emptyNotice = notice
+    CURRENCY_VIEW.ApplyColumns(panel)
+end
+
+-- Aufruf aus WAT:ApplyCurrencySelection (Core.lua), sobald die Auswahl sich
+-- aendert: Spalten sofort anpassen, ohne /reload.
+function WAT:ApplyCurrencyColumns()
+    local panel = self.panels and self.panels.currencies
+    if panel and panel.columns then CURRENCY_VIEW.ApplyColumns(panel) end
+end
+
 -- topOffset schiebt Kopf und Scrollbereich nach unten; die Katalogseite nutzt
 -- den frei werdenden Streifen fuer ihre Filterleiste.
 local function CreatePanel(parent, key, definition, topOffset)
@@ -1970,7 +2130,7 @@ local function CreatePanel(parent, key, definition, topOffset)
         label:SetText(column.label)
         panel.headerCells[column.key] = cell
         panel.headerLabels[column.key] = label
-    end)
+    end, true)
 
     local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -2)
@@ -2541,6 +2701,7 @@ function WAT:UpdateSettingsState()
     SetFormButtonActive(controls.minimapShow, not hidden)
     SetFormButtonActive(controls.minimapHide, hidden)
     update_character_controls(controls)
+    CURRENCY_VIEW.UpdateSettings(controls)
 end
 
 function WAT:SetMinimapHidden(hidden)
@@ -2557,6 +2718,113 @@ function WAT:SetScalePreset(scale)
     self:UpdateSettingsState()
 end
 
+-- Auswahlfeld der Waehrungen in den Einstellungen: eine flache Schaltflaeche
+-- mit Haken, Symbol und Name. Haken und Farben malt PaintToggle; die Auswahl
+-- selbst liegt in Core.lua (WAT:IsCurrencyEnabled / SetCurrencyEnabled).
+CURRENCY_VIEW.toggleHeight = 22
+CURRENCY_VIEW.toggleColumns = 4
+CURRENCY_VIEW.toggleWidth = 225
+
+function CURRENCY_VIEW.CreateToggle(parent, definition, x, y)
+    local toggle = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    toggle:SetSize(CURRENCY_VIEW.toggleWidth - 8, CURRENCY_VIEW.toggleHeight)
+    toggle:SetPoint("TOPLEFT", x, y)
+    SetBackdrop(toggle, { 0.061, 0.095, 0.120, 0.35 }, { 1, 1, 1, 0.08 })
+    local box = CreateFrame("Frame", nil, toggle, "BackdropTemplate")
+    box:SetSize(14, 14)
+    box:SetPoint("LEFT", 6, 0)
+    SetBackdrop(box, { 0.025, 0.035, 0.047, 0.98 }, { 1, 1, 1, 0.30 })
+    local check = box:CreateTexture(nil, "OVERLAY")
+    check:SetPoint("TOPLEFT", 3, -3)
+    check:SetPoint("BOTTOMRIGHT", -3, 3)
+    check:SetColorTexture(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 1)
+    local label = toggle:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("LEFT", 28, 0)
+    label:SetPoint("RIGHT", -4, 0)
+    label:SetJustifyH("LEFT")
+    label:SetWordWrap(false)
+    label:SetMaxLines(1)
+    toggle.definition, toggle.box, toggle.check, toggle.label = definition, box, check, label
+    toggle:SetScript("OnClick", function(self)
+        WAT:SetCurrencyEnabled(self.definition.key, not CURRENCY_VIEW.IsEnabled(self.definition.key))
+    end)
+    return toggle
+end
+
+function CURRENCY_VIEW.PaintToggle(toggle, enabled)
+    toggle.check:SetShown(enabled)
+    if enabled then
+        toggle.box:SetBackdropBorderColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.85)
+        toggle.label:SetTextColor(1, 1, 1, 0.92)
+    else
+        toggle.box:SetBackdropBorderColor(1, 1, 1, 0.30)
+        toggle.label:SetTextColor(1, 1, 1, 0.45)
+    end
+    -- Symbol und Name vom Client zur Anzeigezeit; ohne lesbaren Namen greift
+    -- der eigene Ersatztext der Definition.
+    toggle.label:SetText(CURRENCY_VIEW.Icon(toggle.definition) .. CURRENCY_VIEW.Name(toggle.definition))
+end
+
+-- Zustand der Auswahl in den Einstellungen: Haken, Zaehler, "Alle"/"Keine"
+-- und der Hinweis bei leerer Auswahl.
+function CURRENCY_VIEW.UpdateSettings(controls)
+    local toggles = controls.currencyToggles
+    if not toggles then return end
+    local enabled = 0
+    for _, toggle in ipairs(toggles) do
+        local on = CURRENCY_VIEW.IsEnabled(toggle.definition.key)
+        if on then enabled = enabled + 1 end
+        CURRENCY_VIEW.PaintToggle(toggle, on)
+    end
+    SetFormButtonActive(controls.currencyAll, enabled == #toggles)
+    SetFormButtonActive(controls.currencyNone, enabled == 0)
+    if enabled == 0 then
+        controls.currencyStatus:SetText(L("SETTINGS_CURRENCIES_EMPTY"))
+        controls.currencyStatus:SetTextColor(0.95, 0.76, 0.36, 0.95)
+    else
+        controls.currencyStatus:SetText(L("SETTINGS_CURRENCIES_COUNT", enabled, #toggles))
+        controls.currencyStatus:SetTextColor(1, 1, 1, 0.55)
+    end
+end
+
+-- Baut den Abschnitt "Waehrungen" ab der Hoehe top (negativ) und liefert die
+-- Hoehe zurueck, ab der der naechste Abschnitt folgen darf. Die Felder
+-- entstehen aus Data.CURRENCIES; das Raster waechst mit der Liste.
+function CURRENCY_VIEW.CreateSettings(controls, parent, Heading, Description, Button, top)
+    controls.headingCurrencies = Heading(L("SETTINGS_HEADING_CURRENCIES"), top)
+    controls.currencyAll = Button(L("SETTINGS_CURRENCIES_ALL"), 100, 0, top - 24)
+    controls.currencyAll:SetScript("OnClick", function() WAT:SetAllCurrenciesEnabled(true) end)
+    controls.currencyNone = Button(L("SETTINGS_CURRENCIES_NONE"), 100, 112, top - 24)
+    controls.currencyNone:SetScript("OnClick", function() WAT:SetAllCurrenciesEnabled(false) end)
+    local status = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    status:SetPoint("TOPLEFT", 232, top - 33)
+    status:SetWidth(CONTENT_WIDTH - 232)
+    status:SetJustifyH("LEFT")
+    status:SetWordWrap(false)
+    status:SetMaxLines(1)
+    controls.currencyStatus = status
+    controls.labels[#controls.labels + 1] = status
+
+    controls.currencyToggles = {}
+    local gridTop = top - 60
+    for index, definition in ipairs(CURRENCY_VIEW.Definitions()) do
+        local column = (index - 1) % CURRENCY_VIEW.toggleColumns
+        local row = math.floor((index - 1) / CURRENCY_VIEW.toggleColumns)
+        local toggle = CURRENCY_VIEW.CreateToggle(parent, definition,
+            column * CURRENCY_VIEW.toggleWidth, gridTop - row * (CURRENCY_VIEW.toggleHeight + 2))
+        controls.currencyToggles[index] = toggle
+        controls.labels[#controls.labels + 1] = toggle.label
+    end
+    local rows = math.ceil(#controls.currencyToggles / CURRENCY_VIEW.toggleColumns)
+    local descriptionTop = gridTop - rows * (CURRENCY_VIEW.toggleHeight + 2) - 4
+    Description(L("SETTINGS_CURRENCIES_DESC"), descriptionTop)
+    -- Beschriftungen und Haken stehen von Anfang an (wie bei allen anderen
+    -- Bedienelementen), nicht erst nach dem ersten Rendern der Seite.
+    CURRENCY_VIEW.UpdateSettings(controls)
+    -- Zwei Beschreibungszeilen Platz, dann der Abstand zum naechsten Abschnitt.
+    return descriptionTop - 28 - 14
+end
+
 local function CreateSettingsPanel(parent, definition)
     local panel = CreateFrame("Frame", nil, parent)
     panel:SetPoint("TOPLEFT", CONTENT_LEFT, -150)
@@ -2566,10 +2834,22 @@ local function CreateSettingsPanel(parent, definition)
     panel.columns = {}
     panel.rows = {}
 
+    -- Das Formular ist laenger als das 402px hohe Panel: ein ScrollFrame
+    -- (wie bei den Tabellenseiten, Leiste im 18px-Rand) traegt den Inhalt.
+    -- Alle Bedienelemente haengen am Inhaltsrahmen.
+    local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 0, 0)
+    scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMLEFT", CONTENT_WIDTH, 0)
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(CONTENT_WIDTH, 1)
+    scroll:SetScrollChild(content)
+    panel.formScroll = scroll
+    panel.content = content
+
     local controls = { scalePresets = {}, labels = {} }
 
     local function Heading(text, y)
-        local heading = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        local heading = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         heading:SetPoint("TOPLEFT", 0, y)
         heading:SetTextColor(COLORS.turquoise[1], COLORS.turquoise[2], COLORS.turquoise[3], 0.9)
         heading:SetText(text)
@@ -2578,7 +2858,7 @@ local function CreateSettingsPanel(parent, definition)
     end
 
     local function Description(text, y)
-        local line = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        local line = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
         line:SetPoint("TOPLEFT", 0, y)
         line:SetWidth(CONTENT_WIDTH - 20)
         line:SetJustifyH("LEFT")
@@ -2589,16 +2869,17 @@ local function CreateSettingsPanel(parent, definition)
     end
 
     local function Button(label, width, x, y)
-        local button = CreateFormButton(panel, label, width, x, y)
+        local button = CreateFormButton(content, label, width, x, y)
         controls.labels[#controls.labels + 1] = button.label
         return button
     end
 
-    -- Fuenf Abschnitte in 402px Panelhoehe: Ueberschrift, eine Zeile
-    -- Schaltflaechen, eine Beschreibungszeile. Bestaetigen und Abbrechen der
+    -- Sechs Abschnitte: Ueberschrift, eine Zeile Schaltflaechen, eine
+    -- Beschreibungszeile. Die ersten vier (Fenster, Minimap-Symbol,
+    -- Skalierung, Charaktere) fuellen die 402px Panelhoehe, Waehrungen und
+    -- Uebersetzungen folgen im Scrollbereich. Bestaetigen und Abbrechen der
     -- Charakterverwaltung teilen sich die Zeile mit Entfernen - die drei sind
-    -- nie gleichzeitig sichtbar -, damit unten Platz fuer den
-    -- Uebersetzungseditor bleibt.
+    -- nie gleichzeitig sichtbar.
     controls.headingWindow = Heading(L("SETTINGS_HEADING_WINDOW"), 0)
     controls.refresh = Button(L("SETTINGS_REFRESH"), 180, 0, -24)
     controls.refresh:SetScript("OnClick", function() WAT:Refresh("settings") end)
@@ -2629,7 +2910,7 @@ local function CreateSettingsPanel(parent, definition)
     controls.character_heading = Heading(L("SETTINGS_CHARACTERS"), -234)
     controls.character_previous = Button("<", 34, 0, -258)
     controls.character_next = Button(">", 34, 42, -258)
-    controls.character_name = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    controls.character_name = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     controls.character_name:SetPoint("TOPLEFT", 90, -267)
     controls.character_name:SetWidth(430)
     controls.character_name:SetJustifyH("LEFT")
@@ -2640,10 +2921,15 @@ local function CreateSettingsPanel(parent, definition)
     controls.character_confirm = Button(L("SETTINGS_CHARACTER_REMOVE"), 180, 540, -258)
     controls.character_cancel = Button(L("SETTINGS_CHARACTER_CANCEL"), 140, 732, -258)
 
-    controls.headingTranslations = Heading(L("SETTINGS_HEADING_TRANSLATIONS"), -320)
-    controls.translations = Button(L("SETTINGS_TRANSLATIONS_OPEN"), 220, 0, -344)
+    -- Waehrungen vor dem Uebersetzungseditor; das Formular scrollt weiter nach
+    -- unten, seine Hoehe ergibt sich aus der Liste.
+    local translationsTop = CURRENCY_VIEW.CreateSettings(controls, content, Heading, Description, Button, -320)
+
+    controls.headingTranslations = Heading(L("SETTINGS_HEADING_TRANSLATIONS"), translationsTop)
+    controls.translations = Button(L("SETTINGS_TRANSLATIONS_OPEN"), 220, 0, translationsTop - 24)
     controls.translations:SetScript("OnClick", function() WAT:open_translation_editor() end)
-    Description(L("SETTINGS_TRANSLATIONS_DESC"), -380)
+    Description(L("SETTINGS_TRANSLATIONS_DESC"), translationsTop - 60)
+    content:SetHeight(-(translationsTop - 60) + 40)
     controls.character_previous:SetScript("OnClick", function() step_settings_character(controls, -1) end)
     controls.character_next:SetScript("OnClick", function() step_settings_character(controls, 1) end)
     controls.character_remove:SetScript("OnClick", function()
@@ -3170,7 +3456,7 @@ local function BuildTableRow(panel)
         value:SetMaxLines(1)
         row.cells[column.key] = cell
         row.values[column.key] = value
-    end)
+    end, true)
     return row
 end
 
@@ -5228,6 +5514,9 @@ function WAT:CreateUI()
         end
     end
 
+    -- Spalten der Waehrungsseite mit der gespeicherten Auswahl abgleichen.
+    if self.panels.currencies then CURRENCY_VIEW.Prepare(self.panels.currencies) end
+
     local sideHint = sidebar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     sideHint:SetPoint("BOTTOMLEFT", 20, 18)
     sideHint:SetJustifyH("LEFT")
@@ -5358,6 +5647,12 @@ local function CreateRow(panel, index)
     end)
     AttachCharacterDragHandlers(row)
     panel.rows[index] = row
+    -- BuildTableRow legt die Zellen aller Spalten an; sind welche
+    -- ausgeblendet, richtet erst LayoutRow die neue Zeile danach aus.
+    if panel.hasHiddenColumns then
+        ColumnWidths.LayoutRow(panel, row)
+        row:SetWidth(panel.tableWidth or CONTENT_WIDTH)
+    end
     return row
 end
 
@@ -5433,7 +5728,9 @@ end
 function CURRENCY_VIEW.Fill(row, character, stale)
     row.values.character:SetText(ClassColoredName(character, stale))
     for _, definition in ipairs(CURRENCY_VIEW.Definitions()) do
-        row.values[definition.key]:SetText(CURRENCY_VIEW.CellText(character.resources, definition, stale))
+        if CURRENCY_VIEW.IsEnabled(definition.key) then
+            row.values[definition.key]:SetText(CURRENCY_VIEW.CellText(character.resources, definition, stale))
+        end
     end
 end
 

@@ -67,7 +67,7 @@ local enUS = {
     PANEL_SOURCES_DESC = "Season 2 Mistcrest balances and confirmed sources outside raids.",
     PANEL_CURRENCIES = "Currencies",
     PANEL_CURRENCIES_SHORT = "CURRENCIES",
-    PANEL_CURRENCIES_DESC = "Voidcores, Dundun and other Midnight currencies as an offline snapshot per character.",
+    PANEL_CURRENCIES_DESC = "Voidcores, Dundun, other Midnight currencies and upgrade items as an offline snapshot per character.",
     PANEL_KEYSTONES = "Keystones",
     PANEL_KEYSTONES_SHORT = "KEYSTONES",
     PANEL_KEYSTONES_DESC = "Each character's saved Mythic+ keystone, also available offline.",
@@ -76,7 +76,7 @@ local enUS = {
     PANEL_STATISTICS_DESC = "Lifetime achievement statistics per character plus the account total.",
     PANEL_SETTINGS = "Settings",
     PANEL_SETTINGS_SHORT = "SETTINGS",
-    PANEL_SETTINGS_DESC = "All settings for the window, scale and minimap button.",
+    PANEL_SETTINGS_DESC = "All settings for the window, scale, minimap button and currencies.",
 
     -- Spaltenkoepfe
     COL_CHARACTER = "CHARACTER",
@@ -123,6 +123,9 @@ local enUS = {
     COL_CUR_UNDERCOIN = "UNDER-\nCOIN",
     COL_CUR_CORROSIVE_COIN = "CORROS.\nCOIN",
     COL_CUR_FILAMENT = "COILED\nFILAMENT",
+    COL_CUR_VENOMSTONE = "VENOM-\nSTONE",
+    COL_CUR_HEROIC_FRAGMENT = "HEROIC\nSOUL FR.",
+    COL_CUR_MYTHICAL_FRAGMENT = "MYTHIC\nSOUL FR.",
     COL_DUNGEON = "DUNGEON",
     COL_KEYSTONE_LEVEL = "LEVEL",
 
@@ -341,6 +344,12 @@ local enUS = {
     CUR_NAME_UNDERCOIN = "Undercoin",
     CUR_NAME_CORROSIVE_COIN = "Corrosive Coin",
     CUR_NAME_FILAMENT = "Coiled Filament",
+    CUR_NAME_VENOMSTONE = "Ascendant Venomstone",
+    CUR_NAME_HEROIC_FRAGMENT = "Heroic Soul Fragment",
+    CUR_NAME_MYTHICAL_FRAGMENT = "Mythical Soul Fragment",
+    CUR_KIND_ITEM = "item",
+    CUR_ITEM_NOTE = "Items are counted in this character's bags; bank stock is not included.",
+    CUR_EMPTY_NOTICE = "No currencies selected. Choose what to track under Settings > Currencies.",
     CUR_SCOPE_ACCOUNT = "account-wide",
     CUR_SCOPE_TRANSFERABLE = "warband-transferable",
     CUR_OFFLINE_NOTE = "Saved resource balance, not a completed weekly source.",
@@ -679,6 +688,12 @@ local enUS = {
 
     -- Benutzeruebersetzungen: Einstellungs-Einstieg und Uebersetzungseditor.
     -- Sprachcodes (deDE, zhTW, ...) bleiben bewusst unuebersetzt.
+    SETTINGS_HEADING_CURRENCIES = "Currencies",
+    SETTINGS_CURRENCIES_ALL = "All",
+    SETTINGS_CURRENCIES_NONE = "None",
+    SETTINGS_CURRENCIES_COUNT = "%d of %d selected",
+    SETTINGS_CURRENCIES_EMPTY = "Nothing selected: the Currencies page stays empty.",
+    SETTINGS_CURRENCIES_DESC = "Deselected entries are not read and not shown. Saved values are kept and reappear when you select the entry again. Applies immediately.",
     SETTINGS_HEADING_TRANSLATIONS = "Translations",
     SETTINGS_TRANSLATIONS_OPEN = "Translation editor",
     SETTINGS_TRANSLATIONS_DESC = "Edit addon text for your client language or share language packs as text. The display language follows your WoW client. Fixed labels update after /reload.",
@@ -816,7 +831,7 @@ local deDE = {
     PANEL_SOURCES_DESC = "Nebelwappenbestände aus Saison 2 und bestätigte Quellen außerhalb von Raids.",
     PANEL_CURRENCIES = "Währungen",
     PANEL_CURRENCIES_SHORT = "WÄHRUNGEN",
-    PANEL_CURRENCIES_DESC = "Leerenkerne, Dundun und weitere Midnight-Währungen als Offline-Snapshot pro Charakter.",
+    PANEL_CURRENCIES_DESC = "Leerenkerne, Dundun, weitere Midnight-Währungen und Aufwertungsgegenstände als Offline-Snapshot pro Charakter.",
     PANEL_KEYSTONES = "Schlüsselsteine",
     PANEL_KEYSTONES_SHORT = "SCHLÜSSELSTEINE",
     PANEL_KEYSTONES_DESC = "Gespeicherter Mythic+-Schlüsselstein je Charakter, auch offline einsehbar.",
@@ -825,7 +840,7 @@ local deDE = {
     PANEL_STATISTICS_DESC = "Lebenslange Erfolgsstatistiken je Charakter und die Accountsumme.",
     PANEL_SETTINGS = "Einstellungen",
     PANEL_SETTINGS_SHORT = "EINSTELLUNGEN",
-    PANEL_SETTINGS_DESC = "Alle Einstellungen für Fenster, Skalierung und Minimap-Symbol.",
+    PANEL_SETTINGS_DESC = "Alle Einstellungen für Fenster, Skalierung, Minimap-Symbol und Währungen.",
 
     -- Spaltenkoepfe
     COL_CHARACTER = "CHARAKTER",
@@ -872,6 +887,9 @@ local deDE = {
     COL_CUR_UNDERCOIN = "LOREN-\nMÜNZE",
     COL_CUR_CORROSIVE_COIN = "KORROS.\nMÜNZE",
     COL_CUR_FILAMENT = "GEWUND.\nFILAMENT",
+    COL_CUR_VENOMSTONE = "GIFT-\nSTEIN",
+    COL_CUR_HEROIC_FRAGMENT = "HEROISCH\nSEELENFR.",
+    COL_CUR_MYTHICAL_FRAGMENT = "MYTHISCH\nSEELENFR.",
     COL_DUNGEON = "DUNGEON",
     COL_KEYSTONE_LEVEL = "STUFE",
 
@@ -1087,6 +1105,12 @@ local deDE = {
     CUR_NAME_UNDERCOIN = "Lorenmünze",
     CUR_NAME_CORROSIVE_COIN = "Korrosive Münze",
     CUR_NAME_FILAMENT = "Gewundenes Filament",
+    CUR_NAME_VENOMSTONE = "Aufgestiegener Giftstein",
+    CUR_NAME_HEROIC_FRAGMENT = "Heroisches Seelenfragment",
+    CUR_NAME_MYTHICAL_FRAGMENT = "Mythisches Seelenfragment",
+    CUR_KIND_ITEM = "Gegenstand",
+    CUR_ITEM_NOTE = "Gegenstände werden in den Taschen dieses Charakters gezählt; Bankbestand ist nicht enthalten.",
+    CUR_EMPTY_NOTICE = "Keine Währungen ausgewählt. Unter Einstellungen > Währungen wählst du, was erfasst wird.",
     CUR_SCOPE_ACCOUNT = "accountweit",
     CUR_SCOPE_TRANSFERABLE = "kriegsmeutenübertragbar",
     CUR_OFFLINE_NOTE = "Gespeicherter Ressourcenbestand, keine abgeschlossene Wochenquelle.",
@@ -1427,6 +1451,12 @@ local deDE = {
     WQ_QUEST_93714 = "Minor Scales",
 
     -- Benutzeruebersetzungen: Einstellungs-Einstieg und Uebersetzungseditor.
+    SETTINGS_HEADING_CURRENCIES = "Währungen",
+    SETTINGS_CURRENCIES_ALL = "Alle",
+    SETTINGS_CURRENCIES_NONE = "Keine",
+    SETTINGS_CURRENCIES_COUNT = "%d von %d ausgewählt",
+    SETTINGS_CURRENCIES_EMPTY = "Nichts ausgewählt: Die Währungsseite bleibt leer.",
+    SETTINGS_CURRENCIES_DESC = "Abgewählte Einträge werden weder gelesen noch angezeigt. Gespeicherte Werte bleiben erhalten und erscheinen wieder, sobald du den Eintrag erneut auswählst. Wirkt sofort.",
     SETTINGS_HEADING_TRANSLATIONS = "Übersetzungen",
     SETTINGS_TRANSLATIONS_OPEN = "Übersetzungseditor",
     SETTINGS_TRANSLATIONS_DESC = "Addontexte für deine Clientsprache bearbeiten oder Sprachpakete als Text austauschen. Die Anzeigesprache richtet sich nach deinem WoW-Client. Feste Beschriftungen ändern sich nach /reload.",

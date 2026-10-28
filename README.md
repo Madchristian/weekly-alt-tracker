@@ -11,6 +11,10 @@ WoW-Inhalte, Währungen, Belohnungen und Schwellenwerte ändern sich von Patch z
 - die [Wago-Versionen](https://addons.wago.io/addons/weekly-alt-tracker/versions) und
 - die [CurseForge-Dateien](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.28
+
+Die Seite **Währungen** zeigt jetzt auch die drei Aufwertungsgegenstände aus Patch 12.1.5 (Aufgestiegener Giftstein, Heroisches und Mythisches Seelenfragment). Unter **Einstellungen → Währungen** wählst du selbst, welche Einträge erfasst und angezeigt werden; ohne Auswahl bleibt alles aktiv, Änderungen wirken sofort. Details im [Changelog zu 2026.10.28](changelog/CHANGELOG-2026.10.28-de.md).
+
 ### Version 2026.10.14
 
 Kompatibilitätsupdate für WoW Retail 12.1.5 (Interface `120105`): Das Addon wird im Addon-Menü nicht mehr als veraltet angezeigt. Funktionen und gespeicherte Daten bleiben unverändert. Details im [Changelog zu 2026.10.14](changelog/CHANGELOG-2026.10.14-de.md).
@@ -166,15 +170,20 @@ Die Quellenansicht zeigt keine veralteten Saison-1-Belohnungen als aktuelle Nebe
 
 ### Währungen
 
-Elf Midnight-Währungen pro Charakter als Offline-Ressourcen-Snapshot, jeweils mit dynamischem Maximum wie `5/8`, sofern die API eines liefert:
+Vierzehn Einträge pro Charakter als Offline-Ressourcen-Snapshot, jeweils mit dynamischem Maximum wie `5/8`, sofern die API eines liefert: elf Midnight-Währungen und drei Gegenstände aus Patch 12.1.5.
 
 - **Nebulöse Leerenkerne** (Saison 2, Währungs-ID 3513) für Bonuswürfe und die Leerenschmiede
 - Splitter von Dundun (3376)
 - Restaurierte Kastenschlüssel (3028) und Kastenschlüsselsplitter (3310)
 - Unbesudelte Manakristalle (3356), Gifthauchmanaflux (3465) und Gezeitenfunkenstaub (3509)
 - Leerenlichtmergel (3316), Lorenmünzen (2803), Korrosive Münzen (3448) und Gewundenes Filament (3546)
+- Gegenstände aus Patch 12.1.5, die im Spiel keine Währungen sind: Aufgestiegener Giftstein (Item-ID 280562), Heroisches Seelenfragment (285801) und Mythisches Seelenfragment (285065)
 
 Die Bestände liegen bewusst außerhalb des Wochenresets. Ein unlesbarer oder geschützter API-Wert überschreibt keinen bekannten Bestand, und ein Snapshot einer fremden Währungs-ID (etwa der Saison-1-Leerenkern 3418) wird verworfen statt umgedeutet. Der Tooltip nennt alle Bestände mit clientlokalisiertem Namen, den Wochenfortschritt der aktuellen Woche, accountweite oder kriegsmeutenübertragbare Währungen laut API sowie den Datenstand; accountweite Werte werden nicht über Charaktere summiert.
+
+Die Gegenstände zählt das Addon über `C_Item.GetItemCount` in den Taschen des Charakters; Bank-, Materialbank- und Kriegsmeutenbestand sind nicht enthalten, weil nicht belegt ist, dass sie außerhalb der Bank zuverlässig lesbar sind. Sie nutzen das vorhandene, von Blizzard gedrosselte Taschenereignis `BAG_UPDATE_DELAYED`; es kommt kein weiteres Ereignis dazu. Namen und Symbole stammen aus dem Client, der Tooltip kennzeichnet sie als Gegenstände. Ein unlesbarer Wert überschreibt nie einen bekannten Bestand, und ein 0-Ergebnis direkt beim Einloggen zählt nicht.
+
+**Auswahl:** Unter `Einstellungen → Währungen` hat jeder Eintrag ein Kontrollkästchen (mit Symbol und Namen), dazu `Alle` und `Keine`. Abgewählte Einträge werden weder gelesen noch angezeigt (keine Spalte, kein Tooltipeintrag); ihre gespeicherten Bestände bleiben erhalten und erscheinen beim erneuten Auswählen wieder. Gespeichert wird nur die Abweichung (`settings.currencies[key] = false`); ohne Auswahl und für neue Einträge aus späteren Patches ist alles aktiv. Die Änderung wirkt sofort ohne `/reload`, die Standardbreite der Spalten passt sich der Zahl der aktiven Einträge an (14 × 55 px, 11 × 70 px, weniger Einträge entsprechend breiter; eigene Breiten bleiben). Sind alle Einträge abgewählt, zeigt die Seite einen Hinweis statt einer leeren Tabelle. Die Einstellungsseite scrollt dafür.
 
 ### Dungeons und Schlachtzüge
 
@@ -246,9 +255,10 @@ Neu in 0.3.0. Alle Optionen liegen im letzten Bereich der linken Navigation, nic
 - Minimap-Symbol `Sichtbar` / `Verborgen` – gilt sofort und accountweit
 - Fensterskalierung als feste Stufen: 70 %, 85 %, 100 %, 115 %, 130 %, 150 %
 - `Charaktere verwalten` – einzelne Offline-Charaktere nach Bestätigung entfernen
+- `Währungen` – ein Kontrollkästchen je Eintrag der Währungsseite (Währungen und Gegenstände), dazu `Alle` und `Keine`; abgewählte Einträge werden weder gelesen noch angezeigt, ihre Bestände bleiben gespeichert (siehe [Währungen](#währungen))
 - `Übersetzungseditor` – eigene Texte je Sprachpaket bearbeiten, Sprachpakete als Text exportieren und importieren (siehe [Sprachen](#sprachen))
 
-Es gibt bewusst keinen Schieberegler: die festen Stufen bleiben exakt im Wertebereich, den das Addon beim Laden akzeptiert. Es gibt ebenso bewusst keine Aktion zum Löschen der Datenbank – ein solcher Verlust wäre nicht wiederherstellbar und gehört nicht hinter einen einzelnen Klick.
+Die Einstellungsseite scrollt, damit alle Abschnitte Platz haben. Es gibt bewusst keinen Schieberegler: die festen Stufen bleiben exakt im Wertebereich, den das Addon beim Laden akzeptiert. Es gibt ebenso bewusst keine Aktion zum Löschen der Datenbank – ein solcher Verlust wäre nicht wiederherstellbar und gehört nicht hinter einen einzelnen Klick.
 
 ## Oberfläche
 
@@ -330,7 +340,8 @@ Die Übersicht zeigt `M+10` grün als `Ja`, sobald die Blizzard-Schatzkammer min
 12. Im Bereich `Statistiken` prüfen, ob die Werte des eingeloggten Charakters erscheinen und die Accountsumme über mindestens zwei Charaktere tatsächlich addiert. Statistiken werden erst nach dem Nachladen der Erfolgsdaten gefüllt; bis dahin steht dort `-`.
 13. Einen Alt einloggen und prüfen, ob beide Charakter-Snapshots sichtbar sind.
 14. Im Bereich `Einstellungen` den `Übersetzungseditor` öffnen: einen Eintrag ändern und speichern, einen ungültigen Wert (etwa mit `|cff`) ablehnen lassen, `Exportieren` mit Strg+A/Strg+C kopieren, dasselbe Paket über `Importieren`, `Vorschau` und `Anwenden` einspielen und nach `/reload` prüfen, dass die geänderten Beschriftungen überall erscheinen.
-15. Lua-Fehler mit BugSack/!BugGrabber kontrollieren.
+15. Im Bereich `Währungen` die drei Gegenstände (Aufgestiegener Giftstein, Heroisches und Mythisches Seelenfragment) mit den echten Beständen eines Charakters vergleichen (nur Taschen, kein Bankbestand), Symbole und Namen prüfen und in den Einstellungen unter `Währungen` Einträge ab- und wieder anwählen: Spalten und Breiten ändern sich sofort, abgewählte Einträge fehlen auch im Tooltip, die Bestände kehren beim erneuten Auswählen zurück; bei `Keine` erscheint der Hinweis statt einer leeren Tabelle. Bei 70 %, 100 % und 150 % prüfen, ob alle vierzehn Spaltenköpfe und Werte lesbar sind.
+16. Lua-Fehler mit BugSack/!BugGrabber kontrollieren.
 
 ## Entwicklung
 

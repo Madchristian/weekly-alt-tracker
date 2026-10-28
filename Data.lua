@@ -60,8 +60,15 @@ Data.DUNDUN_CURRENCY_ID = 3376
 -- character.resources[key]. Die Reihenfolge ist die Spaltenreihenfolge.
 -- key ist der sprachneutrale, stabile Speicherschlüssel; "dundun" bleibt
 -- dabei der Schlüssel aus 0.6.0, damit bestehende Snapshots weiterleben.
--- Namen kommen zur Renderzeit aus C_CurrencyInfo; nameKey ist nur der eigene
--- Ersatztext, labelKey der kurze Spaltenkopf.
+-- Namen und Symbole kommen zur Renderzeit aus dem Client (C_CurrencyInfo
+-- bzw. C_Item); nameKey ist nur der eigene Ersatztext, labelKey der kurze
+-- Spaltenkopf.
+--
+-- Jeder Eintrag trägt GENAU EINE ID und legt damit seine Quellart fest
+-- (Data.CurrencySource): currencyID = echte Currency (C_CurrencyInfo),
+-- itemID = Gegenstand, der im Spiel wie eine Währung behandelt wird
+-- (C_Item.GetItemCount). Die Liste und der Snapshot-Pfad sind für beide
+-- Quellarten dieselben; nur das Lesen unterscheidet sich (Scanner.lua).
 --
 -- Die IDs sind gegen die Wowhead-Tooltip-API (Livebuild 12.1, deDE/enUS)
 -- belegt. Der Nebulöse Leerenkern hat in Saison 2 eine NEUE Currency-ID
@@ -79,7 +86,39 @@ Data.CURRENCIES = {
     { key = "undercoin", currencyID = 2803, labelKey = "COL_CUR_UNDERCOIN", nameKey = "CUR_NAME_UNDERCOIN" },
     { key = "corrosiveCoin", currencyID = 3448, labelKey = "COL_CUR_CORROSIVE_COIN", nameKey = "CUR_NAME_CORROSIVE_COIN" },
     { key = "coiledFilament", currencyID = 3546, labelKey = "COL_CUR_FILAMENT", nameKey = "CUR_NAME_FILAMENT" },
+    -- Gegenstände aus Patch 12.1.5 (13.10.2026). Im Spiel sind es Items
+    -- (gebunden beim Aufheben), keine Currencies; C_CurrencyInfo kennt sie
+    -- nicht. IDs und Stapelgrößen laut Warcraft Wiki (Seitenkopf bzw. die
+    -- verlinkten Wowhead/WoWDB-Einträge; "Added in patch 12.1.5"):
+    --   Ascendant Venomstone   280562  Stapel 100  https://warcraft.wiki.gg/wiki/Ascendant_Venomstone
+    --   Heroic Soul Fragment   285801  Stapel 20   https://warcraft.wiki.gg/wiki/Heroic_Soul_Fragment
+    --   Mythical Soul Fragment 285065  Stapel 20   https://warcraft.wiki.gg/wiki/Mythical_Soul_Fragment
+    -- Gezählt werden nur die Taschen des Charakters: die Dokumentation von
+    -- C_Item.GetItemCount belegt nicht, dass Bank-/Kriegsmeutenbestände auch
+    -- außerhalb der Bank zuverlässig lesbar sind, und die Gegenstände sind
+    -- beim Aufheben gebunden.
+    { key = "venomstone", itemID = 280562, labelKey = "COL_CUR_VENOMSTONE", nameKey = "CUR_NAME_VENOMSTONE" },
+    { key = "heroicSoulFragment", itemID = 285801, labelKey = "COL_CUR_HEROIC_FRAGMENT", nameKey = "CUR_NAME_HEROIC_FRAGMENT" },
+    { key = "mythicalSoulFragment", itemID = 285065, labelKey = "COL_CUR_MYTHICAL_FRAGMENT", nameKey = "CUR_NAME_MYTHICAL_FRAGMENT" },
 }
+
+-- Quellart und ID einer Definition aus Data.CURRENCIES: "currency" mit der
+-- currencyID oder "item" mit der itemID. Genau eine positive ganze Zahl
+-- zählt; fehlt sie, sind beide gesetzt oder ist sie unbrauchbar, bleibt die
+-- Definition ohne Quelle (nil). Core (Normalisierung), Scanner (Leser) und UI
+-- (Name, Symbol) fragen nur hier, damit die Unterscheidung nirgends ein
+-- zweites Mal in Verzweigungen steht.
+local function IsPositiveInteger(value)
+    return type(value) == "number" and value > 0 and value % 1 == 0 and value < math.huge
+end
+
+function Data.CurrencySource(definition)
+    if type(definition) ~= "table" then return nil end
+    local currencyID, itemID = definition.currencyID, definition.itemID
+    if IsPositiveInteger(currencyID) and itemID == nil then return "currency", currencyID end
+    if IsPositiveInteger(itemID) and currencyID == nil then return "item", itemID end
+    return nil
+end
 
 -- Midnight-Meta-Weekly: Erkennungspool der Seite "Midnight-Woche". Der Pool
 -- enthält auch die Raid-Variante 93912 (und die PvP-Variante 94457), damit das

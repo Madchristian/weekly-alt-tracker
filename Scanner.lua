@@ -176,17 +176,82 @@ local function ReadCurrencySnapshot(id, previous, weekEnd)
     }
 end
 
--- Schreibt je definierter Waehrung den frischen oder den erhaltenen
--- currencyID-kompatiblen Vorwert. nil entfernt einen unbrauchbaren Vorwert
--- bewusst. Ohne Definitionsvertrag bleibt der Container unangetastet.
-local function ReadCurrencies(resources, weekEnd)
-    local definitions = WAT.Data and WAT.Data.CURRENCIES
-    if type(definitions) ~= "table" then return end
+-- Gegenstandsbestand (Quellart "item") fuer die Waehrungsseite: die Menge in
+-- den Taschen des Charakters. Gelesen wird ueber C_Item.GetItemCount; die
+-- Signatur (itemInfo, includeBank, includeUses, includeReagentBank,
+-- includeAccountBank) stimmt mit Blizzards generierter API-Dokumentation
+-- ueberein (ItemDocumentation.lua, Stand 12.1.5; das globale GetItemCount ist
+-- seit 12.1.5 entfernt). Bank-, Materialbank- und Kriegsmeutenbestand bleiben
+-- bewusst aus: nichts belegt, dass sie ausserhalb der Bank zuverlaessig lesbar
+-- sind, und die Gegenstaende sind beim Aufheben gebunden.
+--
+-- Fail-closed wie bei den Currencies: Ein Vorwert gilt nur bei exakt passender
+-- itemID; jeder Lesefehler (API fehlt, Fehler, Secret Value, keine endliche
+-- nichtnegative ganze Zahl) liefert den Vorwert zurueck, nie 0. Beim Login und
+-- beim ersten Betreten der Welt koennen die Taschen noch nicht geladen sein
+-- und melden dann 0; ein solches 0 ist keine Beobachtung und ersetzt nichts
+-- (die Folge-Scans nach BAG_UPDATE_DELAYED und delayed-login lesen sicher).
+local function ReadItemSnapshot(_, itemID, previous, _, early)
+    if not IsSafeValue(previous) or type(previous) ~= "table"
+            or CopyNumber(previous.itemID) ~= itemID then
+        previous = nil
+    end
+    local items = C_Item
+    local getter = IsSafeValue(items) and type(items) == "table" and items.GetItemCount or nil
+    if not IsSafeValue(getter) or type(getter) ~= "function" then return previous end
+    local ok, count = pcall(getter, itemID, false, false, false, false)
+    count = ok and CopyNumber(count) or nil
+    if count == nil or count ~= count or count < 0 or count % 1 ~= 0 or count == math.huge then
+        return previous
+    end
+    if count == 0 and early then return previous end
+    -- Unveraenderter Bestand (der haeufige Fall bei einem Taschenereignis):
+    -- den vorhandenen Snapshot nur auffrischen, statt Muell zu erzeugen.
+    if previous and previous.quantity == count then
+        previous.updated = time()
+        return previous
+    end
+    return { itemID = itemID, quantity = count, updated = time() }
+end
+
+-- Ein Leser je Quellart (Data.CurrencySource); alle teilen dieselbe Signatur
+-- (definition, id, previous, weekEnd, early). Eine neue Quellart kommt hier
+-- dazu, ReadCurrencies bleibt unveraendert.
+local RESOURCE_READERS = {
+    currency = function(_, currencyID, previous, weekEnd)
+        return ReadCurrencySnapshot(currencyID, previous, weekEnd)
+    end,
+    item = ReadItemSnapshot,
+}
+
+-- Ein Eintrag ohne Haken in den Einstellungen (WAT:IsCurrencyEnabled) wird
+-- nicht gelesen: kein API-Aufruf, kein Schreiben; sein Snapshot bleibt
+-- unveraendert stehen. Fehlt Core (isolierte Harnesses), gilt alles als aktiv.
+local function IsCurrencyEnabled(key)
+    local check = WAT.IsCurrencyEnabled
+    return type(check) ~= "function" or check(WAT, key)
+end
+
+-- Beim Login / ersten Betreten der Welt sind manche Client-Daten noch nicht
+-- geladen (Schluesselstein, Taschen); ein Leerergebnis loescht dort nichts.
+local function IsEarlySessionReason(reason)
+    return reason == "PLAYER_LOGIN" or reason == "PLAYER_ENTERING_WORLD"
+end
+
+-- Schreibt je ausgewaehlter Waehrung den frischen oder den erhaltenen
+-- Vorwert (gleiche ID, sonst nil). Ohne Definitionsvertrag bleibt der
+-- Container unangetastet.
+local function ReadCurrencies(resources, weekEnd, early)
+    local data = WAT.Data
+    local definitions = data and data.CURRENCIES
+    local sourceOf = data and data.CurrencySource
+    if type(definitions) ~= "table" or type(sourceOf) ~= "function" then return end
     for _, definition in ipairs(definitions) do
         local key = type(definition) == "table" and CopyString(definition.key) or nil
-        local id = type(definition) == "table" and CopyNumber(definition.currencyID) or nil
-        if key and id then
-            resources[key] = ReadCurrencySnapshot(id, resources[key], weekEnd)
+        local kind, id = sourceOf(definition)
+        local reader = kind and RESOURCE_READERS[kind]
+        if key and reader and IsCurrencyEnabled(key) then
+            resources[key] = reader(definition, id, resources[key], weekEnd, early)
         end
     end
 end
@@ -557,15 +622,20 @@ function WAT:ScanEquipment(character, reason, changedSlot, hasCurrent)
     for _, id in ipairs(requests) do GearCall(C_Item, "RequestLoadItemDataByID", id) end
 end
 
+-- Offline-Ressourcen-Snapshot: kein Wochenwert, deshalb Geschwister von
+-- weekly statt darunter, und niemals vom Wochenreset geleert. Eigener
+-- Einstieg, damit eine geaenderte Auswahl nur die Waehrungen neu liest.
+function WAT:ScanCurrencies(character, reason)
+    if type(character) ~= "table" then return end
+    character.resources = type(character.resources) == "table" and character.resources or {}
+    ReadCurrencies(character.resources, character.weekEnd, IsEarlySessionReason(reason))
+end
+
 function WAT:ScanCharacter(character, reason)
     self:ScanEquipment(character, reason)
     character.weekly = character.weekly or {}
     local weekly = character.weekly
-    -- Offline-Ressourcen-Snapshot: kein Wochenwert, deshalb Geschwister von
-    -- weekly statt darunter, und niemals vom Wochenreset geleert.
-    character.resources = type(character.resources) == "table" and character.resources or {}
-    local resources = character.resources
-    ReadCurrencies(resources, character.weekEnd)
+    self:ScanCurrencies(character, reason)
 
     local current, maximum, widgetID = ReadGildedStash()
     if current and maximum then
@@ -580,7 +650,7 @@ function WAT:ScanCharacter(character, reason)
     local crests = ReadCrests(weekly.crests)
     if crests then weekly.crests = next(crests) and crests or nil end
 
-    self:ScanKeystone(character, reason ~= "PLAYER_LOGIN" and reason ~= "PLAYER_ENTERING_WORLD")
+    self:ScanKeystone(character, not IsEarlySessionReason(reason))
 
     local types = Enum and Enum.WeeklyRewardChestThresholdType
     if types then
