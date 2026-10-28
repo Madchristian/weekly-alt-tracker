@@ -11,6 +11,10 @@ WoW activities, currencies, rewards, and thresholds change between patches. This
 - the [Wago versions](https://addons.wago.io/addons/weekly-alt-tracker/versions), and
 - the [CurseForge files](https://www.curseforge.com/wow/addons/weeklyalttracker/files).
 
+### Version 2026.10.28
+
+The **Currencies** page now also shows the three upgrade items of patch 12.1.5 (Ascendant Venomstone, Heroic and Mythical Soul Fragment). Under **Settings → Currencies** you choose which entries are tracked and shown; without a choice everything stays active, and changes apply immediately. See the [2026.10.28 changelog](changelog/CHANGELOG-2026.10.28-en.md) for details.
+
 ### Version 2026.10.14
 
 Compatibility update for WoW Retail 12.1.5 (interface `120105`): the addon is no longer shown as out of date in the AddOns menu. Features and saved data are unchanged. See the [2026.10.14 changelog](changelog/CHANGELOG-2026.10.14-en.md) for details.
@@ -166,15 +170,20 @@ The source view never presents obsolete Season 1 rewards as current Mistcrests. 
 
 ### Currencies
 
-Eleven Midnight currencies per character as an offline resource snapshot, each with a dynamic maximum such as `5/8` whenever the API provides one:
+Fourteen entries per character as an offline resource snapshot, each with a dynamic maximum such as `5/8` whenever the API provides one: eleven Midnight currencies and three items from patch 12.1.5.
 
 - **Nebulous Voidcores** (Season 2, currency ID 3513) for bonus rolls and the Voidforge
 - Shards of Dundun (3376)
 - Restored Coffer Keys (3028) and Coffer Key Shards (3310)
 - Untainted Mana-Crystals (3356), Venomblight Manaflux (3465) and Tidal Spark Dust (3509)
 - Voidlight Marl (3316), Undercoins (2803), Corrosive Coins (3448) and Coiled Filament (3546)
+- Items from patch 12.1.5 that are not currencies in the game: Ascendant Venomstone (item ID 280562), Heroic Soul Fragment (285801) and Mythical Soul Fragment (285065)
 
 The balances deliberately live outside the weekly reset. An unreadable or protected API value never overwrites a known balance, and a snapshot of a different currency ID (such as the Season 1 Voidcore 3418) is discarded instead of reinterpreted. The tooltip lists every balance with its client-localized name, the current week's progress, account-wide or warband-transferable currencies as reported by the API, and the data age; account-wide values are never summed across characters.
+
+The addon counts the items with `C_Item.GetItemCount` in the character's bags; bank, reagent bank and warband bank stock are not included because nothing documents them as reliably readable away from the bank. They use the existing bag event `BAG_UPDATE_DELAYED`, which Blizzard already throttles; no further event is added. Names and icons come from the client, and the tooltip marks them as items. An unreadable value never overwrites a known balance, and a count of 0 read right at login does not count.
+
+**Selection:** Under `Settings → Currencies` every entry has a checkbox (with icon and name), plus `All` and `None`. Deselected entries are neither read nor shown (no column, no tooltip line); their saved balances are kept and reappear when you select the entry again. Only the deviation is stored (`settings.currencies[key] = false`); without a choice, and for new entries from later patches, everything is active. A change applies immediately without `/reload`, and the default column width follows the number of active entries (14 × 55 px, 11 × 70 px, fewer entries correspondingly wider; custom widths are kept). If every entry is deselected, the page shows a note instead of an empty table. The Settings page scrolls to make room.
 
 ### Dungeons and Raids
 
@@ -248,9 +257,10 @@ New in 0.3.0. Every option lives in the last section of the left navigation inst
 - Minimap button `Visible` / `Hidden` - applies immediately and account-wide
 - Window scale as fixed steps: 70%, 85%, 100%, 115%, 130%, 150%
 - `Manage characters` - remove individual offline characters after confirmation
+- `Currencies` - one checkbox per entry of the Currencies page (currencies and items), plus `All` and `None`; deselected entries are neither read nor shown, their balances stay saved (see [Currencies](#currencies))
 - `Translation editor` - edit the addon's labels per language pack, export and import language packs as text (see [Languages](#languages))
 
-There is deliberately no slider: the fixed steps stay exactly inside the range the addon accepts on load. There is likewise deliberately no action to delete the database - such a loss would be unrecoverable and does not belong behind a single click.
+The Settings page scrolls so every section has room. There is deliberately no slider: the fixed steps stay exactly inside the range the addon accepts on load. There is likewise deliberately no action to delete the database - such a loss would be unrecoverable and does not belong behind a single click.
 
 ## Interface
 
@@ -332,7 +342,8 @@ The overview shows `M+10` in green as `Yes` as soon as the Blizzard vault report
 12. In the `Statistics` section check that the logged-in character's values appear and that the account total really adds up across at least two characters. Statistics are only filled once the achievement data has been loaded; until then `-` is shown.
 13. Log in an alt and check that both character snapshots are visible.
 14. In the `Settings` section open the `Translation editor`: change and save an entry, have an invalid value (for example containing `|cff`) rejected, copy `Export` with Ctrl+A/Ctrl+C, feed the same pack through `Import`, `Preview` and `Apply`, then check after `/reload` that the changed labels appear everywhere.
-15. Check for Lua errors with BugSack/!BugGrabber.
+15. In the `Currencies` section compare the three items (Ascendant Venomstone, Heroic and Mythical Soul Fragment) with a character's real stock (bags only, no bank stock), check icons and names, and under `Settings` > `Currencies` deselect and reselect entries: columns and widths change immediately, deselected entries are also missing from the tooltip, and the balances return when selected again; with `None` the note appears instead of an empty table. At 70%, 100% and 150% check that all fourteen column headers and values are readable.
+16. Check for Lua errors with BugSack/!BugGrabber.
 
 ## Development
 

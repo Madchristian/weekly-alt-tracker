@@ -38,7 +38,7 @@ Das Addon bündelt seinen Funktionsumfang in zwölf kompakte Ansichten:
 
 Ausrüstung zeigt zuletzt angelegte Gegenstände mit Icons, Qualitätsrahmen, tatsächlichem Itemlevel, angelegtem Durchschnitt und Zeitstempeln im Charakterfenster-Stil. Jeden Alt zuerst einloggen; danach reine Offline-Snapshots ohne Wochenreset. Unbekannt, leer und nachladend bleiben getrennt. Gespeicherte Itemlinks liefern Tooltips; keine Taschen-/Bankansicht oder Beratung.
 
-Währungen zeigt elf Midnight-Währungen pro Charakter als Offline-Snapshot, allen voran die Nebulösen Leerenkerne für Bonuswürfe, dazu Splitter von Dundun, Kastenschlüssel, Manakristalle, Leerenlichtmergel und weitere Kriegsmeuten-Währungen; der Tooltip nennt Wochenfortschritt und accountweite oder übertragbare Währungen.
+Währungen zeigt elf Midnight-Währungen und drei Aufwertungsgegenstände aus Patch 12.1.5 pro Charakter als Offline-Snapshot, allen voran die Nebulösen Leerenkerne für Bonuswürfe, dazu Splitter von Dundun, Kastenschlüssel, Manakristalle, Leerenlichtmergel und weitere Kriegsmeuten-Währungen; der Tooltip nennt Wochenfortschritt und accountweite oder übertragbare Währungen. Unter Einstellungen wählst du, welche Einträge erfasst und angezeigt werden.
 
 Die Ansicht Wochenquests zeigt die recherchierten und belegten Wochenquests der aktiven Saison als kompakte Tabelle mit Quest, Bereich, Charakter, Status, Fortschritt und Stand, dazu Filter für Charakter, Kategorie, Status und Titel sowie eine Sortierung nach jeder Spalte, auf- oder absteigend. Details wie Ort, Questgeber, Voraussetzung, Belohnung, Rotation und Quest-ID stehen im Zeilen-Tooltip; unsichere Angaben sind als solche gekennzeichnet, einen erfundenen Gesamtzähler gibt es nicht.
 

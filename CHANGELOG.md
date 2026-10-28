@@ -4,6 +4,58 @@ This file contains the complete public release history. Every version is listed 
 
 Diese Datei enthält die vollständige öffentliche Release-Historie. Jede Version steht genau einmal, zuerst Englisch, danach der deutsche Text. Frühere Einträge beschreiben den Stand der jeweils genannten Version und werden bei späteren Änderungen nicht rückwirkend umgeschrieben.
 
+## 2026.10.28
+
+### English
+
+#### Patch 12.1.5 items on the Currencies page
+
+The Currencies page now also shows the three upgrade items of patch 12.1.5. In the game they are items, not currencies: **Ascendant Venomstone**, **Heroic Soul Fragment** and **Mythical Soul Fragment**.
+
+They are counted in each character's bags and saved as an offline snapshot together with the other balances. The tooltip marks them as items and notes that bank stock is not included. Names and icons come from your game client; WeeklyAltTracker only supplies a German and English fallback name.
+
+An unreadable count never overwrites a known balance. A count of 0 read right at login is ignored because the bags may not be loaded yet; the updates that follow read it reliably.
+
+#### Choose what is tracked
+
+Settings has a new **Currencies** section: one checkbox per entry with icon and name, plus **All** and **None**.
+
+Deselected entries are neither read nor shown, in the columns or in the tooltip. Their saved balances are kept and reappear when you select the entry again. Changes apply immediately, no `/reload` needed, and the columns adapt: the fewer entries are selected, the wider each column.
+
+After the update everything stays selected, so nothing changes until you choose otherwise. Entries added in later patches appear automatically. If nothing is selected, the page shows a note instead of an empty table.
+
+Because of the new section, the Settings page now scrolls.
+
+#### Still to be verified in the game
+
+Item IDs and counts of the three new items, the column widths with all fourteen entries and the scrollable Settings page have not been tested in the game client yet.
+
+### Deutsch
+
+#### Gegenstände aus Patch 12.1.5 auf der Währungsseite
+
+Die Währungsseite zeigt jetzt auch die drei Aufwertungsgegenstände aus Patch 12.1.5. Im Spiel sind das Gegenstände, keine Währungen: **Aufgestiegener Giftstein** (Ascendant Venomstone), **Heroisches Seelenfragment** (Heroic Soul Fragment) und **Mythisches Seelenfragment** (Mythical Soul Fragment).
+
+Sie werden in den Taschen jedes Charakters gezählt und zusammen mit den übrigen Beständen als Offline-Snapshot gespeichert. Der Tooltip kennzeichnet sie als Gegenstände und weist darauf hin, dass Bankbestand nicht enthalten ist. Namen und Symbole kommen aus deinem Spielclient; WeeklyAltTracker liefert nur einen deutschen und englischen Ersatznamen.
+
+Ein nicht lesbarer Bestand überschreibt nie einen bekannten Stand. Ein Bestand von 0, der direkt beim Einloggen gelesen wird, bleibt unberücksichtigt, weil die Taschen noch nicht geladen sein könnten; die folgenden Aktualisierungen lesen ihn zuverlässig.
+
+#### Selbst wählen, was erfasst wird
+
+Die Einstellungen haben einen neuen Abschnitt **Währungen**: ein Kontrollkästchen je Eintrag mit Symbol und Name, dazu **Alle** und **Keine**.
+
+Abgewählte Einträge werden weder gelesen noch angezeigt, weder als Spalte noch im Tooltip. Ihre gespeicherten Bestände bleiben erhalten und erscheinen wieder, sobald du den Eintrag erneut auswählst. Änderungen wirken sofort ohne `/reload`, und die Spalten passen sich an: Je weniger Einträge gewählt sind, desto breiter wird jede Spalte.
+
+Nach dem Update bleibt alles ausgewählt, es ändert sich also nichts, bis du etwas abwählst. Einträge aus späteren Patches erscheinen automatisch. Ist nichts ausgewählt, zeigt die Seite einen Hinweis statt einer leeren Tabelle.
+
+Wegen des neuen Abschnitts lässt sich die Einstellungsseite jetzt scrollen.
+
+#### Im Spiel noch zu prüfen
+
+Item-IDs und Bestände der drei neuen Gegenstände, die Spaltenbreiten mit allen vierzehn Einträgen und die scrollbare Einstellungsseite sind noch nicht im Spielclient getestet.
+
+---
+
 ## 2026.10.14
 
 ### English
